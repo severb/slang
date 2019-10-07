@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -27,8 +26,6 @@ static str toStr(Obj *obj) {
     result.len = objStr->length;
     break;
   }
-  default:
-    assert(0);
   }
   return result;
 }
