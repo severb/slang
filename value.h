@@ -23,7 +23,6 @@ typedef struct {
 #define VAL_AS_BOOL(value) ((value).as.boolean)
 #define VAL_AS_NUMBER(value) ((value).as.number)
 #define VAL_AS_OBJ(value) ((value).as.obj)
-#define VAL_AS_OBJSTRING(value) (OBJ_AS_OBJSTRING(VAL_AS_OBJ(value)))
 
 #define VAL_LIT_BOOL(value) ((Value){VAL_BOOL, {.boolean = value}})
 #define VAL_LIT_NIL() ((Value){VAL_NIL, {.number = 0}})
@@ -34,15 +33,6 @@ typedef struct {
 #define VAL_IS_NIL(value) ((value).type == VAL_NIL)
 #define VAL_IS_NUMBER(value) ((value).type == VAL_NUMBER)
 #define VAL_IS_OBJ(value) ((value).type == VAL_OBJ)
-#define VAL_IS_OBJANYSTRING(value) (_valueIsObjAnyString(value))
-
-static inline bool _valueIsObjType(Value value, ObjType type) {
-  return VAL_IS_OBJ(value) && OBJ_IS(VAL_AS_OBJ(value), type);
-}
-
-static inline bool _valueIsObjAnyString(Value value) {
-  return VAL_IS_OBJ(value) && OBJ_IS_ANYSTRING(VAL_AS_OBJ(value));
-}
 
 typedef struct {
   int capacity;

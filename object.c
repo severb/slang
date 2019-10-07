@@ -5,30 +5,6 @@
 #include "memory.h"
 #include "object.h"
 
-typedef struct {
-  char *c;
-  int len;
-} str;
-
-static str toStr(Obj *obj) {
-  str result;
-  switch (obj->type) {
-  case OBJ_STRING_STATIC: {
-    ObjStringStatic *objStrStatic = OBJ_AS_OBJSTRINGSTATIC(obj);
-    result.c = objStrStatic->chars;
-    result.len = objStrStatic->length;
-    break;
-  }
-  case OBJ_STRING: {
-    ObjString *objStr = OBJ_AS_OBJSTRING(obj);
-    result.c = objStr->chars;
-    result.len = objStr->length;
-    break;
-  }
-  }
-  return result;
-}
-
 static Obj *_objNew(Obj *obj, ObjType type) {
   obj->type = type;
   return obj;
@@ -40,30 +16,31 @@ static Obj *_objNew(Obj *obj, ObjType type) {
 #define objNewFlex(type, arrayType, length, objType)                           \
   ((type *)_objNew((Obj *)ALLOCATE_FLEX(type, arrayType, length), (objType)))
 
+static void objStringBaseInit(ObjStringBase *base, int length) {
+  base->length = length;
+  base->hash = 0;
+}
+
 ObjStringStatic *objStringStaticNew(const char *str, int length) {
   ObjStringStatic *obj = objNew(ObjStringStatic, OBJ_STRING_STATIC);
+  objStringBaseInit(&obj->base, length);
   obj->chars = (char *)str;
-  obj->hash = 0;
-  obj->length = length;
   return obj;
 }
 
 ObjString *objStringNew(const char *str, int length) {
   ObjString *obj = objNewFlex(ObjString, char, length, OBJ_STRING);
+  objStringBaseInit(&obj->base, length);
   memcpy(obj->chars, str, length);
-  obj->hash = 0;
-  obj->length = length;
   return obj;
 }
 
-ObjString *objStringsConcat(Obj *a, Obj *b) {
-  str aStr = toStr(a), bStr = toStr(b);
-  int length = aStr.len + bStr.len;
+ObjString *objConcat(ObjStringBase *a, ObjStringBase *b) {
+  int length = a->length + b->length;
   ObjString *obj = objNewFlex(ObjString, char, length, OBJ_STRING);
-  memcpy(obj->chars, aStr.c, aStr.len);
-  memcpy(obj->chars + aStr.len, bStr.c, bStr.len);
-  obj->hash = 0;
-  obj->length = length;
+  objStringBaseInit(&obj->base, length);
+  memcpy(obj->chars, OBJ_AS_CHARS(a), a->length);
+  memcpy(obj->chars + a->length, OBJ_AS_CHARS(b), b->length);
   return obj;
 }
 
@@ -71,8 +48,7 @@ void objPrint(Obj *obj) {
   switch (obj->type) {
   case OBJ_STRING: // fallthrough
   case OBJ_STRING_STATIC: {
-    str s = toStr(obj);
-    printf("%.*s", s.len, s.c);
+    printf("%.*s", OBJ_AS_OBJSTRINGBASE(obj)->length, OBJ_AS_CHARS(obj));
     break;
   }
   default:
@@ -83,12 +59,13 @@ void objPrint(Obj *obj) {
 void objPrintRepr(Obj *obj) {
   switch (obj->type) {
   case OBJ_STRING:
-    printf("<OBJ_STRING (%d) ", OBJ_AS_OBJSTRING(obj)->length);
+    printf("<OBJ_STRING ");
     break;
   case OBJ_STRING_STATIC:
-    printf("<OBJ_STRING_STATIC (%d) ", OBJ_AS_OBJSTRINGSTATIC(obj)->length);
+    printf("<OBJ_STRING_STATIC ");
     break;
   }
+  printf("(%d) ", OBJ_AS_OBJSTRINGBASE(obj)->length);
   objPrint(obj);
   printf(">");
 }
@@ -100,15 +77,16 @@ bool objsEqual(Obj *a, Obj *b) {
   if (a == b)
     return true;
 
-  if (objHash(a) != objHash(b))
+  ObjStringBase *aBase = OBJ_AS_OBJSTRINGBASE(a);
+  ObjStringBase *bBase = OBJ_AS_OBJSTRINGBASE(b);
+
+  if (aBase->length != bBase->length)
     return false;
 
-  str aStr = toStr(a), bStr = toStr(b);
-
-  if (aStr.len != bStr.len)
+  if (objHash(aBase) != objHash(bBase))
     return false;
 
-  return memcmp(aStr.c, bStr.c, aStr.len) == 0;
+  return memcmp(OBJ_AS_CHARS(a), OBJ_AS_CHARS(b), aBase->length) == 0;
 }
 
 void objFree(Obj *obj) {
@@ -119,7 +97,7 @@ void objFree(Obj *obj) {
 #endif
   switch (obj->type) {
   case OBJ_STRING: {
-    FREE_FLEX(obj, ObjString, char, OBJ_AS_OBJSTRING(obj)->length);
+    FREE_FLEX(obj, ObjString, char, OBJ_AS_OBJSTRINGBASE(obj)->length);
     break;
   case OBJ_STRING_STATIC:
     FREE(obj, ObjStringStatic);
@@ -140,23 +118,9 @@ static uint32_t hashString(const char *chars, int length) {
   return hash;
 }
 
-uint32_t objHash(Obj *obj) {
-  switch (obj->type) {
-  case OBJ_STRING: {
-    ObjString *str = OBJ_AS_OBJSTRING(obj);
-    if (str->hash != 0)
-      return str->hash;
-    str->hash = hashString(str->chars, str->length);
-    return str->hash;
-  }
-  case OBJ_STRING_STATIC: {
-    ObjStringStatic *str = OBJ_AS_OBJSTRINGSTATIC(obj);
-    if (str->hash != 0)
-      return str->hash;
-    str->hash = hashString(str->chars, str->length);
-    return str->hash;
-  }
-  default:
-    return 0; // Unreachable
-  }
+uint32_t objHash(ObjStringBase *obj) {
+  if (obj->hash != 0)
+    return obj->hash;
+  obj->hash = hashString(OBJ_AS_CHARS(obj), obj->length);
+  return obj->hash;
 }

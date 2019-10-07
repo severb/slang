@@ -169,7 +169,7 @@ static void parseNumber(Parser *parser) {
 static void parseString(Parser *parser) {
   const char *start = parser->previous.start + 1; // skip starting "
   int length = parser->previous.length - 2;       // skip starting and ending "
-  Obj *obj = internObjStringStatic(parser->interned, start, length);
+  ObjStringBase *obj = internObjStringStatic(parser->interned, start, length);
   emitConstant(parser, VAL_LIT_OBJ(obj));
 }
 

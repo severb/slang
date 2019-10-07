@@ -27,7 +27,7 @@ static void repl() {
     }
     int len = strlen(line);
     line[len - 1] = '\0'; // overwrite \n
-    Obj *l = internObjString(&lines, line, len);
+    ObjStringBase *l = internObjString(&lines, line, len);
     interpret(&vm, OBJ_AS_OBJSTRING(l)->chars);
   }
 

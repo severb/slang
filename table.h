@@ -6,7 +6,7 @@
 #include "value.h"
 
 typedef struct {
-  Obj *key;
+  ObjStringBase *key;
   Value value;
 } Entry;
 
@@ -25,17 +25,16 @@ void tableInit(Table *table);
 void tableFree(Table *table);
 void tableFreeKeys(Table *table);
 
-bool tableSet(Table *table, Obj *key, Value value);
-bool tableGet(Table *table, Obj *key, Value *value);
-bool tableDel(Table *table, Obj *key);
+bool tableSet(Table *, ObjStringBase *key, Value);
+bool tableGet(Table *, ObjStringBase *key, Value *);
+bool tableDel(Table *, ObjStringBase *key);
 void tableCopy(Table *from, Table *to);
 
 void tableIterInit(TableIter *iter, Table *table);
-Obj *tableIterNextKey(TableIter *iter);
+ObjStringBase *tableIterNextKey(TableIter *iter);
 
-Obj *internObj(Table *table, Obj *obj);
-Obj *internObjStringStatic(Table *table, const char *start, int length);
-Obj *internObjString(Table *table, const char *start, int length);
-Obj *internStringsConcat(Table *table, Obj *a, Obj *b);
+ObjStringBase *internObjStringBase(Table *, ObjStringBase *);
+ObjStringBase *internObjStringStatic(Table *, const char *, int length);
+ObjStringBase *internObjString(Table *, const char *, int length);
 
 #endif

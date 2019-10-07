@@ -21,7 +21,7 @@ void tableIterInit(TableIter *iter, Table *table) {
   iter->idx = 0;
 }
 
-Obj *tableIterNextKey(TableIter *iter) {
+ObjStringBase *tableIterNextKey(TableIter *iter) {
   while (iter->idx < iter->table->capacity) {
     Entry *entry = &iter->table->entries[iter->idx];
     iter->idx++;
@@ -47,9 +47,9 @@ void tableFree(Table *table) {
 void tableFreeKeys(Table *table) {
   TableIter i;
   tableIterInit(&i, table);
-  Obj *obj;
+  ObjStringBase *obj;
   while ((obj = tableIterNextKey(&i)) != NULL) {
-    objFree(obj);
+    objFree((Obj *)obj);
   }
 }
 
@@ -71,7 +71,7 @@ static void tableGrow(Table *table) {
   FREE_ARRAY(oldEntries, Entry, oldCapacity);
 }
 
-static Entry *tableFindEntry(Table *table, Obj *key) {
+static Entry *tableFindEntry(Table *table, ObjStringBase *key) {
   int idx = objHash(key) % table->capacity;
   Entry *firstTombstone = NULL;
   for (;;) {
@@ -82,13 +82,13 @@ static Entry *tableFindEntry(Table *table, Obj *key) {
       } else { // not found, return the 1st tombstone if exists
         return firstTombstone != NULL ? firstTombstone : entry;
       }
-    } else if (objsEqual(entry->key, key))
+    } else if (objsEqual((Obj *)entry->key, (Obj *)key))
       return entry;
     idx = (idx + 1) % table->capacity;
   }
 }
 
-bool tableSet(Table *table, Obj *key, Value value) {
+bool tableSet(Table *table, ObjStringBase *key, Value value) {
   if (table->count + 1 >= table->capacity * MAX_LOAD)
     tableGrow(table);
 
@@ -104,7 +104,7 @@ bool tableSet(Table *table, Obj *key, Value value) {
   return isNewKey;
 }
 
-bool tableGet(Table *table, Obj *key, Value *value) {
+bool tableGet(Table *table, ObjStringBase *key, Value *value) {
   if (table->count == 0)
     return false;
 
@@ -116,7 +116,7 @@ bool tableGet(Table *table, Obj *key, Value *value) {
   return true;
 }
 
-bool tableDel(Table *table, Obj *key) {
+bool tableDel(Table *table, ObjStringBase *key) {
   if (table->count == 0)
     return false;
 
@@ -137,27 +137,23 @@ void tableCopy(Table *from, Table *to) {
   }
 }
 
-Obj *internObj(Table *table, Obj *obj) {
+ObjStringBase *internObjStringBase(Table *table, ObjStringBase *obj) {
   Value value;
   if (tableGet(table, obj, &value)) {
-    objFree(obj);
-    return VAL_AS_OBJ(value);
+    objFree((Obj *)obj);
+    return OBJ_AS_OBJSTRINGBASE(VAL_AS_OBJ(value));
   }
   tableSet(table, obj, VAL_LIT_OBJ(obj));
   return obj;
 }
 
-Obj *internObjStringStatic(Table *table, const char *start, int length) {
+ObjStringBase *internObjStringStatic(Table *table, const char *start,
+                                     int length) {
   ObjStringStatic *obj = objStringStaticNew(start, length);
-  return internObj(table, (Obj *)obj);
+  return internObjStringBase(table, (ObjStringBase *)obj);
 }
 
-Obj *internObjString(Table *table, const char *start, int length) {
+ObjStringBase *internObjString(Table *table, const char *start, int length) {
   ObjString *obj = objStringNew(start, length);
-  return internObj(table, (Obj *)obj);
-}
-
-Obj *internStringsConcat(Table *table, Obj *a, Obj *b) {
-  ObjString *obj = objStringsConcat(a, b);
-  return internObj(table, (Obj *)obj);
+  return internObjStringBase(table, (ObjStringBase *)obj);
 }

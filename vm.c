@@ -91,18 +91,23 @@ static InterpretResult run(VM *vm) {
 #endif
     uint8_t instruction;
     switch (instruction = READ_BYTE()) {
-    case OP_ADD:
-      if (VAL_IS_OBJANYSTRING(peek(vm, 0)) &&
-          VAL_IS_OBJANYSTRING(peek(vm, 1))) {
-        Obj *b = VAL_AS_OBJ(vmPop(vm));
-        Obj *a = VAL_AS_OBJ(vmPop(vm));
-        Obj *result = internStringsConcat(&vm->interned, a, b);
-        vmPush(vm, VAL_LIT_OBJ(result));
+    case OP_ADD: {
+      Value right = peek(vm, 0);
+      Value left = peek(vm, 1);
+      if (VAL_IS_OBJ(left) && OBJ_IS_ANYSTRING(VAL_AS_OBJ(left)) &&
+          VAL_IS_OBJ(right) && OBJ_IS_ANYSTRING(VAL_AS_OBJ(right))) {
+        ObjStringBase *b = OBJ_AS_OBJSTRINGBASE(VAL_AS_OBJ(vmPop(vm)));
+        ObjStringBase *a = OBJ_AS_OBJSTRINGBASE(VAL_AS_OBJ(vmPop(vm)));
+        ObjString *result = objConcat(a, b);
+        ObjStringBase *interned =
+            internObjStringBase(&vm->interned, (ObjStringBase *)result);
+        vmPush(vm, VAL_LIT_OBJ(interned));
       } else {
         BINARY_OP(vm, VAL_LIT_NUMBER, +,
                   "Operands for '+' must be numbers or strings.");
       }
       break;
+    }
     case OP_CONSTANT: {
       Value constant = READ_CONSTANT();
       vmPush(vm, constant);
