@@ -24,7 +24,6 @@ typedef struct {
 #define VAL_AS_NUMBER(value) ((value).as.number)
 #define VAL_AS_OBJ(value) ((value).as.obj)
 #define VAL_AS_OBJSTRING(value) (OBJ_AS_OBJSTRING(VAL_AS_OBJ(value)))
-#define VAL_AS_CSTRING(value) (OBJ_AS_CSTRING(VAL_AS_OBJ(value)))
 
 #define VAL_LIT_BOOL(value) ((Value){VAL_BOOL, {.boolean = value}})
 #define VAL_LIT_NIL() ((Value){VAL_NIL, {.number = 0}})
