@@ -8,7 +8,7 @@ typedef enum {
   OBJ_STRING_STATIC,
 } ObjType;
 
-typedef struct _Obj {
+typedef struct {
   ObjType type;
 } Obj;
 
