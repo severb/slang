@@ -39,13 +39,13 @@ static inline bool _objIsAny(Obj *obj, ObjType type1, ObjType type2) {
 }
 
 ObjStringStatic *objStringStaticNew(const char *, int length);
-ObjString *objStringNew(const char *c, int length);
-ObjString *objStringsConcat(Obj *a, Obj *b);
+ObjString *objStringNew(const char *, int length);
+ObjString *objStringsConcat(Obj *, Obj *);
 
-bool objsEqual(Obj *a, Obj *b);
-void objPrint(Obj *obj);
-void objPrintRepr(Obj *obj);
-void objFree(Obj *obj);
-uint32_t objHash(Obj *obj);
+bool objsEqual(Obj *, Obj *);
+void objPrint(Obj *);
+void objPrintRepr(Obj *);
+void objFree(Obj *);
+uint32_t objHash(Obj *);
 
 #endif
