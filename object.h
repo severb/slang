@@ -34,8 +34,6 @@ typedef struct {
 #define OBJ_AS_OBJSTRING(obj) ((ObjString *)(obj))
 #define OBJ_AS_OBJSTRINGSTATIC(obj) ((ObjStringStatic *)(obj))
 
-#define TRACKER_LIT() ((Tracker){.root = NULL})
-
 static inline bool _objIsAny(Obj *obj, ObjType type1, ObjType type2) {
   return OBJ_IS(obj, type1) || OBJ_IS(obj, type2);
 }
