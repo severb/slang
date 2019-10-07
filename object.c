@@ -4,7 +4,6 @@
 #include "common.h"
 #include "memory.h"
 #include "object.h"
-#include "vm.h"
 
 typedef struct {
   char *c;
