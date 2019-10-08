@@ -3,10 +3,8 @@
 #include <string.h>
 
 #include "common.h"
-#include "vm.h"
-
-// TODO: remove
 #include "table.h"
+#include "vm.h"
 
 static void repl() {
   // REPL lines are interned as a memory management hack.
