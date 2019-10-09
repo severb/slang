@@ -2,9 +2,8 @@
 #define clox_compiler_h
 
 #include "chunk.h"
-#include "memory.h"
-#include "table.h"
+#include "intern.h"
 
-bool compile(const char *source, Chunk *chunk, Table *table);
+bool compile(const char *, Chunk *, Intern *);
 
 #endif

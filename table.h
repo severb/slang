@@ -2,39 +2,35 @@
 #define clox_table_h
 
 #include "common.h"
-#include "object.h"
-#include "value.h"
+#include "val.h"
 
 typedef struct {
-  ObjStringBase *key;
-  Value value;
+  Val key;
+  Val val;
 } Entry;
 
 typedef struct {
-  int count;
-  int capacity;
+  size_t len;
+  size_t cap;
   Entry *entries;
 } Table;
 
+Table *table_init(Table *);
+void table_destroy(Table *);
+
+bool table_set(Table *, Val *key, Val *);
+Val *table_setdefault(Table *, Val *key, Val *);
+Val *table_get(const Table *, Val key);
+bool table_del(Table *, Val key);
+void table_copy_safe(const Table *from, Table *to);
+
 typedef struct {
-  Table *table;
-  int idx;
+  Entry *entries;
+  size_t cap;
+  size_t idx;
 } TableIter;
 
-void tableInit(Table *table);
-void tableFree(Table *table);
-void tableFreeKeys(Table *table);
-
-bool tableSet(Table *, ObjStringBase *key, Value);
-bool tableGet(Table *, ObjStringBase *key, Value *);
-bool tableDel(Table *, ObjStringBase *key);
-void tableCopy(Table *from, Table *to);
-
-void tableIterInit(TableIter *iter, Table *table);
-ObjStringBase *tableIterNextKey(TableIter *iter);
-
-ObjStringBase *internObjStringBase(Table *, ObjStringBase *);
-ObjStringBase *internObjStringStatic(Table *, const char *, int length);
-ObjStringBase *internObjString(Table *, const char *, int length);
+TableIter *tableiter_init(TableIter *, const Table *);
+Entry *tableiter_next(TableIter *);
 
 #endif

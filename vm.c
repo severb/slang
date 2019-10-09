@@ -1,107 +1,107 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#include "array.h"
 #include "chunk.h"
 #include "common.h"
 #include "compiler.h"
-#include "debug.h"
-#include "memory.h"
-#include "object.h"
-#include "table.h"
-#include "value.h"
+#include "intern.h"
+#include "str.h"
+#include "val.h"
 #include "vm.h"
 
-// TODO: Minimize pop-ing the stack.
-// Unary operations should mutate the top of the stack while binary operations
-// should only pop once.
-
-static void resetStack(VM *vm) { vm->stackTop = &vm->stack[0]; }
-
-void vmInit(VM *vm) {
-  resetStack(vm);
-  tableInit(&vm->interned);
+VM *vm_init(VM *vm, Intern *intern) {
+  if (vm == 0)
+    return 0;
+  *vm = (VM){
+      .chunk = {0},
+      .ip = 0,
+      .stack = {0},
+      .intern = intern,
+  };
+  array_init(&vm->stack);
+  chunk_init(&vm->chunk);
+  return vm;
 }
 
-void vmFree(VM *vm) {
-  resetStack(vm);
-  tableFreeKeys(&vm->interned);
-  tableFree(&vm->interned);
+void vm_destroy(VM *vm) {
+  if (vm == 0)
+    return;
+  array_destroy(&vm->stack);
+  chunk_destroy(&vm->chunk);
+  vm_init(vm, vm->intern);
 }
 
-void vmPush(VM *vm, Value value) {
-  *vm->stackTop = value;
-  vm->stackTop++;
+static void push(VM *vm, Val *val) {
+  if (VAL_IS_STR(*val))
+    *val = intern_str(vm->intern, val->val.as.str);
+  array_append(&vm->stack, val);
 }
 
-Value vmPop(VM *vm) {
-  vm->stackTop--;
-  return *vm->stackTop;
+static Val *pop(VM *vm) {
+  Val *res = array_pop(&vm->stack);
+  assert(res);
+  return res;
 }
 
-static Value peek(VM *vm, int distance) { return vm->stackTop[-1 - distance]; }
+static Val *peek(VM *vm, size_t dist) {
+  return &vm->stack.vals[vm->stack.len - dist - 1];
+}
 
-static void runtimeError(VM *vm, const char *format, ...) {
+static Val *top(VM *vm) { return peek(vm, 0); }
+
+static void runtime_error(VM *vm, const char *format, ...) {
   va_list args;
   va_start(args, format);
   vfprintf(stderr, format, args);
   va_end(args);
   fputs("\n", stderr);
-
-  size_t instruction = vm->ip - vm->chunk->code;
-  int line = vm->chunk->lines[instruction];
+  size_t instruction = vm->ip - vm->chunk.code;
+  int line = vm->chunk.lines[instruction];
   fprintf(stderr, "[line %d] in script\n", line);
-
-  resetStack(vm);
-}
-
-static bool isFalsy(Value value) {
-  if (VAL_IS_NIL(value))
-    return true;
-  if (VAL_IS_BOOL(value))
-    return !VAL_AS_BOOL(value);
-  return false;
+  array_destroy(&vm->stack);
 }
 
 static InterpretResult run(VM *vm) {
+// NB: No strings are allowed on the stack, only slices. This avoids destroying
+// popped items and mistakenly freeing chunk constants.
 #define READ_BYTE() (*vm->ip++)
-#define READ_CONSTANT() (vm->chunk->constants.values[READ_BYTE()])
+#define READ_CONSTANT() (vm->chunk.consts.vals[READ_BYTE()])
 #define BINARY_OP(vm, valueType, op, msg)                                      \
   do {                                                                         \
-    if (!VAL_IS_NUMBER(peek(vm, 0)) || !VAL_IS_NUMBER(peek(vm, 1))) {          \
-      runtimeError(vm, msg);                                                   \
+    if (!VAL_IS_NUMBER(*top(vm)) || !VAL_IS_NUMBER(*peek(vm, 1))) {            \
+      runtime_error(vm, msg);                                                  \
       return INTERPRET_RUNTIME_ERROR;                                          \
     }                                                                          \
-    double b = VAL_AS_NUMBER(vmPop(vm));                                       \
-    double a = VAL_AS_NUMBER(vmPop(vm));                                       \
-    vmPush(vm, valueType(a op b));                                             \
+    double b = pop(vm)->val.as.number;                                         \
+    Val *a = top(vm);                                                          \
+    a->val.as.number = a->val.as.number op b;                                  \
   } while (false)
+#ifdef DEBUG_TRACE_EXECUTION
+  printf("== run ==\n");
+#endif
   for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
     printf("          ");
-    if (vm->stack == vm->stackTop) {
+    if (vm->stack.len == 0)
       printf("EMPTY STACK");
-    }
-    for (Value *slot = vm->stack; slot < vm->stackTop; slot++) {
+    for (size_t i = 0; i < vm->stack.len; i++) {
       printf("[ ");
-      valuePrint(*slot);
+      val_print_repr(vm->stack.vals[i]);
       printf(" ]");
     }
     printf("\n");
-    chunkDisassembleInstr(vm->chunk, (int)(vm->ip - vm->chunk->code));
+    chunk_print_dis_instr(&vm->chunk, vm->ip - vm->chunk.code);
 #endif
     uint8_t instruction;
     switch (instruction = READ_BYTE()) {
     case OP_ADD: {
-      Value right = peek(vm, 0);
-      Value left = peek(vm, 1);
-      if (VAL_IS_OBJ(left) && OBJ_IS_ANYSTRING(VAL_AS_OBJ(left)) &&
-          VAL_IS_OBJ(right) && OBJ_IS_ANYSTRING(VAL_AS_OBJ(right))) {
-        ObjStringBase *b = OBJ_AS_OBJSTRINGBASE(VAL_AS_OBJ(vmPop(vm)));
-        ObjStringBase *a = OBJ_AS_OBJSTRINGBASE(VAL_AS_OBJ(vmPop(vm)));
-        ObjString *result = objConcat(a, b);
-        ObjStringBase *interned =
-            internObjStringBase(&vm->interned, (ObjStringBase *)result);
-        vmPush(vm, VAL_LIT_OBJ(interned));
+      Val *right = top(vm);
+      Val *left = peek(vm, 1);
+      if (VAL_IS_SLICE(*left) && VAL_IS_SLICE(*right)) {
+        Val *b = pop(vm);
+        Val *a = top(vm);
+        *a = intern_str(vm->intern, slice_concat(a->slice, b->slice));
       } else {
         BINARY_OP(vm, VAL_LIT_NUMBER, +,
                   "Operands for '+' must be numbers or strings.");
@@ -109,20 +109,28 @@ static InterpretResult run(VM *vm) {
       break;
     }
     case OP_CONSTANT: {
-      Value constant = READ_CONSTANT();
-      vmPush(vm, constant);
+      Val constant = READ_CONSTANT();
+      push(vm, &constant);
+      break;
+    }
+    case OP_CONSTANT2: {
+      uint16_t idx = READ_BYTE() << 8;
+      idx |= READ_BYTE();
+      Val constant = vm->chunk.consts.vals[idx];
+      push(vm, &constant);
       break;
     }
     case OP_DIVIDE:
       BINARY_OP(vm, VAL_LIT_NUMBER, /, "Operands for '/' must be numbers.");
       break;
     case OP_EQUAL: {
-      Value b = vmPop(vm), a = vmPop(vm);
-      vmPush(vm, VAL_LIT_BOOL(valuesEqual(a, b)));
+      Val *b = pop(vm);
+      Val *a = top(vm);
+      *a = VAL_LIT_BOOL(val_equals(*a, *b));
       break;
     }
     case OP_FALSE:
-      vmPush(vm, VAL_LIT_BOOL(false));
+      push(vm, &VAL_LIT_BOOL(false));
       break;
     case OP_GREATER:
       BINARY_OP(vm, VAL_LIT_BOOL, >,
@@ -136,20 +144,22 @@ static InterpretResult run(VM *vm) {
       BINARY_OP(vm, VAL_LIT_NUMBER, *, "Operands for '*' must be numbers.");
       break;
     case OP_NEGATE:
-      if (!VAL_IS_NUMBER(peek(vm, 0))) {
-        runtimeError(vm, "Operand must be number.");
+      if (!VAL_IS_NUMBER(*top(vm))) {
+        runtime_error(vm, "Operand must be number.");
         return INTERPRET_RUNTIME_ERROR;
       }
-      vmPush(vm, VAL_LIT_NUMBER(-VAL_AS_NUMBER(vmPop(vm))));
+      top(vm)->val.as.number *= -1;
       break;
     case OP_NIL:
-      vmPush(vm, VAL_LIT_NIL());
+      push(vm, &VAL_LIT_NIL);
       break;
-    case OP_NOT:
-      vmPush(vm, VAL_LIT_BOOL(isFalsy(vmPop(vm))));
+    case OP_NOT: {
+      Val *a = top(vm);
+      *a = VAL_LIT_BOOL(!val_truthy(*a));
       break;
+    }
     case OP_RETURN: {
-      valuePrint(vmPop(vm));
+      val_print(*pop(vm));
       printf("\n");
       return INTERPRET_OK;
     }
@@ -157,7 +167,7 @@ static InterpretResult run(VM *vm) {
       //      BINARY_OP(vm, LITERAL_NUMBER, -);
       //      break;
     case OP_TRUE:
-      vmPush(vm, VAL_LIT_BOOL(true));
+      push(vm, &VAL_LIT_BOOL(true));
       break;
     }
   }
@@ -166,23 +176,17 @@ static InterpretResult run(VM *vm) {
 #undef BINARY_OP
 }
 
-InterpretResult interpret(VM *vm, const char *source) {
-  Chunk chunk;
-  chunkInit(&chunk);
-
-  if (!compile(source, &chunk, &vm->interned)) {
-    chunkFree(&chunk);
+InterpretResult interpret(VM *vm, const char *src) {
+  if (!compile(src, &vm->chunk, vm->intern)) {
     return INTERPRET_COMPILE_ERROR;
   }
-
-  vm->chunk = &chunk;
-  vm->ip = chunk.code;
-
-#ifdef DEBUG_TRACE_EXECUTION
-  printf("== run ==\n");
+  chunk_seal(&vm->chunk);
+  vm->ip = vm->chunk.code;
+#ifdef DEBUG_PRINT_CODE
+  printf("== code ==\n");
+  chunk_print_dis(&vm->chunk);
 #endif
-  InterpretResult result = run(vm);
-
-  chunkFree(&chunk);
-  return result;
+  InterpretResult res = run(vm);
+  vm_destroy(vm);
+  return res;
 }
