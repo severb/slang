@@ -114,7 +114,10 @@ static void scan_consume(Parser *p, TokenType type, const char *msg) {
 }
 
 static bool scan_match(Parser *p, TokenType type) {
-  return p->current.type == type;
+  bool res = p->current.type == type;
+  if (res)
+    scan_advance(p);
+  return res;
 }
 
 static void emit_byte(const Parser *p, uint8_t byte) {
@@ -238,18 +241,24 @@ static void parse_binary(Parser *p) {
   }
 }
 
-static void parse_expr_stmt(Parser *p) {
+static void parse_stmt_expr(Parser *p) {
   parse_expr(p);
-  scan_consume(p, TOKEN_SEMICOLON, "Expect semicolon after statement.");
+  scan_consume(p, TOKEN_SEMICOLON,
+               "Expect semicolon after expression statement.");
   emit_byte(p, OP_POP);
 }
 
+static void parse_stmt_print(Parser *p) {
+  parse_expr(p);
+  scan_consume(p, TOKEN_SEMICOLON, "Expect semicolon after print statement.");
+  emit_byte(p, OP_PRINT);
+}
+
 static void parse_stmt(Parser *p) {
-  switch (p->prev.type) {
-  default:
-    parse_expr_stmt(p);
-    break;
-  }
+  if (scan_match(p, TOKEN_PRINT))
+    parse_stmt_print(p);
+  else
+    parse_stmt_expr(p);
 }
 
 static void parse_decl(Parser *p) { parse_stmt(p); }

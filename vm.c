@@ -160,6 +160,11 @@ static InterpretResult run(VM *vm) {
     }
     case OP_POP:
       pop(vm);
+      break;
+    case OP_PRINT:
+      val_print(*pop(vm));
+      printf("\n");
+      break;
     case OP_RETURN: {
       return INTERPRET_OK;
     }
