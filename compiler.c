@@ -43,6 +43,8 @@ typedef struct {
 
 static ParseRule rules[TOKEN_EOF + 1];
 
+static void scan_advance(Parser *);
+
 Parser *parser_init(Parser *p, const char *src, Chunk *chunk, Intern *intern) {
   if (p == 0)
     return 0;
@@ -77,6 +79,27 @@ static void error_print(const Token *token, const char *msg) {
     break;
   }
   fprintf(stderr, ": %s\n", (token->type == TOKEN_ERROR) ? token->start : msg);
+}
+
+static void error_syncronize(Parser *p) {
+  p->panic_mode = false;
+  while (p->current.type != TOKEN_EOF) {
+    if (p->prev.type == TOKEN_SEMICOLON)
+      return;
+    switch (p->current.type) {
+    case TOKEN_CLASS:
+    case TOKEN_FUN:
+    case TOKEN_VAR:
+    case TOKEN_FOR:
+    case TOKEN_IF:
+    case TOKEN_WHILE:
+    case TOKEN_PRINT:
+    case TOKEN_RETURN:
+      return;
+    default:;
+    }
+    scan_advance(p);
+  }
 }
 
 static void error_at_current(Parser *p, const char *msg) {
@@ -261,7 +284,11 @@ static void parse_stmt(Parser *p) {
     parse_stmt_expr(p);
 }
 
-static void parse_decl(Parser *p) { parse_stmt(p); }
+static void parse_decl(Parser *p) {
+  parse_stmt(p);
+  if (p->panic_mode)
+    error_syncronize(p);
+}
 
 bool compile(const char *src, Chunk *chunk, Intern *intern) {
   Parser parser;
