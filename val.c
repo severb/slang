@@ -53,13 +53,16 @@ void val_print_repr(Val val) {
   } else {
     const char *name = VALTYPE_TO_STRING[val.val.type];
     switch (val.val.type) {
-    case (VAL_NUMBER):
-      printf("<%s %g>", name, val.val.as.number);
-      break;
-    case (VAL_STR):
+    case VAL_STR:
       printf("<%s @%p '", name, (void *)val.val.as.str);
       slice_print(str_slice(val.val.as.str));
       printf("'>");
+      break;
+    case VAL_NUMBER:
+    case VAL_BOOL:
+      printf("<%s ", name);
+      val_print(val);
+      printf(">");
       break;
     default:
       printf("<%s>", name);
