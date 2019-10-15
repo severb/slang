@@ -19,6 +19,7 @@
   OPCODE(OP_NEGATE)                                                            \
   OPCODE(OP_NIL)                                                               \
   OPCODE(OP_NOT)                                                               \
+  OPCODE(OP_POP)                                                               \
   OPCODE(OP_RETURN)                                                            \
   OPCODE(OP_SUBTRACT)                                                          \
   OPCODE(OP_TRUE)

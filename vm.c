@@ -158,9 +158,9 @@ static InterpretResult run(VM *vm) {
       *a = VAL_LIT_BOOL(!val_truthy(*a));
       break;
     }
+    case OP_POP:
+      pop(vm);
     case OP_RETURN: {
-      val_print(*pop(vm));
-      printf("\n");
       return INTERPRET_OK;
     }
       // case OP_SUBTRACT:
