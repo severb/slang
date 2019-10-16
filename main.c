@@ -7,14 +7,17 @@
 #include "compiler.h"
 #include "intern.h"
 #include "str.h"
+#include "table.h"
 #include "vm.h"
 
 static void repl() {
   Intern intern;
   intern_init(&intern);
+  Table globals;
+  table_init(&globals);
   VM vm;
-  vm_init(&vm, &intern);
-  char line[1024];
+  vm_init(&vm, &globals, &intern);
+  char line[16384];
   for (;;) {
     printf("> ");
     if (!fgets(line, sizeof(line), stdin)) {
@@ -26,6 +29,7 @@ static void repl() {
       vm_destroy(&vm);
   }
   vm_destroy(&vm);
+  table_destroy(&globals);
   intern_destroy(&intern);
 
   extern size_t mem_allocated;
@@ -61,10 +65,13 @@ static void run_file(const char *path) {
   char *source = read_file(path);
   Intern intern;
   intern_init(&intern);
+  Table globals;
+  table_init(&globals);
   VM vm;
-  vm_init(&vm, &intern);
+  vm_init(&vm, &globals, &intern);
   InterpretResult result = interpret(&vm, source);
   vm_destroy(&vm);
+  table_destroy(&globals);
   intern_destroy(&intern);
   free(source);
   if (result == INTERPRET_COMPILE_ERROR)

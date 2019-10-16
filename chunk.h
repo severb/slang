@@ -10,6 +10,8 @@
   OPCODE(OP_ADD)                                                               \
   OPCODE(OP_CONSTANT)                                                          \
   OPCODE(OP_CONSTANT2)                                                         \
+  OPCODE(OP_DEF_GLOBAL)                                                        \
+  OPCODE(OP_DEF_GLOBAL2)                                                       \
   OPCODE(OP_DIVIDE)                                                            \
   OPCODE(OP_EQUAL)                                                             \
   OPCODE(OP_FALSE)                                                             \
@@ -46,7 +48,7 @@ void chunk_destroy(Chunk *);
 void chunk_write(Chunk *, uint8_t, size_t line);
 void chunk_write2(Chunk *, uint8_t[2], size_t line);
 void chunk_write3(Chunk *, uint8_t[3], size_t line);
-void chunk_emit_const(Chunk *, Val *, size_t line);
+void chunk_emit_const(Chunk *, OpCode, Val *, size_t line);
 
 // chunk_seal() releases the memory held by const_pos table, and the consts,
 // code and lines arrays. After the chunk is sealed, newly added constants can

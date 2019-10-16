@@ -7,10 +7,11 @@
 #include "compiler.h"
 #include "intern.h"
 #include "str.h"
+#include "table.h"
 #include "val.h"
 #include "vm.h"
 
-VM *vm_init(VM *vm, Intern *intern) {
+VM *vm_init(VM *vm, Table *globals, Intern *intern) {
   if (vm == 0)
     return 0;
   *vm = (VM){
@@ -18,6 +19,7 @@ VM *vm_init(VM *vm, Intern *intern) {
       .ip = 0,
       .stack = {0},
       .intern = intern,
+      .globals = globals,
   };
   array_init(&vm->stack);
   chunk_init(&vm->chunk);
@@ -29,7 +31,7 @@ void vm_destroy(VM *vm) {
     return;
   array_destroy(&vm->stack);
   chunk_destroy(&vm->chunk);
-  vm_init(vm, vm->intern);
+  vm_init(vm, vm->globals, vm->intern);
 }
 
 static void push(VM *vm, Val *val) {
@@ -67,6 +69,8 @@ static InterpretResult run(VM *vm) {
 // popped items and mistakenly freeing chunk constants.
 #define READ_BYTE() (*vm->ip++)
 #define READ_CONSTANT() (vm->chunk.consts.vals[READ_BYTE()])
+#define READ_CONSTANT2()                                                       \
+  (vm->ip += 2, vm->chunk.consts.vals[(*(vm->ip - 2) << 8) | *(vm->ip - 1)])
 #define BINARY_OP(vm, valueType, op, msg)                                      \
   do {                                                                         \
     if (!VAL_IS_NUMBER(*top(vm)) || !VAL_IS_NUMBER(*peek(vm, 1))) {            \
@@ -114,10 +118,19 @@ static InterpretResult run(VM *vm) {
       break;
     }
     case OP_CONSTANT2: {
-      uint16_t idx = READ_BYTE() << 8;
-      idx |= READ_BYTE();
-      Val constant = vm->chunk.consts.vals[idx];
+      Val constant = READ_CONSTANT2();
       push(vm, &constant);
+      break;
+    }
+    case OP_DEF_GLOBAL: {
+      Val constant = READ_CONSTANT();
+      // XXX: don't pop before adding the value to globals to avoid GC races
+      table_set(vm->globals, &constant, pop(vm));
+      break;
+    }
+    case OP_DEF_GLOBAL2: {
+      Val constant = READ_CONSTANT2();
+      table_set(vm->globals, &constant, pop(vm));
       break;
     }
     case OP_DIVIDE:

@@ -5,12 +5,14 @@
 #include "chunk.h"
 #include "common.h"
 #include "intern.h"
+#include "table.h"
 
 typedef struct {
   Chunk chunk;
   uint8_t *ip;
   Array stack;
   Intern *intern;
+  Table *globals;
 } VM;
 
 typedef enum {
@@ -19,7 +21,7 @@ typedef enum {
   INTERPRET_RUNTIME_ERROR,
 } InterpretResult;
 
-VM *vm_init(VM *, Intern *);
+VM *vm_init(VM *, Table *globals, Intern *);
 void vm_destroy(VM *);
 
 InterpretResult interpret(VM *, const char *src);

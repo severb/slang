@@ -148,12 +148,7 @@ static void emit_byte(const Parser *p, uint8_t byte) {
 }
 
 static void emit_bytes(const Parser *p, uint8_t bytes[2]) {
-  emit_byte(p, bytes[0]);
-  emit_byte(p, bytes[1]);
-}
-
-static void emit_constant(const Parser *p, Val *constant) {
-  chunk_emit_const(p->chunk, constant, p->prev.line);
+  chunk_write2(p->chunk, bytes, p->prev.line);
 }
 
 static void parse_precedence(Parser *p, Precedence prec) {
@@ -173,16 +168,16 @@ static void parse_precedence(Parser *p, Precedence prec) {
 
 static void parse_number(Parser *p) {
   double value = strtod(p->prev.start, NULL);
-  emit_constant(p, &VAL_LIT_NUMBER(value));
+  chunk_emit_const(p->chunk, OP_CONSTANT, &VAL_LIT_NUMBER(value), p->prev.line);
 }
 
 static void parse_string(Parser *p) {
   const char *start = p->prev.start + 1; // skip starting quote
   int len = p->prev.len - 2;             // skip starting and ending quotes
-  Slice slice_const;
-  slice_init(&slice_const, start, len);
-  Val val_const = intern_slice(p->intern, slice_const);
-  emit_constant(p, &val_const);
+  Slice slice;
+  slice_init(&slice, start, len);
+  Val str = intern_slice(p->intern, slice);
+  chunk_emit_const(p->chunk, OP_CONSTANT, &str, p->prev.line);
 }
 
 static void parse_literal(Parser *p) {
@@ -284,8 +279,26 @@ static void parse_stmt(Parser *p) {
     parse_stmt_expr(p);
 }
 
+static void parse_decl_var(Parser *p) {
+  scan_consume(p, TOKEN_IDENTIFIER, "Expect variable name.");
+  size_t line = p->prev.line;
+  Slice slice;
+  slice_init(&slice, p->prev.start, p->prev.len);
+  Val var = intern_slice(p->intern, slice);
+  if (scan_match(p, TOKEN_EQUAL))
+    parse_expr(p);
+  else
+    emit_byte(p, OP_NIL);
+  chunk_emit_const(p->chunk, OP_DEF_GLOBAL, &var, line);
+  scan_consume(p, TOKEN_SEMICOLON,
+               "Expect semicolon after variable declaration.");
+}
+
 static void parse_decl(Parser *p) {
-  parse_stmt(p);
+  if (scan_match(p, TOKEN_VAR))
+    parse_decl_var(p);
+  else
+    parse_stmt(p);
   if (p->panic_mode)
     error_syncronize(p);
 }

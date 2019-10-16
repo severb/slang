@@ -69,12 +69,13 @@ uint16_t chunk_add_const(Chunk *chunk, Val *constant) {
   return const_pos;
 }
 
-void chunk_emit_const(Chunk *chunk, Val *constant, size_t line) {
-  uint16_t i = chunk_add_const(chunk, constant);
-  if (i <= UINT8_MAX)
-    chunk_write2(chunk, (uint8_t[]){OP_CONSTANT, i}, line);
+void chunk_emit_const(Chunk *chunk, OpCode op, Val *constant, size_t line) {
+  uint16_t idx = chunk_add_const(chunk, constant);
+  chunk_write(chunk, op + (idx > UINT8_MAX), line);
+  if (idx <= UINT8_MAX)
+    chunk_write(chunk, idx, line);
   else
-    chunk_write3(chunk, (uint8_t[]){OP_CONSTANT2, i >> 8, (uint8_t)i}, line);
+    chunk_write2(chunk, (uint8_t[]){idx >> 8, (uint8_t)idx}, line);
 }
 
 void chunk_seal(Chunk *chunk) {
@@ -94,6 +95,7 @@ size_t chunk_print_dis_instr(const Chunk *chunk, size_t offset) {
   uint8_t instr = chunk->code[offset];
   const char *name = OPCODE_TO_STRING[instr];
   switch (instr) {
+  case OP_DEF_GLOBAL:
   case OP_CONSTANT: {
     uint8_t const_idx = chunk->code[offset + 1];
     printf("%-16s %4u ", name, const_idx);
@@ -102,6 +104,7 @@ size_t chunk_print_dis_instr(const Chunk *chunk, size_t offset) {
     printf("\n");
     return offset + 2;
   }
+  case OP_DEF_GLOBAL2:
   case OP_CONSTANT2: {
     uint16_t idx = (chunk->code[offset + 1] << 8) | chunk->code[offset + 2];
     printf("%-16s %4u ", name, idx);
