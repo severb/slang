@@ -9,7 +9,7 @@ typedef struct {
   char c[];
 } Str;
 
-#define MAX_SLICE_LEN ((UINT32_MAX << 1) >> 1)
+#define MAX_SLICE_LEN (UINT32_MAX >> 1)
 
 typedef struct {
   bool _ : 1;        // reserved bit
