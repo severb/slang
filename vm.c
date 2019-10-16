@@ -65,8 +65,8 @@ static void runtime_error(VM *vm, const char *format, ...) {
 }
 
 static InterpretResult run(VM *vm) {
-// NB: No strings are allowed on the stack, only slices. This avoids destroying
-// popped items and mistakenly freeing chunk constants.
+// NB: All strings must be interned. Only slices should be stored in chunk's
+// constants, globals and on the stack.
 #define READ_BYTE() (*vm->ip++)
 #define READ_CONSTANT() (vm->chunk.consts.vals[READ_BYTE()])
 #define READ_CONSTANT2()                                                       \
@@ -122,14 +122,13 @@ static InterpretResult run(VM *vm) {
       push(vm, &constant);
       break;
     }
-    case OP_DEF_GLOBAL: {
-      Val constant = READ_CONSTANT();
-      // XXX: don't pop before adding the value to globals to avoid GC races
-      table_set(vm->globals, &constant, pop(vm));
-      break;
-    }
+    case OP_DEF_GLOBAL:
     case OP_DEF_GLOBAL2: {
-      Val constant = READ_CONSTANT2();
+      Val constant;
+      if (instruction == OP_DEF_GLOBAL)
+        constant = READ_CONSTANT();
+      else
+        constant = READ_CONSTANT2();
       table_set(vm->globals, &constant, pop(vm));
       break;
     }
@@ -145,6 +144,23 @@ static InterpretResult run(VM *vm) {
     case OP_FALSE:
       push(vm, &VAL_LIT_BOOL(false));
       break;
+    case OP_GET_GLOBAL:
+    case OP_GET_GLOBAL2: {
+      Val var;
+      if (instruction == OP_GET_GLOBAL)
+        var = READ_CONSTANT();
+      else
+        var = READ_CONSTANT2();
+      Val *val = table_get(vm->globals, var);
+      if (val == 0) {
+        runtime_error(vm, "Undefined variable: %.*s.", var.slice.len,
+                      var.slice.c);
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      Val copy = *val;
+      push(vm, &copy);
+      break;
+    }
     case OP_GREATER:
       BINARY_OP(vm, VAL_LIT_BOOL, >,
                 "Operands for comparison must be numbers.");

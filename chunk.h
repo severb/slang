@@ -15,6 +15,8 @@
   OPCODE(OP_DIVIDE)                                                            \
   OPCODE(OP_EQUAL)                                                             \
   OPCODE(OP_FALSE)                                                             \
+  OPCODE(OP_GET_GLOBAL)                                                        \
+  OPCODE(OP_GET_GLOBAL2)                                                       \
   OPCODE(OP_GREATER)                                                           \
   OPCODE(OP_LESS)                                                              \
   OPCODE(OP_MULTIPLY)                                                          \

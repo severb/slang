@@ -180,6 +180,13 @@ static void parse_string(Parser *p) {
   chunk_emit_const(p->chunk, OP_CONSTANT, &str, p->prev.line);
 }
 
+static void parse_variable(Parser *p) {
+  Slice slice;
+  slice_init(&slice, p->prev.start, p->prev.len);
+  Val var = intern_slice(p->intern, slice);
+  chunk_emit_const(p->chunk, OP_GET_GLOBAL, &var, p->prev.line);
+}
+
 static void parse_literal(Parser *p) {
   TokenType literal_type = p->prev.type;
   switch (literal_type) {
@@ -333,7 +340,7 @@ static ParseRule rules[] = {
     {NULL, parse_binary, PREC_COMPARISON},  // TOKEN_GREATER_EQUAL
     {NULL, parse_binary, PREC_COMPARISON},  // TOKEN_LESS
     {NULL, parse_binary, PREC_COMPARISON},  // TOKEN_LESS_EQUAL
-    {NULL, NULL, PREC_NONE},                // TOKEN_IDENTIFIER
+    {parse_variable, NULL, PREC_NONE},      // TOKEN_IDENTIFIER
     {parse_string, NULL, PREC_NONE},        // TOKEN_STRING
     {parse_number, NULL, PREC_NONE},        // TOKEN_NUMBER
     {NULL, NULL, PREC_NONE},                // TOKEN_AND
