@@ -112,13 +112,13 @@ static InterpretResult run(VM *vm) {
       }
       break;
     }
-    case OP_CONSTANT: {
-      Val constant = READ_CONSTANT();
-      push(vm, &constant);
-      break;
-    }
+    case OP_CONSTANT:
     case OP_CONSTANT2: {
-      Val constant = READ_CONSTANT2();
+      Val constant;
+      if (instruction == OP_CONSTANT)
+        constant = READ_CONSTANT();
+      else
+        constant = READ_CONSTANT2();
       push(vm, &constant);
       break;
     }
