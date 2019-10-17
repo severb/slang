@@ -103,20 +103,20 @@ static void error_syncronize(Parser *p) {
   }
 }
 
-static void error_at_current(Parser *p, const char *msg) {
+static void error_at_token(Parser *p, const Token *token, const char *msg) {
   if (p->panic_mode)
     return;
   p->panic_mode = true;
   p->had_error = true;
-  error_print(&p->current, msg);
+  error_print(token, msg);
+}
+
+static void error_at_current(Parser *p, const char *msg) {
+  error_at_token(p, &p->current, msg);
 }
 
 static void error_at_prev(Parser *p, const char *msg) {
-  if (p->panic_mode)
-    return;
-  p->panic_mode = true;
-  p->had_error = true;
-  error_print(&p->prev, msg);
+  error_at_token(p, &p->prev, msg);
 }
 
 static void scan_advance(Parser *p) {
@@ -142,6 +142,12 @@ static bool scan_match(Parser *p, TokenType type) {
   if (res)
     scan_advance(p);
   return res;
+}
+
+static void emit_const(Parser *p, OpCode op, Val *val, const Token *token) {
+  uint16_t pos = chunk_emit_const(p->chunk, op, val, token->line);
+  if (pos == UINT16_MAX)
+    error_at_token(p, token, "Too many constants in this scope.");
 }
 
 static void emit_byte(const Parser *p, uint8_t byte) {
@@ -172,7 +178,7 @@ static void parse_precedence(Parser *p, Precedence prec) {
 
 static void parse_number(Parser *p, bool _) {
   double value = strtod(p->prev.start, NULL);
-  chunk_emit_const(p->chunk, OP_CONSTANT, &VAL_LIT_NUMBER(value), p->prev.line);
+  emit_const(p, OP_CONSTANT, &VAL_LIT_NUMBER(value), &p->prev);
 }
 
 static void parse_string(Parser *p, bool _) {
@@ -181,7 +187,7 @@ static void parse_string(Parser *p, bool _) {
   Slice slice;
   slice_init(&slice, start, len);
   Val str = intern_slice(p->intern, slice);
-  chunk_emit_const(p->chunk, OP_CONSTANT, &str, p->prev.line);
+  emit_const(p, OP_CONSTANT, &str, &p->prev);
 }
 
 static void parse_literal(Parser *p, bool _) {
@@ -204,15 +210,15 @@ static void parse_literal(Parser *p, bool _) {
 static void parse_expr(Parser *p) { parse_precedence(p, PREC_ASSIGNMENT); }
 
 static void parse_variable(Parser *p, bool can_assign) {
-  size_t line = p->prev.line;
+  Token token = p->prev;
   Slice slice;
   slice_init(&slice, p->prev.start, p->prev.len);
   Val var = intern_slice(p->intern, slice);
   if (can_assign && scan_match(p, TOKEN_EQUAL)) {
     parse_expr(p);
-    chunk_emit_const(p->chunk, OP_SET_GLOBAL, &var, line);
+    emit_const(p, OP_SET_GLOBAL, &var, &token);
   } else
-    chunk_emit_const(p->chunk, OP_GET_GLOBAL, &var, line);
+    emit_const(p, OP_GET_GLOBAL, &var, &token);
 }
 
 static void parse_grouping(Parser *p, bool _) {
@@ -297,7 +303,7 @@ static void parse_stmt(Parser *p) {
 
 static void parse_decl_var(Parser *p) {
   scan_consume(p, TOKEN_IDENTIFIER, "Expect variable name.");
-  size_t line = p->prev.line;
+  Token token = p->prev;
   Slice slice;
   slice_init(&slice, p->prev.start, p->prev.len);
   Val var = intern_slice(p->intern, slice);
@@ -305,7 +311,7 @@ static void parse_decl_var(Parser *p) {
     parse_expr(p);
   else
     emit_byte(p, OP_NIL);
-  chunk_emit_const(p->chunk, OP_DEF_GLOBAL, &var, line);
+  emit_const(p, OP_DEF_GLOBAL, &var, &token);
   scan_consume(p, TOKEN_SEMICOLON,
                "Expect semicolon after variable declaration.");
 }

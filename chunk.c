@@ -54,6 +54,8 @@ void chunk_write3(Chunk *chunk, uint8_t bytes[3], size_t line) {
 }
 
 uint16_t chunk_add_const(Chunk *chunk, Val *constant) {
+  if (chunk->consts.len == UINT16_MAX)
+    return UINT16_MAX;
   Val *pos = 0;
   if ((pos = table_get(&chunk->const_pos, *constant))) {
     val_destroy(constant);
@@ -69,13 +71,16 @@ uint16_t chunk_add_const(Chunk *chunk, Val *constant) {
   return const_pos;
 }
 
-void chunk_emit_const(Chunk *chunk, OpCode op, Val *constant, size_t line) {
+uint16_t chunk_emit_const(Chunk *chunk, OpCode op, Val *constant, size_t line) {
   uint16_t idx = chunk_add_const(chunk, constant);
+  if (idx == UINT16_MAX)
+    return UINT16_MAX;
   chunk_write(chunk, op + (idx > UINT8_MAX), line);
   if (idx <= UINT8_MAX)
     chunk_write(chunk, idx, line);
   else
     chunk_write2(chunk, (uint8_t[]){idx >> 8, (uint8_t)idx}, line);
+  return idx;
 }
 
 void chunk_seal(Chunk *chunk) {
