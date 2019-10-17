@@ -44,7 +44,7 @@ typedef struct {
 static ParseRule rules[TOKEN_EOF + 1];
 
 static void scan_advance(Parser *);
-static void parse_expr(Parser *);
+static void parse_block(Parser *);
 
 Parser *parser_init(Parser *p, const char *src, Chunk *chunk, Intern *intern) {
   if (p == 0)
@@ -297,7 +297,11 @@ static void parse_stmt_print(Parser *p) {
 static void parse_stmt(Parser *p) {
   if (scan_match(p, TOKEN_PRINT))
     parse_stmt_print(p);
-  else
+  else if (scan_match(p, TOKEN_LEFT_BRACE)) {
+    // scope_begin(p);
+    parse_block(p);
+    // scope_end(p);
+  } else
     parse_stmt_expr(p);
 }
 
@@ -323,6 +327,12 @@ static void parse_decl(Parser *p) {
     parse_stmt(p);
   if (p->panic_mode)
     error_syncronize(p);
+}
+
+static void parse_block(Parser *p) {
+  while (p->current.type != TOKEN_RIGHT_BRACE && p->current.type != TOKEN_EOF)
+    parse_decl(p);
+  scan_consume(p, TOKEN_RIGHT_BRACE, "Expect '}' after block.");
 }
 
 bool compile(const char *src, Chunk *chunk, Intern *intern) {
