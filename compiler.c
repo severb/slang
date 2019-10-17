@@ -166,11 +166,8 @@ static void parse_precedence(Parser *p, Precedence prec) {
     ParseFn infix_rule = rules[p->prev.type].infix;
     infix_rule(p, can_assign);
   }
-  if (can_assign && scan_match(p, TOKEN_EQUAL)) {
+  if (can_assign && scan_match(p, TOKEN_EQUAL))
     error_at_current(p, "Invalid target assignment.");
-    // TODO: why is this needed?
-    parse_expr(p); // eat the remaining expression
-  }
 }
 
 static void parse_number(Parser *p, bool _) {
