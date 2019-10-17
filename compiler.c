@@ -33,7 +33,7 @@ typedef enum {
   PREC_PRIMARY,
 } Precedence;
 
-typedef void (*ParseFn)(Parser *);
+typedef void (*ParseFn)(Parser *, bool);
 
 typedef struct {
   ParseFn prefix;
@@ -44,6 +44,7 @@ typedef struct {
 static ParseRule rules[TOKEN_EOF + 1];
 
 static void scan_advance(Parser *);
+static void parse_expr(Parser *);
 
 Parser *parser_init(Parser *p, const char *src, Chunk *chunk, Intern *intern) {
   if (p == 0)
@@ -158,20 +159,26 @@ static void parse_precedence(Parser *p, Precedence prec) {
     error_at_prev(p, "Expect expression.");
     return;
   }
-  prefix_rule(p);
+  bool can_assign = prec <= PREC_ASSIGNMENT;
+  prefix_rule(p, can_assign);
   while (prec <= rules[p->current.type].precedence) {
     scan_advance(p);
     ParseFn infix_rule = rules[p->prev.type].infix;
-    infix_rule(p);
+    infix_rule(p, can_assign);
+  }
+  if (can_assign && scan_match(p, TOKEN_EQUAL)) {
+    error_at_current(p, "Invalid target assignment.");
+    // TODO: why is this needed?
+    parse_expr(p); // eat the remaining expression
   }
 }
 
-static void parse_number(Parser *p) {
+static void parse_number(Parser *p, bool _) {
   double value = strtod(p->prev.start, NULL);
   chunk_emit_const(p->chunk, OP_CONSTANT, &VAL_LIT_NUMBER(value), p->prev.line);
 }
 
-static void parse_string(Parser *p) {
+static void parse_string(Parser *p, bool _) {
   const char *start = p->prev.start + 1; // skip starting quote
   int len = p->prev.len - 2;             // skip starting and ending quotes
   Slice slice;
@@ -180,14 +187,7 @@ static void parse_string(Parser *p) {
   chunk_emit_const(p->chunk, OP_CONSTANT, &str, p->prev.line);
 }
 
-static void parse_variable(Parser *p) {
-  Slice slice;
-  slice_init(&slice, p->prev.start, p->prev.len);
-  Val var = intern_slice(p->intern, slice);
-  chunk_emit_const(p->chunk, OP_GET_GLOBAL, &var, p->prev.line);
-}
-
-static void parse_literal(Parser *p) {
+static void parse_literal(Parser *p, bool _) {
   TokenType literal_type = p->prev.type;
   switch (literal_type) {
   case TOKEN_FALSE:
@@ -206,12 +206,24 @@ static void parse_literal(Parser *p) {
 
 static void parse_expr(Parser *p) { parse_precedence(p, PREC_ASSIGNMENT); }
 
-static void parse_grouping(Parser *p) {
+static void parse_variable(Parser *p, bool can_assign) {
+  size_t line = p->prev.line;
+  Slice slice;
+  slice_init(&slice, p->prev.start, p->prev.len);
+  Val var = intern_slice(p->intern, slice);
+  if (can_assign && scan_match(p, TOKEN_EQUAL)) {
+    parse_expr(p);
+    chunk_emit_const(p->chunk, OP_SET_GLOBAL, &var, line);
+  } else
+    chunk_emit_const(p->chunk, OP_GET_GLOBAL, &var, line);
+}
+
+static void parse_grouping(Parser *p, bool _) {
   parse_expr(p);
   scan_consume(p, TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
-static void parse_unary(Parser *p) {
+static void parse_unary(Parser *p, bool _) {
   TokenType operator_type = p->prev.type;
   parse_precedence(p, PREC_UNARY);
   switch (operator_type) {
@@ -226,7 +238,7 @@ static void parse_unary(Parser *p) {
   }
 }
 
-static void parse_binary(Parser *p) {
+static void parse_binary(Parser *p, bool _) {
   TokenType operator_type = p->prev.type;
   parse_precedence(p, rules[operator_type].precedence + 1);
   switch (operator_type) {

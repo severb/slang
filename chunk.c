@@ -95,6 +95,7 @@ size_t chunk_print_dis_instr(const Chunk *chunk, size_t offset) {
   uint8_t instr = chunk->code[offset];
   const char *name = OPCODE_TO_STRING[instr];
   switch (instr) {
+  case OP_SET_GLOBAL:
   case OP_GET_GLOBAL:
   case OP_DEF_GLOBAL:
   case OP_CONSTANT: {
@@ -105,6 +106,7 @@ size_t chunk_print_dis_instr(const Chunk *chunk, size_t offset) {
     printf("\n");
     return offset + 2;
   }
+  case OP_SET_GLOBAL2:
   case OP_GET_GLOBAL2:
   case OP_DEF_GLOBAL2:
   case OP_CONSTANT2: {

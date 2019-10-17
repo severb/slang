@@ -26,6 +26,8 @@
   OPCODE(OP_POP)                                                               \
   OPCODE(OP_PRINT)                                                             \
   OPCODE(OP_RETURN)                                                            \
+  OPCODE(OP_SET_GLOBAL)                                                        \
+  OPCODE(OP_SET_GLOBAL2)                                                       \
   OPCODE(OP_SUBTRACT)                                                          \
   OPCODE(OP_TRUE)
 

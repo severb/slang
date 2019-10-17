@@ -34,11 +34,7 @@ void vm_destroy(VM *vm) {
   vm_init(vm, vm->globals, vm->intern);
 }
 
-static void push(VM *vm, Val *val) {
-  if (VAL_IS_STR(*val))
-    *val = intern_str(vm->intern, val->val.as.str);
-  array_append(&vm->stack, val);
-}
+static void push(VM *vm, Val *val) { array_append(&vm->stack, val); }
 
 static Val *pop(VM *vm) {
   Val *res = array_pop(&vm->stack);
@@ -200,6 +196,23 @@ static InterpretResult run(VM *vm) {
       // case OP_SUBTRACT:
       //      BINARY_OP(vm, LITERAL_NUMBER, -);
       //      break;
+    case OP_SET_GLOBAL:
+    case OP_SET_GLOBAL2: {
+      Val key;
+      if (instruction == OP_SET_GLOBAL)
+        key = READ_CONSTANT();
+      else
+        key = READ_CONSTANT2();
+      Val key_copy = key;
+      Val val = *top(vm);
+      if (table_set(vm->globals, &key, &val)) {
+        table_del(vm->globals, key_copy);
+        runtime_error(vm, "Undefined variable: %.*s.", key_copy.slice.len,
+                      key_copy.slice.c);
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      break;
+    }
     case OP_TRUE:
       push(vm, &VAL_LIT_BOOL(true));
       break;
