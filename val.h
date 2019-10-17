@@ -9,11 +9,15 @@
   VALTYPE(VAL_BOOL)                                                            \
   VALTYPE(VAL_NUMBER)                                                          \
   VALTYPE(VAL_NIL)                                                             \
-  VALTYPE(VAL_STR)
+  VALTYPE(VAL_STR)                                                             \
+  VALTYPE(VAL_TABLE)
 
 #define GENERATE_ENUM(ENUM) ENUM,
 typedef enum { FOREACH_VALTYPE(GENERATE_ENUM) } ValType;
 #undef GENERATE_ENUM
+
+struct _Table; // forward declaration of Table
+typedef struct _Table Table;
 
 typedef union {
   Slice slice;
@@ -25,6 +29,7 @@ typedef union {
       bool boolean;
       double number;
       Str *str;
+      Table *table;
     } as;
   } val;
 } Val;
@@ -36,6 +41,7 @@ typedef union {
 #define VAL_IS_NUMBER(v) (val_is((v), VAL_NUMBER))
 #define VAL_IS_NIL(v) (val_is((v), VAL_NIL))
 #define VAL_IS_STR(v) (val_is((v), VAL_STR))
+#define VAL_IS_TABLE(t) (val_is((t), VAL_TABLE))
 
 static bool inline val_is(Val v, ValType type) {
   return (!VAL_IS_SLICE(v) && v.val.type == type);
@@ -59,6 +65,8 @@ static Val inline val_slice(Slice s) {
   ((Val){.val = {.is_slice = false, .type = VAL_NIL, .as = {0}}})
 #define VAL_LIT_STR(c)                                                         \
   ((Val){.val = {.is_slice = false, .type = VAL_STR, .as = {.str = (c)}}})
+#define VAL_LIT_TABLE(t)                                                       \
+  ((Val){.val = {.is_slice = false, .type = VAL_TABLE, .as = {.table = (t)}}})
 
 Val *val_init(Val *);
 void val_destroy(Val *);

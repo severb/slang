@@ -2,6 +2,7 @@
 
 #include "mem.h"
 #include "str.h"
+#include "table.h"
 #include "val.h"
 
 #define GENERATE_STRING(STRING) #STRING,
@@ -20,6 +21,10 @@ void val_destroy(Val *val) {
     return;
   if (VAL_IS_STR(*val))
     str_free(val->val.as.str);
+  if (VAL_IS_TABLE(*val)) {
+    table_destroy(val->val.as.table);
+    FREE(val->val.as.table, Table);
+  }
   *val = VAL_LIT_NIL;
 }
 
@@ -41,6 +46,7 @@ void val_print(Val val) {
       slice_print(str_slice(val.val.as.str));
       break;
     default:
+      // TODO: VAL_TABLE
       assert(0);
     }
 }
@@ -64,6 +70,8 @@ void val_print_repr(Val val) {
       val_print(val);
       printf(">");
       break;
+    case VAL_TABLE:
+      printf("<%s (%zu)>", name, val.val.as.table->len);
     default:
       printf("<%s>", name);
       break;
@@ -88,6 +96,13 @@ uint32_t val_hash(Val val) {
   }
   case VAL_STR:
     return val.val.as.str->hash;
+  case VAL_TABLE: {
+    size_t ptr = (size_t)val.val.as.table;
+    // first, rotate the last 4 bits which are likely not uniformly distributed
+    ptr = ptr >> 4 | (ptr << (8 * sizeof(void *) - 4));
+    // then, xor the halves
+    return (ptr >> 32) ^ ptr;
+  }
   default:
     assert(0);
   }
@@ -121,6 +136,8 @@ bool val_equals(Val a, Val b) {
     return a.val.as.number == b.val.as.number;
   case VAL_STR:
     return slice_equals(str_slice(a.val.as.str), str_slice(b.val.as.str));
+  case VAL_TABLE: // identity
+    return a.val.as.table == b.val.as.table;
   default:
     assert(0);
   }

@@ -24,7 +24,7 @@ $(OBJDIR)/mem.o:         mem.h
 $(OBJDIR)/scanner.o:     scanner.h
 $(OBJDIR)/str.o:         mem.h str.h
 $(OBJDIR)/table.o:       mem.h table.h val.h
-$(OBJDIR)/val.o:         mem.h str.h val.h
+$(OBJDIR)/val.o:         mem.h str.h table.h val.h
 $(OBJDIR)/vm.o:          array.h chunk.h compiler.h intern.h str.h table.h val.h vm.h
 
 $(OBJDIR)/bench/table.o: mem.h str.h table.h val.h

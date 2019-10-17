@@ -9,7 +9,7 @@ typedef struct {
   Val val;
 } Entry;
 
-typedef struct {
+typedef struct _Table {
   size_t len;
   size_t cap;
   Entry *entries;
