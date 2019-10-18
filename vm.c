@@ -64,9 +64,10 @@ static InterpretResult run(VM *vm) {
 // NB: All strings must be interned. Only slices should be stored in chunk's
 // constants, globals and on the stack.
 #define READ_BYTE() (*vm->ip++)
-#define READ_CONSTANT() (vm->chunk.consts.vals[READ_BYTE()])
-#define READ_CONSTANT2()                                                       \
-  (vm->ip += 2, vm->chunk.consts.vals[(*(vm->ip - 2) << 8) | *(vm->ip - 1)])
+#define READ_IDX() (READ_BYTE())
+#define READ_IDX2() (vm->ip += 2, ((*(vm->ip - 2) << 8) | *(vm->ip - 1)))
+#define READ_CONSTANT() (vm->chunk.consts.vals[READ_IDX()])
+#define READ_CONSTANT2() (vm->chunk.consts.vals[READ_IDX2()])
 #define BINARY_OP(vm, valueType, op, msg)                                      \
   do {                                                                         \
     if (!VAL_IS_NUMBER(*top(vm)) || !VAL_IS_NUMBER(*peek(vm, 1))) {            \
@@ -87,7 +88,7 @@ static InterpretResult run(VM *vm) {
       printf("EMPTY STACK");
     for (size_t i = 0; i < vm->stack.len; i++) {
       printf("[ ");
-      val_print_repr(vm->stack.vals[i]);
+      val_print(vm->stack.vals[i]);
       printf(" ]");
     }
     printf("\n");
@@ -157,6 +158,17 @@ static InterpretResult run(VM *vm) {
       push(vm, &copy);
       break;
     }
+    case OP_GET_LOCAL:
+    case OP_GET_LOCAL2: {
+      uint16_t idx;
+      if (instruction == OP_GET_LOCAL)
+        idx = READ_IDX();
+      else
+        idx = READ_IDX2();
+      Val copy = top(vm)[idx];
+      push(vm, &copy);
+      break;
+    }
     case OP_GREATER:
       BINARY_OP(vm, VAL_LIT_BOOL, >,
                 "Operands for comparison must be numbers.");
@@ -211,6 +223,16 @@ static InterpretResult run(VM *vm) {
                       key_copy.slice.c);
         return INTERPRET_RUNTIME_ERROR;
       }
+      break;
+    }
+    case OP_SET_LOCAL:
+    case OP_SET_LOCAL2: {
+      uint16_t idx;
+      if (instruction == OP_SET_LOCAL)
+        idx = READ_IDX();
+      else
+        idx = READ_IDX2();
+      vm->stack.vals[idx] = *top(vm);
       break;
     }
     case OP_TRUE:

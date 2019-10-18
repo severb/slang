@@ -157,8 +157,7 @@ static bool scan_match(Parser *p, TokenType type) {
 }
 
 static void emit_const(Parser *p, OpCode op, Val *val, const Token *token) {
-  uint16_t pos = chunk_emit_const(p->chunk, op, val, token->line);
-  if (pos == UINT16_MAX)
+  if (!chunk_emit_const(p->chunk, op, val, token->line))
     error_at_token(p, token, "Too many constants in this scope.");
 }
 
@@ -168,6 +167,31 @@ static void emit_byte(const Parser *p, uint8_t byte) {
 
 static void emit_bytes(const Parser *p, uint8_t bytes[2]) {
   chunk_write2(p->chunk, bytes, p->prev.line);
+}
+
+static void local_add(Parser *p, Val *var, Token *token) {
+  Val scope = p->scopes.vals[p->scopes.len - 1];
+  assert(VAL_IS_TABLE(scope));
+  size_t idx = scope.val.as.table->len;
+  if (idx >= UINT16_MAX) {
+    error_at_token(p, token, "Too many local variables in this scope.");
+    return;
+  }
+  Val *res = table_setdefault(scope.val.as.table, var, &VAL_LIT_NUMBER(idx));
+  assert(VAL_IS_NUMBER(*res));
+  if (idx != res->val.as.number)
+    error_at_token(p, token, "Variable already defined in this scope.");
+}
+
+static bool local_resolve(const Parser *p, const Val *var, uint16_t *idx) {
+  Val scope = p->scopes.vals[p->scopes.len - 1];
+  assert(VAL_IS_TABLE(scope));
+  Val *res = table_get(scope.val.as.table, *var);
+  if (res == 0)
+    return false;
+  assert(VAL_IS_NUMBER(*res));
+  *idx = res->val.as.number;
+  return true;
 }
 
 static void parse_precedence(Parser *p, Precedence prec) {
@@ -228,9 +252,24 @@ static void parse_variable(Parser *p, bool can_assign) {
   Val var = intern_slice(p->intern, slice);
   if (can_assign && scan_match(p, TOKEN_EQUAL)) {
     parse_expr(p);
+    if (p->scopes.len > 0) {
+      uint16_t idx;
+      if (local_resolve(p, &var, &idx)) {
+        chunk_emit_idx(p->chunk, OP_SET_LOCAL, idx, token.line);
+        return;
+      }
+    }
     emit_const(p, OP_SET_GLOBAL, &var, &token);
-  } else
+  } else {
+    if (p->scopes.len > 0) {
+      uint16_t idx;
+      if (local_resolve(p, &var, &idx)) {
+        chunk_emit_idx(p->chunk, OP_GET_LOCAL, idx, token.line);
+        return;
+      }
+    }
     emit_const(p, OP_GET_GLOBAL, &var, &token);
+  }
 }
 
 static void parse_grouping(Parser *p, bool _) {
@@ -308,6 +347,7 @@ static void parse_stmt_print(Parser *p) {
 
 static void scope_begin(Parser *p) {
   Table *t = ALLOCATE(Table);
+  table_init(t);
   Val scope = VAL_LIT_TABLE(t);
   array_append(&p->scopes, &scope);
 }
@@ -331,16 +371,6 @@ static void parse_stmt(Parser *p) {
     parse_stmt_expr(p);
 }
 
-static void add_local(Parser *p, Val *var, Token *token) {
-  Val scope = p->scopes.vals[p->scopes.len - 1];
-  assert(VAL_IS_TABLE(scope));
-  size_t idx = scope.val.as.table->len;
-  Val *res = table_setdefault(scope.val.as.table, var, &VAL_LIT_NUMBER(idx));
-  assert(VAL_IS_NUMBER(*res));
-  if (idx != res->val.as.number)
-    error_at_token(p, token, "Variable already defined in this scope.");
-}
-
 static void parse_decl_var(Parser *p) {
   scan_consume(p, TOKEN_IDENTIFIER, "Expect variable name.");
   Token token = p->prev;
@@ -354,7 +384,7 @@ static void parse_decl_var(Parser *p) {
   if (p->scopes.len == 0)
     emit_const(p, OP_DEF_GLOBAL, &var, &token);
   else
-    add_local(p, &var, &token);
+    local_add(p, &var, &token);
   scan_consume(p, TOKEN_SEMICOLON,
                "Expect semicolon after variable declaration.");
 }

@@ -53,9 +53,7 @@ void chunk_write3(Chunk *chunk, uint8_t bytes[3], size_t line) {
   chunk_write(chunk, bytes[2], line);
 }
 
-uint16_t chunk_add_const(Chunk *chunk, Val *constant) {
-  if (chunk->consts.len == UINT16_MAX)
-    return UINT16_MAX;
+static size_t chunk_add_const(Chunk *chunk, Val *constant) {
   Val *pos = 0;
   if ((pos = table_get(&chunk->const_pos, *constant))) {
     val_destroy(constant);
@@ -65,22 +63,26 @@ uint16_t chunk_add_const(Chunk *chunk, Val *constant) {
   Val copy = *constant;
   if (VAL_IS_STR(copy))
     copy = VAL_LIT_SLICE(str_slice(copy.val.as.str));
-  size_t const_pos = array_append(&chunk->consts, constant);
+  uint16_t const_pos = array_append(&chunk->consts, constant);
   Val val = VAL_LIT_NUMBER(const_pos);
   table_set(&chunk->const_pos, &copy, &val);
   return const_pos;
 }
 
-uint16_t chunk_emit_const(Chunk *chunk, OpCode op, Val *constant, size_t line) {
-  uint16_t idx = chunk_add_const(chunk, constant);
-  if (idx == UINT16_MAX)
-    return UINT16_MAX;
+void chunk_emit_idx(Chunk *chunk, OpCode op, uint16_t idx, size_t line) {
   chunk_write(chunk, op + (idx > UINT8_MAX), line);
   if (idx <= UINT8_MAX)
     chunk_write(chunk, idx, line);
   else
     chunk_write2(chunk, (uint8_t[]){idx >> 8, (uint8_t)idx}, line);
-  return idx;
+}
+
+bool chunk_emit_const(Chunk *chunk, OpCode op, Val *constant, size_t line) {
+  size_t idx = chunk_add_const(chunk, constant);
+  if (idx >= UINT16_MAX)
+    return false;
+  chunk_emit_idx(chunk, op, idx, line);
+  return true;
 }
 
 void chunk_seal(Chunk *chunk) {
@@ -119,6 +121,20 @@ size_t chunk_print_dis_instr(const Chunk *chunk, size_t offset) {
     printf("%-16s %4u ", name, idx);
     Val constant = chunk->consts.vals[idx];
     val_print_repr(constant);
+    printf("\n");
+    return offset + 3;
+  }
+  case OP_SET_LOCAL:
+  case OP_GET_LOCAL: {
+    uint8_t const_idx = chunk->code[offset + 1];
+    printf("%-16s %4u", name, const_idx);
+    printf("\n");
+    return offset + 2;
+  }
+  case OP_SET_LOCAL2:
+  case OP_GET_LOCAL2: {
+    uint16_t idx = (chunk->code[offset + 1] << 8) | chunk->code[offset + 2];
+    printf("%-16s %4u", name, idx);
     printf("\n");
     return offset + 3;
   }
