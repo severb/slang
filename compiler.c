@@ -453,6 +453,16 @@ static void parse_block(Parser *p) {
   scan_consume(p, TOKEN_RIGHT_BRACE, "Expect '}' after block.");
 }
 
+static void parse_and(Parser *p, bool _) {
+  chunk_write3(p->chunk, (uint8_t[]){OP_JUMP_IF_FALSE, 0, 0}, p->prev.line);
+  size_t idx = p->chunk->len;
+  emit_byte(p, OP_POP);
+  parse_precedence(p, PREC_AND);
+  uint16_t location = p->chunk->len - idx;
+  p->chunk->code[idx - 2] = (uint8_t)location >> 8;
+  p->chunk->code[idx - 1] = (uint8_t)location;
+}
+
 bool compile(const char *src, Chunk *chunk, Intern *intern) {
   Parser parser;
   parser_init(&parser, src, chunk, intern);
@@ -488,7 +498,7 @@ static ParseRule rules[] = {
     {parse_variable, NULL, PREC_NONE},      // TOKEN_IDENTIFIER
     {parse_string, NULL, PREC_NONE},        // TOKEN_STRING
     {parse_number, NULL, PREC_NONE},        // TOKEN_NUMBER
-    {NULL, NULL, PREC_NONE},                // TOKEN_AND
+    {NULL, parse_and, PREC_AND},            // TOKEN_AND
     {NULL, NULL, PREC_NONE},                // TOKEN_CLASS
     {NULL, NULL, PREC_NONE},                // TOKEN_ELSE
     {parse_literal, NULL, PREC_NONE},       // TOKEN_FALSE
