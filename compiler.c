@@ -50,6 +50,7 @@ static ParseRule rules[TOKEN_EOF + 1];
 
 static void scan_advance(Parser *);
 static void parse_block(Parser *);
+static void parse_stmt(Parser *);
 
 Parser *parser_init(Parser *p, const char *src, Chunk *chunk, Intern *intern) {
   if (p == 0)
@@ -215,6 +216,21 @@ static bool local_resolve(Parser *p, const Val *var, uint16_t *idx) {
   return false;
 }
 
+static void scope_begin(Parser *p) {
+  Table *t = ALLOCATE(Table);
+  table_init(t);
+  Val scope = VAL_LIT_TABLE(t);
+  array_append(&p->scopes, &scope);
+}
+
+static void scope_end(Parser *p) {
+  Val *v = array_pop(&p->scopes);
+  assert(VAL_IS_TABLE(*v));
+  for (size_t i = 0; i < v->val.as.table->len; i++)
+    emit_byte(p, OP_POP);
+  val_destroy(v);
+}
+
 static void parse_precedence(Parser *p, Precedence prec) {
   scan_advance(p);
   ParseFn prefix_rule = rules[p->prev.type].prefix;
@@ -366,25 +382,34 @@ static void parse_stmt_print(Parser *p) {
   emit_byte(p, OP_PRINT);
 }
 
-static void scope_begin(Parser *p) {
-  Table *t = ALLOCATE(Table);
-  table_init(t);
-  Val scope = VAL_LIT_TABLE(t);
-  array_append(&p->scopes, &scope);
-}
-
-static void scope_end(Parser *p) {
-  Val *v = array_pop(&p->scopes);
-  assert(VAL_IS_TABLE(*v));
-  for (size_t i = 0; i < v->val.as.table->len; i++)
-    emit_byte(p, OP_POP);
-  val_destroy(v);
+static void parse_stmt_if(Parser *p) {
+  scan_consume(p, TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
+  parse_expr(p);
+  scan_consume(p, TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+  chunk_write3(p->chunk, (uint8_t[]){OP_JUMP_IF_FALSE, 0, 0}, p->prev.line);
+  size_t else_idx = p->chunk->len;
+  emit_byte(p, OP_POP);
+  parse_stmt(p);
+  chunk_write3(p->chunk, (uint8_t[]){OP_JUMP, 0, 0}, p->prev.line);
+  size_t end_idx = p->chunk->len;
+  uint16_t location = p->chunk->len - else_idx;
+  p->chunk->code[else_idx - 2] = (uint8_t)location >> 8;
+  p->chunk->code[else_idx - 1] = (uint8_t)location;
+  emit_byte(p, OP_POP);
+  if (scan_match(p, TOKEN_ELSE)) {
+    parse_stmt(p);
+  }
+  location = p->chunk->len - end_idx;
+  p->chunk->code[end_idx - 2] = (uint8_t)location >> 8;
+  p->chunk->code[end_idx - 1] = (uint8_t)location;
 }
 
 static void parse_stmt(Parser *p) {
-  if (scan_match(p, TOKEN_PRINT))
+  if (scan_match(p, TOKEN_PRINT)) {
     parse_stmt_print(p);
-  else if (scan_match(p, TOKEN_LEFT_BRACE)) {
+  } else if (scan_match(p, TOKEN_IF)) {
+    parse_stmt_if(p);
+  } else if (scan_match(p, TOKEN_LEFT_BRACE)) {
     scope_begin(p);
     parse_block(p);
     scope_end(p);

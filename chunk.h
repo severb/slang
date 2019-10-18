@@ -20,6 +20,8 @@
   OPCODE(OP_GET_LOCAL)                                                         \
   OPCODE(OP_GET_LOCAL2)                                                        \
   OPCODE(OP_GREATER)                                                           \
+  OPCODE(OP_JUMP)                                                              \
+  OPCODE(OP_JUMP_IF_FALSE)                                                     \
   OPCODE(OP_LESS)                                                              \
   OPCODE(OP_MULTIPLY)                                                          \
   OPCODE(OP_NEGATE)                                                            \

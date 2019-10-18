@@ -68,7 +68,7 @@ static InterpretResult run(VM *vm) {
 #define READ_IDX2() (vm->ip += 2, ((*(vm->ip - 2) << 8) | *(vm->ip - 1)))
 #define READ_CONSTANT() (vm->chunk.consts.vals[READ_IDX()])
 #define READ_CONSTANT2() (vm->chunk.consts.vals[READ_IDX2()])
-#define BINARY_OP(vm, valueType, op, msg)                                      \
+#define BINARY_OP(vm, value_type, op, msg)                                     \
   do {                                                                         \
     if (!VAL_IS_NUMBER(*top(vm)) || !VAL_IS_NUMBER(*peek(vm, 1))) {            \
       runtime_error(vm, msg);                                                  \
@@ -76,7 +76,7 @@ static InterpretResult run(VM *vm) {
     }                                                                          \
     double b = pop(vm)->val.as.number;                                         \
     Val *a = top(vm);                                                          \
-    a->val.as.number = a->val.as.number op b;                                  \
+    *a = value_type(a->val.as.number op b);                                    \
   } while (false)
 #ifdef DEBUG_TRACE_EXECUTION
   printf("== run ==\n");
@@ -173,6 +173,18 @@ static InterpretResult run(VM *vm) {
       BINARY_OP(vm, VAL_LIT_BOOL, >,
                 "Operands for comparison must be numbers.");
       break;
+    case OP_JUMP: {
+      uint16_t idx = READ_IDX2();
+      vm->ip += idx;
+      break;
+    }
+    case OP_JUMP_IF_FALSE: {
+      uint16_t idx = READ_IDX2();
+      if (!val_truthy(*top(vm))) {
+        vm->ip += idx;
+      }
+      break;
+    }
     case OP_LESS:
       BINARY_OP(vm, VAL_LIT_BOOL, <,
                 "Operands for comparison must be numbers.");
