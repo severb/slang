@@ -185,6 +185,13 @@ static InterpretResult run(VM *vm) {
       }
       break;
     }
+    case OP_JUMP_IF_TRUE: {
+      uint16_t idx = READ_IDX2();
+      if (val_truthy(*top(vm))) {
+        vm->ip += idx;
+      }
+      break;
+    }
     case OP_LESS:
       BINARY_OP(vm, VAL_LIT_BOOL, <,
                 "Operands for comparison must be numbers.");

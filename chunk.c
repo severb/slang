@@ -133,6 +133,7 @@ size_t chunk_print_dis_instr(const Chunk *chunk, size_t offset) {
   }
   case OP_JUMP:
   case OP_JUMP_IF_FALSE:
+  case OP_JUMP_IF_TRUE:
   case OP_SET_LOCAL2:
   case OP_GET_LOCAL2: {
     uint16_t idx = (chunk->code[offset + 1] << 8) | chunk->code[offset + 2];

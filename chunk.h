@@ -22,6 +22,7 @@
   OPCODE(OP_GREATER)                                                           \
   OPCODE(OP_JUMP)                                                              \
   OPCODE(OP_JUMP_IF_FALSE)                                                     \
+  OPCODE(OP_JUMP_IF_TRUE)                                                      \
   OPCODE(OP_LESS)                                                              \
   OPCODE(OP_MULTIPLY)                                                          \
   OPCODE(OP_NEGATE)                                                            \
