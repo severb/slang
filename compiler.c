@@ -21,6 +21,7 @@ typedef struct {
   bool had_error;
   bool panic_mode;
   Array scopes;
+  Table uninitialized;
 } Parser;
 
 typedef enum {
@@ -70,6 +71,7 @@ Parser *parser_init(Parser *p, const char *src, Chunk *chunk, Intern *intern) {
   };
   scanner_init(&p->scanner, src);
   array_init(&p->scopes);
+  table_init(&p->uninitialized);
   return p;
 }
 
@@ -77,6 +79,7 @@ void parser_destroy(Parser *p) {
   if (p == 0)
     return;
   array_destroy(&p->scopes);
+  table_destroy(&p->uninitialized);
   parser_init(p, "", 0, 0);
 }
 
@@ -169,21 +172,31 @@ static void emit_bytes(const Parser *p, uint8_t bytes[2]) {
   chunk_write2(p->chunk, bytes, p->prev.line);
 }
 
-static void local_add(Parser *p, Val *var, Token *token) {
+static void local_declare(Parser *p, Val *var, Token *token) {
   Val scope = p->scopes.vals[p->scopes.len - 1];
   assert(VAL_IS_TABLE(scope));
   size_t idx = scope.val.as.table->len;
   if (idx >= UINT16_MAX) {
-    error_at_token(p, token, "Too many local variables in this scope.");
+    error_at_token(p, token, "Too many local variables declared.");
     return;
   }
+  Val copy = *var;
   Val *res = table_setdefault(scope.val.as.table, var, &VAL_LIT_NUMBER(idx));
   assert(VAL_IS_NUMBER(*res));
   if (idx != res->val.as.number)
-    error_at_token(p, token, "Variable already defined in this scope.");
+    error_at_token(p, token, "Variable already declared.");
+  table_set(&p->uninitialized, &copy, &VAL_LIT_NIL);
 }
 
-static bool local_resolve(const Parser *p, const Val *var, uint16_t *idx) {
+static void local_initialize(Parser *p, Val var) {
+  table_del(&p->uninitialized, var);
+}
+
+static bool local_resolve(Parser *p, const Val *var, uint16_t *idx) {
+  if (table_get(&p->uninitialized, *var)) {
+    error_at_prev(p, "Cannot read local variable in its own initializer.");
+    return false;
+  }
   for (size_t i = 1; i <= p->scopes.len; i++) {
     Val scope = p->scopes.vals[p->scopes.len - i];
     assert(VAL_IS_TABLE(scope));
@@ -385,6 +398,9 @@ static void parse_decl_var(Parser *p) {
   Slice slice;
   slice_init(&slice, p->prev.start, p->prev.len);
   Val var = intern_slice(p->intern, slice);
+  Val var_copy = var;
+  if (p->scopes.len > 0)
+    local_declare(p, &var, &token);
   if (scan_match(p, TOKEN_EQUAL))
     parse_expr(p);
   else
@@ -392,7 +408,7 @@ static void parse_decl_var(Parser *p) {
   if (p->scopes.len == 0)
     emit_const(p, OP_DEF_GLOBAL, &var, &token);
   else
-    local_add(p, &var, &token);
+    local_initialize(p, var_copy);
   scan_consume(p, TOKEN_SEMICOLON,
                "Expect semicolon after variable declaration.");
 }
