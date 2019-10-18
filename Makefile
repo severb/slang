@@ -17,7 +17,7 @@ $(BUILDDIR)/bench_table: $(patsubst %,$(OBJDIR)/%,mem.o str.o table.o bench/tabl
 
 
 $(OBJDIR)/chunk.o:       array.h chunk.h mem.h str.h table.h val.h
-$(OBJDIR)/compiler.o:    array.h chunk.h intern.h mem.h scanner.h str.h val.h
+$(OBJDIR)/compiler.o:    array.h chunk.h intern.h mem.h scanner.h str.h table.h val.h
 $(OBJDIR)/intern.o:      intern.h str.h val.h
 $(OBJDIR)/main.o:        chunk.h compiler.h intern.h str.h table.h val.h
 $(OBJDIR)/mem.o:         mem.h
