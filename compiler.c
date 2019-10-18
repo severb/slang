@@ -184,14 +184,22 @@ static void local_add(Parser *p, Val *var, Token *token) {
 }
 
 static bool local_resolve(const Parser *p, const Val *var, uint16_t *idx) {
-  Val scope = p->scopes.vals[p->scopes.len - 1];
-  assert(VAL_IS_TABLE(scope));
-  Val *res = table_get(scope.val.as.table, *var);
-  if (res == 0)
-    return false;
-  assert(VAL_IS_NUMBER(*res));
-  *idx = res->val.as.number;
-  return true;
+  for (size_t i = 1; i <= p->scopes.len; i++) {
+    Val scope = p->scopes.vals[p->scopes.len - i];
+    assert(VAL_IS_TABLE(scope));
+    Val *res = table_get(scope.val.as.table, *var);
+    if (res != 0) {
+      assert(VAL_IS_NUMBER(*res));
+      size_t index = res->val.as.number;
+      // sum all parent scope sizes
+      for (size_t j = i + 1; j <= p->scopes.len; j++) {
+        index += p->scopes.vals[p->scopes.len - j].val.as.table->len;
+      }
+      *idx = index;
+      return true;
+    }
+  }
+  return false;
 }
 
 static void parse_precedence(Parser *p, Precedence prec) {

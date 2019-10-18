@@ -165,7 +165,7 @@ static InterpretResult run(VM *vm) {
         idx = READ_IDX();
       else
         idx = READ_IDX2();
-      Val copy = top(vm)[idx];
+      Val copy = vm->stack.vals[idx];
       push(vm, &copy);
       break;
     }
