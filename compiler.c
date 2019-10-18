@@ -2,11 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "array.h"
 #include "chunk.h"
 #include "common.h"
 #include "intern.h"
+#include "mem.h"
 #include "scanner.h"
 #include "str.h"
+#include "table.h"
 #include "val.h"
 
 typedef struct {
@@ -17,6 +20,7 @@ typedef struct {
   Chunk *chunk;
   bool had_error;
   bool panic_mode;
+  Array scopes;
 } Parser;
 
 typedef enum {
@@ -65,7 +69,15 @@ Parser *parser_init(Parser *p, const char *src, Chunk *chunk, Intern *intern) {
       .panic_mode = false,
   };
   scanner_init(&p->scanner, src);
+  array_init(&p->scopes);
   return p;
+}
+
+void parser_destroy(Parser *p) {
+  if (p == 0)
+    return;
+  array_destroy(&p->scopes);
+  parser_init(p, "", 0, 0);
 }
 
 static void error_print(const Token *token, const char *msg) {
@@ -294,15 +306,39 @@ static void parse_stmt_print(Parser *p) {
   emit_byte(p, OP_PRINT);
 }
 
+static void scope_begin(Parser *p) {
+  Table *t = ALLOCATE(Table);
+  Val scope = VAL_LIT_TABLE(t);
+  array_append(&p->scopes, &scope);
+}
+
+static void scope_end(Parser *p) {
+  Val *v = array_pop(&p->scopes);
+  assert(VAL_IS_TABLE(*v));
+  for (size_t i = 0; i < v->val.as.table->len; i++)
+    emit_byte(p, OP_POP);
+  val_destroy(v);
+}
+
 static void parse_stmt(Parser *p) {
   if (scan_match(p, TOKEN_PRINT))
     parse_stmt_print(p);
   else if (scan_match(p, TOKEN_LEFT_BRACE)) {
-    // scope_begin(p);
+    scope_begin(p);
     parse_block(p);
-    // scope_end(p);
+    scope_end(p);
   } else
     parse_stmt_expr(p);
+}
+
+static void add_local(Parser *p, Val *var, Token *token) {
+  Val scope = p->scopes.vals[p->scopes.len - 1];
+  assert(VAL_IS_TABLE(scope));
+  size_t idx = scope.val.as.table->len;
+  Val *res = table_setdefault(scope.val.as.table, var, &VAL_LIT_NUMBER(idx));
+  assert(VAL_IS_NUMBER(*res));
+  if (idx != res->val.as.number)
+    error_at_token(p, token, "Variable already defined in this scope.");
 }
 
 static void parse_decl_var(Parser *p) {
@@ -315,7 +351,10 @@ static void parse_decl_var(Parser *p) {
     parse_expr(p);
   else
     emit_byte(p, OP_NIL);
-  emit_const(p, OP_DEF_GLOBAL, &var, &token);
+  if (p->scopes.len == 0)
+    emit_const(p, OP_DEF_GLOBAL, &var, &token);
+  else
+    add_local(p, &var, &token);
   scan_consume(p, TOKEN_SEMICOLON,
                "Expect semicolon after variable declaration.");
 }
@@ -342,7 +381,9 @@ bool compile(const char *src, Chunk *chunk, Intern *intern) {
   while (!scan_match(&parser, TOKEN_EOF))
     parse_decl(&parser);
   emit_byte(&parser, OP_RETURN);
-  return !parser.had_error;
+  bool res = !parser.had_error;
+  parser_destroy(&parser);
+  return res;
 }
 
 static ParseRule rules[] = {
