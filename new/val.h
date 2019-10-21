@@ -154,7 +154,8 @@ static_assert(sizeof(max_align_t) >= 2, "pointer alginment");
 
 // The first data value type is used to store a short, variable length string
 // of maximum five characters. Its size is stored in the most significant byte
-// and the string is stored in the remaining five bytes like shown here:
+// and the string is stored in the remaining five bytes. Unused bytes must be
+// zeroed to maintain Val's equality invariant. The layout looks like this:
 // 11111111|11111000|ssssssss|aaaaaaaa|bbbbbbbb|cccccccc|dddddddd|eeeeeeee
 static_assert(sizeof(uint8_t) == sizeof(char), "char size mismatch");
 #define STR5_DATA_TYPE BYTES(ff, f8, 00, 00, 00, 00, 00, 00)
