@@ -3,6 +3,7 @@
 
 #include <assert.h>  // static_assert
 #include <stdbool.h> // bool
+#include <stddef.h>  // max_align_t
 #include <stdint.h>  // uint8_t, uint16_t, uint32_t, uint64_t, UINT64_C
 
 // Val is a polymorphic type. It stores all value types exposed by the language
@@ -48,12 +49,14 @@ static_assert(sizeof(uint64_t) == sizeof(double), "double size mismatch");
 #define IS_DATA(v) ((v)&VAL_TYPE_MASK == VAL_DATA)
 
 // Pointers have additional tagging applied to their least significant bit.
-// This is possible because pointers are usually aligned -- unless they point
-// to one-byte values. We assume all pointers to be at least two-byte aligned
-// which gives us one bit to tag at the end of the pointer. We use this bit to
-// flag if the pointer "owns" the data it points to and it's responsible for
-// freeing it or if it's just a reference. Owned pointers have the flag bit set
-// to 0, while references have it set to 1.
+// This is possible because pointers allocated with malloc are usually aligned
+// (contrary to pointers to arbitrary chars in a string). We assume all
+// pointers are at least two-byte aligned, which gives us one bit to tag at the
+// end of the pointer. We use this bit to flag if the pointer "owns" the data
+// it points to and it's responsible for freeing it or if it's just a
+// reference. Owned pointers have the flag bit set to 0, while references have
+// it set to 1.
+static_assert(sizeof(max_align_t) >= 2, "pointer alginment");
 #define OWNERSHIP_MASK BYTES(00, 00, 00, 00, 00, 00, 00, 01)
 #define IS_OWN_PTR(v) ((v) & (VAL_TYPE_MASK | OWNERSHIP_MASK) == VAL_PTR)
 #define IS_REF_PTR(v)                                                          \
