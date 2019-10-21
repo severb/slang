@@ -145,7 +145,7 @@ static uint64_t const STR6_TYPE = BYTES(ff, f9, 00, 00, 00, 00, 00, 00);
 // The next data value type is the Pair. It stores a pair of two integers a and
 // b. a's size is two bytes and b's size is four bytes. The Pair's layout is:
 // 11111111|11111010|aaaaaaaa|aaaaaaaa|bbbbbbbb|bbbbbbbb|bbbbbbbb|bbbbbbbb
-static uint64_t const PAIR_TYPE = BYTES(ff, f8, 00, 00, 00, 00, 00, 00);
+static uint64_t const PAIR_TYPE = BYTES(ff, fa, 00, 00, 00, 00, 00, 00);
 static uint64_t const PAIR_A_MASK = BYTES(00, 00, ff, ff, 00, 00, 00, 00);
 static uint64_t const PAIR_B_MASK = BYTES(00, 00, 00, 00, ff, ff, ff, ff);
 #define IS_PAIR(v) ((v)&TYPE_MASK == PAIR_TYPE)
@@ -157,12 +157,12 @@ static uint64_t const PAIR_B_MASK = BYTES(00, 00, 00, 00, ff, ff, ff, ff);
 // significant bytes are reserved. The remaining 32-bit space is available for
 // user-defined symbols and flags.
 // 11111111|11111011|uuuuuuuu|uuuuuuuu|uuuuuuuu|uuuuuuuu|........|........
-static uint64_t const SYMBOL_TYPE = BYTES(ff, f9, 00, 00, 00, 00, 00, 00);
+static uint64_t const SYMBOL_TYPE = BYTES(ff, fb, 00, 00, 00, 00, 00, 00);
 #define IS_SYMBOL(v) ((v)&TYPE_MASK == SYMBOL_TYPE)
-static uint64_t const VAL_FALSE = BYTES(ff, f9, 00, 00, 00, 00, 00, 00);
-static uint64_t const VAL_TRUE = BYTES(ff, f9, 00, 00, 00, 00, 00, 01);
-static uint64_t const VAL_NIL = BYTES(ff, f9, 00, 00, 00, 00, 00, 02);
-static uint64_t const VAL_ERROR = BYTES(ff, f9, 00, 00, 00, 00, 00, 03);
+static uint64_t const VAL_FALSE = SYMBOL_TYPE;
+static uint64_t const VAL_TRUE = SYMBOL_TYPE + 1;
+static uint64_t const VAL_NIL = SYMBOL_TYPE + 2;
+static uint64_t const VAL_ERROR = SYMBOL_TYPE + 3;
 #define IS_FALSE(v) ((uint64_t)(v) == VAL_FALSE)
 #define IS_TRUE(v) ((uint64_t)(v) == VAL_TRUE)
 #define IS_NIL(v) ((uint64_t)(v) == VAL_NIL)
@@ -170,14 +170,14 @@ static uint64_t const VAL_ERROR = BYTES(ff, f9, 00, 00, 00, 00, 00, 03);
 
 #define IS_RES_SYMBOL(v) (is_res_symbol((v)))
 static inline bool is_res_symbol(Val v) {
-  return ((uint64_t)v > SYMBOL_TYPE &&
-          (uint64_t)v < BYTES(ff, f9, 00, 00, 00, 01, 00, 00));
+  return ((uint64_t)v >= SYMBOL_TYPE &&
+          (uint64_t)v <= SYMBOL_TYPE + BYTES(00, 00, 00, 00, 00, 00, ff, ff));
 }
 
 #define IS_USR_SYMBOL(v) (is_usr_symbol((v)))
 static inline bool is_usr_symbol(Val v) {
-  return ((uint64_t)v >= BYTES(ff, f9, 00, 00, 00, 01, 00, 00) &&
-          (uint64_t)v < BYTES(ff, fa, 00, 00, 00, 00, 00, 00));
+  return ((uint64_t)v >= SYMBOL_TYPE + BYTES(00, 00, 00, 00, 00, 01, 00, 00) &&
+          (uint64_t)v <= SYMBOL_TYPE + BYTES(00, 00, ff, ff, ff, ff, ff, ff));
 }
 
 static uint64_t const USR_SYMBOL_MASK = BYTES(00, 00, ff, ff, ff, ff, 00, 00);
@@ -186,7 +186,7 @@ static uint64_t const USR_SYMBOL_MASK = BYTES(00, 00, ff, ff, ff, ff, 00, 00);
 // The next two data value types are reserved for later use:
 // 11111111|11111100|........|........|........|........|........|........
 // 11111111|11111101|........|........|........|........|........|........
-static uint64_t const UNUSED_DATA_MASK = BYTES(ff, fe, 00, 00, 00, 00, 00, 00);
+static uint64_t const UNUSED_DATA_MASK = BYTES(ff, fc, 00, 00, 00, 00, 00, 00);
 static uint64_t const RES1_DATA_TYPE = BYTES(ff, fc, 00, 00, 00, 00, 00, 00);
 static uint64_t const RES2_DATA_TYPE = BYTES(ff, fd, 00, 00, 00, 00, 00, 00);
 #define IS_RES_DATA(v) ((v)&UNUSED_DATA_MASK == RES1_DATA_TYPE)
