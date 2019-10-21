@@ -82,7 +82,7 @@ static_assert(sizeof(max_align_t) >= 2, "pointer alginment");
 
 // PTR_MASK isolates the pointer value and ignores the ownership flag.
 #define PTR_MASK BYTES(00, 00, FF, FF, FF, FF, FF, FE)
-#define PTR(v) ((void *)(val_u(v) & PTR_MASK))
+#define PTR(v) ((void *)(uintptr_t)(val_u(v) & PTR_MASK))
 
 // String is the first pointer type. It points to a String and has the
 // following layout:
