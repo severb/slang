@@ -6,9 +6,8 @@
 #include <stdint.h>  // uint8_t, uint16_t, uint32_t, uint64_t, UINT64_C
 
 // Val is a polymorphic type. It stores all value types exposed by the language
-// and can be used with all collection types. Because Vals interop with
-// collections, they are often used internally by the compiler and VM for
-// bookkeeping.
+// and can be used with all collections. Because Vals are so versatile, they
+// are often used internally by the compiler and VM for bookkeeping.
 // All Vals, except doubles, have the following invariant: two Vals are equal
 // if their bitwise comparison is equal. The reverse in not necessarily true:
 // two String pointer types can point to different strings which contain the
@@ -111,7 +110,7 @@ static uint64_t const RES2_PTR_TYPE = BYTES(7f, fd, 00, 00, 00, 00, 00, 00);
 #define IS_RES1_PTR(v) ((v)&TYPE_MASK == RES1_PTR_TYPE)
 #define IS_RES2_PTR(v) ((v)&TYPE_MASK == RES2_PTR_TYPE)
 
-// The last two pointer value types are unused and are availabe to the users:
+// The last two pointer value types are unused and are available to the users:
 // 01111111|11111110|........|........|........|........|........|.......o
 // 01111111|11111111|........|........|........|........|........|.......o
 static uint64_t const USR1_PTR_TYPE = BYTES(7f, fe, 00, 00, 00, 00, 00, 00);
@@ -182,7 +181,7 @@ static uint64_t const RES2_DATA_TYPE = BYTES(ff, fd, 00, 00, 00, 00, 00, 00);
 #define IS_RES1_DATA(v) ((v)&TYPE_MASK == RES1_DATA_TYPE)
 #define IS_RES2_DATA(v) ((v)&TYPE_MASK == RES2_DATA_TYPE)
 
-// The last two data value types are unused and are availabe to the users:
+// The last two data value types are unused and are available to the users:
 // 11111111|11111110|........|........|........|........|........|........
 // 11111111|11111111|........|........|........|........|........|........
 static uint64_t const USR1_DATA_TYPE = BYTES(ff, fe, 00, 00, 00, 00, 00, 00);
