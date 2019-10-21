@@ -168,6 +168,18 @@ static uint64_t const VAL_ERROR = BYTES(ff, f9, 00, 00, 00, 00, 00, 03);
 #define IS_NIL(v) ((uint64_t)(v) == VAL_NIL)
 #define IS_ERROR(v) ((uint64_t)(v) == VAL_ERROR)
 
+#define IS_RES_SYMBOL(v) (is_res_symbol((v)))
+static inline bool is_res_symbol(Val v) {
+  return ((uint64_t)v > SYMBOL_TYPE &&
+          (uint64_t)v < BYTES(ff, f9, 00, 00, 00, 01, 00, 00));
+}
+
+#define IS_USR_SYMBOL(v) (is_usr_symbol((v)))
+static inline bool is_usr_symbol(Val v) {
+  return ((uint64_t)v >= BYTES(ff, f9, 00, 00, 00, 01, 00, 00) &&
+          (uint64_t)v < BYTES(ff, fa, 00, 00, 00, 00, 00, 00));
+}
+
 static uint64_t const USR_SYMBOL_MASK = BYTES(00, 00, ff, ff, ff, ff, 00, 00);
 #define USR_SYMBOL(v) ((uint32_t)((v)&USR_SYMBOL_MASK >> 16))
 
