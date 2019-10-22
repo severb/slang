@@ -51,6 +51,7 @@ static ParseRule rules[TOKEN_EOF + 1];
 static void scan_advance(Parser *);
 static void parse_block(Parser *);
 static void parse_stmt(Parser *);
+static void parse_decl_var(Parser *);
 
 Parser *parser_init(Parser *p, const char *src, Chunk *chunk, Intern *intern) {
   if (p == 0)
@@ -423,6 +424,54 @@ static void parse_stmt_while(Parser *p) {
   emit_byte(p, OP_POP);
 }
 
+static void parse_stmt_for(Parser *p) {
+  scope_begin(p);
+  scan_consume(p, TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+  if (scan_match(p, TOKEN_SEMICOLON)) {
+    // pass
+  } else if (scan_match(p, TOKEN_VAR)) {
+    parse_decl_var(p);
+  } else {
+    parse_stmt_expr(p);
+  }
+  size_t start_idx = p->chunk->len;
+  size_t break_idx = -1;
+  if (!scan_match(p, TOKEN_SEMICOLON)) {
+    parse_expr(p);
+    scan_consume(p, TOKEN_SEMICOLON, "Expect ';' after loop condition.");
+    chunk_write3(p->chunk, (uint8_t[]){OP_JUMP_IF_FALSE, 0, 0}, p->prev.line);
+    break_idx = p->chunk->len;
+    emit_byte(p, OP_POP);
+  }
+  if (!scan_match(p, TOKEN_RIGHT_PAREN)) {
+    chunk_write3(p->chunk, (uint8_t[]){OP_JUMP, 0, 0}, p->prev.line);
+    size_t before_inc_idx = p->chunk->len;
+    parse_expr(p);
+    emit_byte(p, OP_POP);
+    scan_consume(p, TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
+    size_t loc = (p->chunk->len + 3) - start_idx;
+    chunk_write3(p->chunk,
+                 (uint8_t[]){OP_LOOP, (uint8_t)loc >> 8, (uint8_t)loc},
+                 p->prev.line);
+    loc = p->chunk->len - before_inc_idx;
+    p->chunk->code[before_inc_idx - 2] = (uint8_t)loc >> 8;
+    p->chunk->code[before_inc_idx - 1] = (uint8_t)loc;
+    start_idx = before_inc_idx;
+  }
+  parse_stmt(p);
+  uint16_t location = (p->chunk->len + 3) - start_idx;
+  chunk_write3(p->chunk,
+               (uint8_t[]){OP_LOOP, (uint8_t)location >> 8, (uint8_t)location},
+               p->prev.line);
+  if (break_idx != (size_t)-1) {
+    size_t loc = p->chunk->len - break_idx;
+    p->chunk->code[break_idx - 2] = (uint8_t)loc >> 8;
+    p->chunk->code[break_idx - 1] = (uint8_t)loc;
+    emit_byte(p, OP_POP); // condition
+  }
+  scope_end(p);
+}
+
 static void parse_stmt(Parser *p) {
   if (scan_match(p, TOKEN_PRINT)) {
     parse_stmt_print(p);
@@ -430,6 +479,8 @@ static void parse_stmt(Parser *p) {
     parse_stmt_if(p);
   } else if (scan_match(p, TOKEN_WHILE)) {
     parse_stmt_while(p);
+  } else if (scan_match(p, TOKEN_FOR)) {
+    parse_stmt_for(p);
   } else if (scan_match(p, TOKEN_LEFT_BRACE)) {
     scope_begin(p);
     parse_block(p);
