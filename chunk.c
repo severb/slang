@@ -131,6 +131,7 @@ size_t chunk_print_dis_instr(const Chunk *chunk, size_t offset) {
     printf("\n");
     return offset + 2;
   }
+  case OP_LOOP:
   case OP_JUMP:
   case OP_JUMP_IF_FALSE:
   case OP_JUMP_IF_TRUE:

@@ -24,6 +24,7 @@
   OPCODE(OP_JUMP_IF_FALSE)                                                     \
   OPCODE(OP_JUMP_IF_TRUE)                                                      \
   OPCODE(OP_LESS)                                                              \
+  OPCODE(OP_LOOP)                                                              \
   OPCODE(OP_MULTIPLY)                                                          \
   OPCODE(OP_NEGATE)                                                            \
   OPCODE(OP_NIL)                                                               \

@@ -196,6 +196,11 @@ static InterpretResult run(VM *vm) {
       BINARY_OP(vm, VAL_LIT_BOOL, <,
                 "Operands for comparison must be numbers.");
       break;
+    case OP_LOOP: {
+      uint16_t idx = READ_IDX2();
+      vm->ip -= idx;
+      break;
+    }
     case OP_MULTIPLY:
       BINARY_OP(vm, VAL_LIT_NUMBER, *, "Operands for '*' must be numbers.");
       break;

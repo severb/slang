@@ -404,11 +404,32 @@ static void parse_stmt_if(Parser *p) {
   p->chunk->code[end_idx - 1] = (uint8_t)location;
 }
 
+static void parse_stmt_while(Parser *p) {
+  scan_consume(p, TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
+  size_t start_idx = p->chunk->len;
+  parse_expr(p);
+  scan_consume(p, TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+  chunk_write3(p->chunk, (uint8_t[]){OP_JUMP_IF_FALSE, 0, 0}, p->prev.line);
+  size_t break_idx = p->chunk->len;
+  emit_byte(p, OP_POP);
+  parse_stmt(p);
+  uint16_t location = (p->chunk->len + 3) - start_idx;
+  chunk_write3(p->chunk,
+               (uint8_t[]){OP_LOOP, (uint8_t)location >> 8, (uint8_t)location},
+               p->prev.line);
+  location = p->chunk->len - break_idx;
+  p->chunk->code[break_idx - 2] = (uint8_t)location >> 8;
+  p->chunk->code[break_idx - 1] = (uint8_t)location;
+  emit_byte(p, OP_POP);
+}
+
 static void parse_stmt(Parser *p) {
   if (scan_match(p, TOKEN_PRINT)) {
     parse_stmt_print(p);
   } else if (scan_match(p, TOKEN_IF)) {
     parse_stmt_if(p);
+  } else if (scan_match(p, TOKEN_WHILE)) {
+    parse_stmt_while(p);
   } else if (scan_match(p, TOKEN_LEFT_BRACE)) {
     scope_begin(p);
     parse_block(p);
