@@ -6,6 +6,14 @@
 #include <stddef.h>  // max_align_t
 #include <stdint.h>  // *int16_t, *int32_t, *int64_t, UINT64_C
 
+// Forward declarations of some base types:
+struct String;
+struct Table;
+struct List;
+typedef struct String String;
+typedef struct Table Table;
+typedef struct List List;
+
 // Val is a polymorphic type. It stores all value types exposed by the language
 // and can be used with all collections. Because Vals are so versatile, they
 // are often used internally by the compiler and VM for bookkeeping.
@@ -107,15 +115,14 @@ static_assert(sizeof(max_align_t) >= 2, "pointer alginment >= 2");
   ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (TABLE_PTR_TYPE | OWNER_FLAG))
 #define TABLE_PTR(v) ((Table *)PTR(v))
 
-// The Array pointer is the next pointer value type:
+// The List pointer is the next pointer value type:
 // 01111111|11110110|........|........|........|........|........|.......o
-#define ARRAY_PTR_TYPE BYTES(7f, f6, 00, 00, 00, 00, 00, 00)
-#define IS_ARRAY_PTR(v) (VAL_U(v) & TYPE_MASK == ARRAY_PTR_TYPE)
-#define IS_ARRAY_OWN(v)                                                        \
-  ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == ARRAY_PTR_TYPE)
-#define IS_ARRAY_REF(v)                                                        \
-  ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (ARRAY_PTR_TYPE | OWNER_FLAG))
-#define ARRAY_PTR(v) ((Array *)PTR(v))
+#define LIST_PTR_TYPE BYTES(7f, f6, 00, 00, 00, 00, 00, 00)
+#define IS_LIST_PTR(v) (VAL_U(v) & TYPE_MASK == LIST_PTR_TYPE)
+#define IS_LIST_OWN(v) ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == LIST_PTR_TYPE)
+#define IS_LIST_REF(v)                                                         \
+  ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (LIST_PTR_TYPE | OWNER_FLAG))
+#define LIST_PTR(v) ((List *)PTR(v))
 
 // Lastly, we have a "big" 64-bit signed integer pointer (i.e., int64_t):
 // 01111111|11110111|........|........|........|........|........|.......o
