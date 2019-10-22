@@ -6,7 +6,7 @@
 #include <stddef.h>  // max_align_t
 #include <stdint.h>  // *int16_t, *int32_t, *int64_t, UINT64_C
 
-// Forward declarations of some base types:
+// Forward declarations of some types defined elsewhere:
 struct String;
 struct Table;
 struct List;
@@ -14,11 +14,11 @@ typedef struct String String;
 typedef struct Table Table;
 typedef struct List List;
 
-// Val is a polymorphic type. It stores all value types exposed by the language
-// and can be used with all collections. Because Vals are so versatile, they
-// are often used internally by the compiler and VM for bookkeeping.
-// All Vals, except doubles, have the following invariant: two Vals are equal
-// if their bitwise comparison is equal. The reverse in not necessarily true:
+// Val is a tagged union. It stores all value types exposed by the language and
+// can be used with all collections. Because Vals are so versatile, they are
+// often used internally by the compiler and VM for bookkeeping. All Vals,
+// except doubles, have the following invariant: two Vals are equal if their
+// bis strings are the same. The reverse in not necessarily true; for example,
 // two String pointer types can point to different strings which contain the
 // same characters.
 typedef struct {
