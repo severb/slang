@@ -1,8 +1,6 @@
 #ifndef clox_val_h
 #define clox_val_h
 
-#include <stdio.h>
-
 #include <assert.h>  // static_assert
 #include <stdbool.h> // bool
 #include <stddef.h>  // max_align_t
@@ -205,21 +203,5 @@ static inline bool is_usr_symbol(Val v) {
 // 11111111|11111101|........|........|........|........|........|........
 // 11111111|11111110|........|........|........|........|........|........
 // 11111111|11111111|........|........|........|........|........|........
-
-// ValType makes switching on a Val's type less error prone and faster:
-#define VAL_ENUM(v) ((int)(uint8_t)(((v) >> 48) ^ ((v) >> 56)))
-typedef enum {
-  STR_PTR_T = VAL_ENUM(STR_PTR_TYPE), // 0x8B
-  TABLE_PTR_T,
-  ARRAY_PTR_T,
-  INT_PTR_T, // NB: next PTR type must skip some values
-  DOUBLE_DATA_T = VAL_ENUM(PAIR_DATA_TYPE) - 1, // 0x0a
-  PAIR_DATA_T,                                  // 0x0b
-  SYMB_DATA_T,
-} ValType;
-
-static inline ValType type(Val v) {
-  return IS_DOUBLE(v) ? DOUBLE_DATA_T : VAL_ENUM(VAL_U(v));
-}
 
 #endif
