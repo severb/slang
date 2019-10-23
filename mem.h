@@ -19,7 +19,7 @@
       reallocate((pointer), sizeof(type) * (old_len), 0);                      \
     else                                                                       \
       assert(0);                                                               \
-  } while (0);
+  } while (0)
 
 #define ALLOCATE_FLEX(type, array_type, len)                                   \
   ((len) < ((SIZE_MAX - sizeof(type)) / sizeof(array_type))                    \
@@ -31,7 +31,7 @@
       reallocate((pointer), sizeof(type) + sizeof(array_type) * (len), 0);     \
     else                                                                       \
       assert(0);                                                               \
-  } while (0);
+  } while (0)
 
 void *reallocate(void *, size_t old_size, size_t new_size);
 extern size_t allocated_memory;
