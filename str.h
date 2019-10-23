@@ -15,17 +15,15 @@ typedef struct {
   const char *c;
 } Slice;
 
-uint32_t str_hash(const char *, size_t len);
+uint32_t str_hash(char const *, size_t len);
 
 Str *str_new(const char *, uint32_t len);
 void str_free(Str *);
-Str *str_copy(Str *);
-Slice str_slice(Str *);
+Slice str_slice(Str const *);
 
-Slice *slice_init(Slice *, const char *, uint32_t len);
-Str *slice_str(Slice);
-void slice_print(Slice);
-bool slice_equals(Slice, Slice);
-Str *slice_concat(Slice, Slice);
+Slice *slice_init(Slice *, char const *, uint32_t len);
+void slice_print(Slice const *);
+bool slice_equals(Slice const *, Slice const *);
+Str *slice_concat(Slice const *, Slice const *);
 
 #endif
