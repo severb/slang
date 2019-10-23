@@ -16,8 +16,8 @@
 typedef enum { FOREACH_VALTYPE(GENERATE_ENUM) } ValType;
 #undef GENERATE_ENUM
 
-struct _Table; // forward declaration of Table
-typedef struct _Table Table;
+struct sTable; // forward declaration of Table
+typedef struct sTable Table;
 
 typedef union {
   Slice slice;
