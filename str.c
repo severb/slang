@@ -3,9 +3,9 @@
 #include "mem.h" // ALLOCATE_FLEX, FREE_FLEX
 
 #include <stdbool.h> // bool, false, true
-#include <stdint.h>  // uint32_t, UINT32_MAX, size_t
+#include <stdint.h>  // uint32_t, UINT32_MAX
 #include <stdio.h>   // printf
-#include <string.h>  // memcmp, memcpy
+#include <string.h>  // memcmp, memcpy, size_t
 
 uint32_t str_hash(const char *c, size_t len) {
   uint32_t res = 2166136261u;

@@ -1,21 +1,22 @@
 #ifndef clox_mem_h
 #define clox_mem_h
 
-#include <stddef.h>
+#include <stddef.h> // size_t
+#include <stdint.h> // SIZE_MAX
 
 #define ALLOCATE(type) (type *)reallocate(0, 0, sizeof(type))
 #define FREE(pointer, type) reallocate(pointer, sizeof(type), 0)
 
-#define GROW_ARRAY(pointer, type, old_count, new_count)                        \
-  ((((old_count) < SIZE_MAX / sizeof(type)) &&                                 \
-    ((new_count) < SIZE_MAX / sizeof(type)))                                   \
-       ? reallocate((pointer), sizeof(type) * (old_count),                     \
-                    sizeof(type) * (new_count))                                \
+#define GROW_ARRAY(pointer, type, old_len, new_len)                            \
+  ((((old_len) < SIZE_MAX / sizeof(type)) &&                                   \
+    ((new_len) < SIZE_MAX / sizeof(type)))                                     \
+       ? reallocate((pointer), sizeof(type) * (old_len),                       \
+                    sizeof(type) * (new_len))                                  \
        : 0)
-#define FREE_ARRAY(pointer, type, old_count)                                   \
+#define FREE_ARRAY(pointer, type, old_len)                                     \
   do {                                                                         \
-    if ((old_count) < SIZE_MAX / sizeof(type))                                 \
-      reallocate((pointer), sizeof(type) * (old_count), 0);                    \
+    if ((old_len) < SIZE_MAX / sizeof(type))                                   \
+      reallocate((pointer), sizeof(type) * (old_len), 0);                      \
     else                                                                       \
       assert(0);                                                               \
   } while (0);
@@ -32,6 +33,7 @@
       assert(0);                                                               \
   } while (0);
 
-void *reallocate(void *previous, size_t oldSize, size_t newSize);
+void *reallocate(void *, size_t old_size, size_t new_size);
+extern size_t allocated_memory;
 
 #endif

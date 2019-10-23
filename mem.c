@@ -1,22 +1,25 @@
-#include <stdio.h>
-#include <stdlib.h>
-
-#include "common.h"
 #include "mem.h"
 
-size_t mem_allocated;
-size_t mem_freed;
+#include <assert.h> //assert
+#include <stdlib.h> // free, realloc
 
-void *reallocate(void *previous, size_t old_size, size_t new_size) {
+// allocated_memory keeps track of how much memory is currently allocated.
+// Assuming a bug-free implemenation, it can't wrap-around.
+size_t allocated_memory;
+
+void *reallocate(void *prev_ptr, size_t old_size, size_t new_size) {
   if (new_size == 0) {
-    mem_freed += old_size;
-    free(previous);
-    return NULL;
+    assert(old_size < allocated_memory);
+    allocated_memory -= old_size;
+    free(prev_ptr);
+    return 0;
   }
-  if (old_size < new_size)
-    mem_allocated += new_size - old_size;
-  else if (old_size > new_size)
-    mem_freed += old_size - new_size;
-  void *result = realloc(previous, new_size);
-  return result;
+  if (new_size == old_size)
+    return prev_ptr;
+  if (new_size > old_size) {
+    allocated_memory += new_size - old_size;
+  } else {
+    allocated_memory -= old_size - new_size;
+  }
+  return realloc(prev_ptr, new_size);
 }

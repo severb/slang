@@ -2,7 +2,8 @@
 #define clox_str_h
 
 #include <stdbool.h> // bool
-#include <stdint.h>  // uint32_t, size_t
+#include <stddef.h>  // size_t
+#include <stdint.h>  // uint32_t
 
 typedef struct {
   uint32_t len;
