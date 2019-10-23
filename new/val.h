@@ -75,11 +75,10 @@ static_assert(sizeof(uint64_t) == sizeof(double), "double size mismatch");
 // Pointers have additional tagging applied to their least significant bit.
 // This is possible because pointers allocated with malloc are usually aligned
 // (contrary to pointers to arbitrary chars in a string). We assume all
-// pointers are at least two-byte aligned, which gives us one bit to tag at the
-// end of the pointer. We use this bit to flag if the pointer "owns" the data
-// it points to and it's responsible for freeing it or if it's just a
-// reference. Owned pointers have the flag bit unset, while references have it
-// set.
+// pointers are at least two-byte aligned, which means we can use the least
+// significant bit as a flag. If the flag is unset, we say the pointer value
+// "owns" the data and is responsible for freeing it; otherwise it's just a
+// reference.
 static_assert(sizeof(max_align_t) >= 2, "pointer alginment >= 2");
 #define OWNER_FLAG BYTES(00, 00, 00, 00, 00, 00, 00, 01)
 #define IS_OWN_PTR(v)                                                          \
@@ -115,7 +114,7 @@ static_assert(sizeof(max_align_t) >= 2, "pointer alginment >= 2");
   ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (TABLE_PTR_TYPE | OWNER_FLAG))
 #define TABLE_PTR(v) ((Table *)PTR(v))
 
-// The List pointer is the next pointer value type:
+// The List pointer has the following layout:
 // 01111111|11110110|........|........|........|........|........|.......o
 #define LIST_PTR_TYPE BYTES(7f, f6, 00, 00, 00, 00, 00, 00)
 #define IS_LIST_PTR(v) (VAL_U(v) & TYPE_MASK == LIST_PTR_TYPE)
@@ -124,7 +123,7 @@ static_assert(sizeof(max_align_t) >= 2, "pointer alginment >= 2");
   ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (LIST_PTR_TYPE | OWNER_FLAG))
 #define LIST_PTR(v) ((List *)PTR(v))
 
-// Lastly, we have a "big" 64-bit signed integer pointer (i.e., int64_t):
+// We also define a "big" 64-bit signed integer pointer (i.e., int64_t):
 // 01111111|11110111|........|........|........|........|........|.......o
 #define INT_PTR_TYPE BYTES(7f, f7, 00, 00, 00, 00, 00, 00)
 #define IS_INT_PTR(v) ((VAL_U(v) & TYPE_MASK) == INT_PTR_TYPE)
@@ -133,8 +132,17 @@ static_assert(sizeof(max_align_t) >= 2, "pointer alginment >= 2");
   ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (INT_PTR_TYPE | OWNER_FLAG))
 #define INT_PTR(v) ((int64_t *)PTR(v))
 
-// The remaining four pointer value type are reserved for later use:
+// The last pointer value type represents an error and points to a
+// null-terminated string which contains the error message:
 // 01111111|11111100|........|........|........|........|........|.......o
+#define ERR_PTR_TYPE BYTES(7f, fc, 00, 00, 00, 00, 00, 00)
+#define IS_ERR_PTR(v) ((VAL_U(v) & TYPE_MASK) == ERR_PTR_TYPE)
+#define IS_ERR_OWN(v) ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == ERR_PTR_TYPE)
+#define IS_ERR_REF(v)                                                          \
+  ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (ERR_PTR_TYPE | OWNER_FLAG))
+#define ERR_PTR(v) ((char *)PTR(v))
+
+// The remaining three pointer value types are reserved for later use:
 // 01111111|11111101|........|........|........|........|........|.......o
 // 01111111|11111110|........|........|........|........|........|.......o
 // 01111111|11111111|........|........|........|........|........|.......o
