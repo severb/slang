@@ -1,10 +1,11 @@
-#include <assert.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "common.h"
-#include "mem.h"
 #include "str.h"
+
+#include "mem.h" // ALLOCATE_FLEX, FREE_FLEX
+
+#include <stdbool.h> // bool, false, true
+#include <stdint.h>  // uint32_t, UINT32_MAX, size_t
+#include <stdio.h>   // printf
+#include <string.h>  // memcmp, memcpy
 
 uint32_t str_hash(const char *c, size_t len) {
   uint32_t res = 2166136261u;
@@ -40,8 +41,7 @@ void str_free(Str *str) { FREE_FLEX(str, Str, char, (size_t)str->len); }
 Slice str_slice(Str const *str) {
   return (Slice){
       .len = str->len,
-      // Avoid recomputing the hash.
-      .hash = str->hash,
+      .hash = str->hash, // avoid recomputing the hash
       .c = str->c,
   };
 }

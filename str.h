@@ -1,7 +1,8 @@
 #ifndef clox_str_h
 #define clox_str_h
 
-#include "common.h"
+#include <stdbool.h> // bool
+#include <stdint.h>  // uint32_t, size_t
 
 typedef struct {
   uint32_t len;
