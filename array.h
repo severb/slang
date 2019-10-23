@@ -4,7 +4,7 @@
 #include "common.h"
 #include "val.h"
 
-typedef struct {
+typedef struct sArray {
   size_t cap;
   size_t len;
   Val *vals;

@@ -5,10 +5,11 @@
 #include "str.h"
 
 #define FOREACH_VALTYPE(VALTYPE)                                               \
-  VALTYPE(VAL_INVALID)                                                         \
+  VALTYPE(VAL_ARRAY)                                                           \
   VALTYPE(VAL_BOOL)                                                            \
-  VALTYPE(VAL_NUMBER)                                                          \
   VALTYPE(VAL_NIL)                                                             \
+  VALTYPE(VAL_NUMBER)                                                          \
+  VALTYPE(VAL_SLICE)                                                           \
   VALTYPE(VAL_STR)                                                             \
   VALTYPE(VAL_TABLE)
 
@@ -17,58 +18,31 @@ typedef enum { FOREACH_VALTYPE(GENERATE_ENUM) } ValType;
 #undef GENERATE_ENUM
 
 struct sTable; // forward declaration of Table
-typedef struct sTable Table;
+struct sArray;
 
-typedef union {
-  Slice slice;
-  // OR
-  struct {
-    bool is_slice : 1;
-    ValType type : 3;
-    union {
-      bool boolean;
-      double number;
-      Str *str;
-      Table *table;
-    } as;
-  } val;
+typedef struct {
+  ValType type;
+  union {
+    Slice slice;
+    bool boolean;
+    double number;
+    Str *str;
+    struct sTable *table;
+    struct sArray *array;
+  } as;
 } Val;
 
-#define VAL_IS_SLICE(v) ((v).val.is_slice)
+#define GENERATE_IS_FUNC(ENUM)                                                 \
+  static inline bool IS_##ENUM(Val v) { return v.type == ENUM; }
+FOREACH_VALTYPE(GENERATE_IS_FUNC)
+#undef GENERATE_ENUM
 
-#define VAL_IS_BOOL(v) (val_is((v), VAL_BOOL))
-#define VAL_IS_INVALID(v) (val_is((v), VAL_INVALID))
-#define VAL_IS_NUMBER(v) (val_is((v), VAL_NUMBER))
-#define VAL_IS_NIL(v) (val_is((v), VAL_NIL))
-#define VAL_IS_STR(v) (val_is((v), VAL_STR))
-#define VAL_IS_TABLE(t) (val_is((t), VAL_TABLE))
+#define LIT_VAL_BOOL(b) ((Val){.type = VAL_BOOL, .as = {.boolean = (b)}})
+#define LIT_VAL_NIL ((Val){.type = VAL_NIL, .as = {.boolean = 0}})
+#define LIT_VAL_NUMBER(n) ((Val){.type = VAL_NUMBER, .as = {.number = (n)}})
+#define LIT_VAL_STR(c) ((Val){.type = VAL_STR, .as = {.str = (c)}})
+#define LIT_VAL_TABLE(t) ((Val){.type = VAL_TABLE, .as = {.table = (t)}})
 
-static bool inline val_is(Val v, ValType type) {
-  return (!VAL_IS_SLICE(v) && v.val.type == type);
-}
-
-#define VAL_LIT_SLICE(s) (val_slice((s)))
-
-static Val inline val_slice(Slice s) {
-  Val res = {.slice = s};
-  res.val.is_slice = true;
-  return res;
-}
-
-#define VAL_LIT_BOOL(b)                                                        \
-  ((Val){.val = {.is_slice = false, .type = VAL_BOOL, .as = {.boolean = (b)}}})
-#define VAL_LIT_INVALID(i)                                                     \
-  ((Val){.val = {.is_slice = false, .type = VAL_INVALID, .as = {(i)}}})
-#define VAL_LIT_NUMBER(n)                                                      \
-  ((Val){.val = {.is_slice = false, .type = VAL_NUMBER, .as = {.number = (n)}}})
-#define VAL_LIT_NIL                                                            \
-  ((Val){.val = {.is_slice = false, .type = VAL_NIL, .as = {0}}})
-#define VAL_LIT_STR(c)                                                         \
-  ((Val){.val = {.is_slice = false, .type = VAL_STR, .as = {.str = (c)}}})
-#define VAL_LIT_TABLE(t)                                                       \
-  ((Val){.val = {.is_slice = false, .type = VAL_TABLE, .as = {.table = (t)}}})
-
-Val *val_init(Val *);
 void val_destroy(Val *);
 
 void val_print(Val);

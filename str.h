@@ -9,12 +9,9 @@ typedef struct {
   char c[];
 } Str;
 
-#define MAX_SLICE_LEN (UINT32_MAX >> 1)
-
 typedef struct {
-  bool _ : 1;        // reserved bit
-  uint32_t len : 31; // 31-bit len
-  uint32_t hash;     // hash cache
+  uint32_t len;
+  uint32_t hash;
   const char *c;
 } Slice;
 
