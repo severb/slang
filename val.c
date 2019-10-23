@@ -1,11 +1,13 @@
 #include "val.h"
 
-#include "array.h"
-#include "common.h"
-#include "str.h"
-#include "table.h"
+#include "array.h" // array_destroy
+#include "str.h"   // str_free, str_slice, str_hash, slice_print
+#include "table.h" // table_destroy
 
-#include <stdio.h>
+#include <assert.h> // assert
+#include <bool.h>   // bool, false, true
+#include <stdint.h> // uint32_t, intptr_t
+#include <stdio.h>  // printf
 
 void val_destroy(Val *val) {
   if (val == 0)
@@ -41,11 +43,13 @@ void val_print(Val const *val) {
     printf("%g", val->as.number);
     break;
   case VAL_SLICE:
-    slice_print(val->as.slice);
+    slice_print(&val->as.slice);
     break;
-  case VAL_STR:
-    slice_print(str_slice(val->as.str));
+  case VAL_STR: {
+    Slice s = str_slice(val->as.str);
+    slice_print(&s);
     break;
+  }
   case VAL_TABLE:
     printf("<table>");
     break;
@@ -72,11 +76,12 @@ void val_print_repr(Val const *val) {
     break;
   case VAL_SLICE:
     printf("<%s[%u] @%p '", name, val->as.slice.len, (void *)val->as.slice.c);
-    slice_print(val->as.slice);
+    slice_print(&val->as.slice);
     printf("'>");
   case VAL_STR:
     printf("<%s[%u] @%p '", name, val->as.str->len, (void *)val->as.str);
-    slice_print(str_slice(val->as.str));
+    Slice s = str_slice(val->as.str);
+    slice_print(&s);
     printf("'>");
     break;
   case VAL_TABLE:
@@ -132,10 +137,14 @@ bool val_truthy(Val const *val) {
 bool val_equals(Val const *a, Val const *b) {
   bool a_slice = IS_VAL_SLICE(*a);
   bool b_slice = IS_VAL_SLICE(*b);
-  if (a_slice && IS_VAL_STR(*b))
-    return slice_equals(a->as.slice, str_slice(b->as.str));
-  if (b_slice && IS_VAL_STR(*a))
-    return slice_equals(str_slice(a->as.str), b->as.slice);
+  if (a_slice && IS_VAL_STR(*b)) {
+    Slice s = str_slice(b->as.str);
+    return slice_equals(&a->as.slice, &s);
+  }
+  if (b_slice && IS_VAL_STR(*a)) {
+    Slice s = str_slice(a->as.str);
+    return slice_equals(&s, &b->as.slice);
+  }
   if (a->type != b->type)
     return false;
   switch (a->type) {
@@ -148,9 +157,12 @@ bool val_equals(Val const *a, Val const *b) {
   case VAL_NUMBER:
     return a->as.number == b->as.number;
   case VAL_SLICE:
-    return slice_equals(a->as.slice, b->as.slice);
-  case VAL_STR:
-    return slice_equals(str_slice(a->as.str), str_slice(b->as.str));
+    return slice_equals(&a->as.slice, &b->as.slice);
+  case VAL_STR: {
+    Slice s_a = str_slice(a->as.str);
+    Slice s_b = str_slice(b->as.str);
+    return slice_equals(&s_a, &s_b);
+  }
   case VAL_TABLE: // identity
     return a->as.table == b->as.table;
   default:

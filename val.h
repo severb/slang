@@ -1,8 +1,10 @@
 #ifndef clox_value_h
 #define clox_value_h
 
-#include "common.h"
 #include "str.h"
+
+#include <stdbool.h> // bool
+#include <stdint.h>  // uint32_t
 
 #define FOREACH_VALTYPE(VALTYPE)                                               \
   VALTYPE(VAL_ARRAY)                                                           \
