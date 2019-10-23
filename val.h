@@ -23,12 +23,12 @@ struct sArray;
 typedef struct {
   ValType type;
   union {
-    Slice slice;
+    struct sArray *array;
     bool boolean;
     double number;
+    Slice slice;
     Str *str;
     struct sTable *table;
-    struct sArray *array;
   } as;
 } Val;
 
@@ -45,11 +45,11 @@ FOREACH_VALTYPE(GENERATE_IS_FUNC)
 
 void val_destroy(Val *);
 
-void val_print(Val);
-void val_print_repr(Val);
-uint32_t val_hash(Val);
-bool val_truthy(Val);
+void val_print(Val const *);
+void val_print_repr(Val const *);
+uint32_t val_hash(Val const *);
+bool val_truthy(Val const *);
 
-bool val_equals(Val, Val);
+bool val_equals(Val const *, Val const *);
 
 #endif
