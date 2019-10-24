@@ -8,11 +8,9 @@
 
 // Forward declarations of some types defined elsewhere:
 struct String;
+struct Slice;
 struct Table;
 struct List;
-typedef struct String String;
-typedef struct Table Table;
-typedef struct List List;
 
 // Val is a tagged union. It stores all value types exposed by the language and
 // can be used with all collections. Because Vals are so versatile, they are
@@ -131,8 +129,10 @@ static_assert(sizeof(max_align_t) >= 2, "pointer alginment >= 2");
   ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (INT_PTR_TYPE | OWNER_FLAG))
 #define INT_PTR(v) ((int64_t *)PTR(v))
 
-// The last pointer value type represents an error and points to a
-// null-terminated string which contains the error message:
+// The next pointer value type represents an error and points to a
+// null-terminated string which contains the error message.
+// NB: The ownership flag still applies, which makes defining errors
+// cumbersome. We provide a few macros to help with that.
 // 01111111|11111100|........|........|........|........|........|.......o
 #define ERR_PTR_TYPE BYTES(7f, fc, 00, 00, 00, 00, 00, 00)
 #define IS_ERR_PTR(v) ((VAL_U(v) & TYPE_MASK) == ERR_PTR_TYPE)
@@ -141,8 +141,17 @@ static_assert(sizeof(max_align_t) >= 2, "pointer alginment >= 2");
   ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (ERR_PTR_TYPE | OWNER_FLAG))
 #define ERR_PTR(v) ((char *)PTR(v))
 
-// The remaining three pointer value types are reserved for later use:
+// Finally, we define a Slice pointer value type:
 // 01111111|11111101|........|........|........|........|........|.......o
+#define SLICE_PTR_TYPE BYTES(7f, fd, 00, 00, 00, 00, 00, 00)
+#define IS_SLICE_PTR(v) ((VAL_U(v) & TYPE_MASK) == SLICE_PTR_TYPE)
+#define IS_SLICE_OWN(v)                                                        \
+  ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == SLICE_PTR_TYPE)
+#define IS_SLICE_REF(v)                                                        \
+  ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (SLICE_PTR_TYPE | OWNER_FLAG))
+#define SLICE_PTR(v) ((Slice *)PTR(v))
+
+// The remaining two pointer value types are reserved for later use:
 // 01111111|11111110|........|........|........|........|........|.......o
 // 01111111|11111111|........|........|........|........|........|.......o
 
