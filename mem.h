@@ -4,6 +4,9 @@
 #include <stddef.h> // size_t
 #include <stdint.h> // SIZE_MAX
 
+// TODO: Some of the macros suffer from double evaluation and should be
+// rewritten as static inline functions.
+
 #define ALLOCATE(type) (type *)reallocate(0, 0, sizeof(type))
 #define FREE(pointer, type) reallocate(pointer, sizeof(type), 0)
 
