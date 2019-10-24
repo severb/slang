@@ -18,9 +18,8 @@ typedef struct List List;
 // can be used with all collections. Because Vals are so versatile, they are
 // often used internally by the compiler and VM for bookkeeping. All Vals,
 // except doubles, have the following invariant: two Vals are equal if their
-// bis strings are the same. The reverse in not necessarily true; for example,
-// two String pointer types can point to different strings which contain the
-// same characters.
+// bit strings are equal. The reverse in not necessarily true. For example, two
+// String pointer values can point to different, but equal, strings.
 typedef struct {
   union {
     double d;
@@ -29,7 +28,7 @@ typedef struct {
 } Val;
 
 // Vals are 64 bits long and use a bit-packing technique called NaN tagging.
-static_assert(sizeof(uint64_t) == sizeof(double), "double size mismatch");
+static_assert(sizeof(uint64_t) == sizeof(Val), "Val size mismatch");
 
 #define VAL_U(v) ((v).as.u)
 #define VAL_D(v) ((v).as.d)
@@ -42,7 +41,7 @@ static_assert(sizeof(uint64_t) == sizeof(double), "double size mismatch");
 // The layout of doubles is: (s: sign bit, e: exponent, f: fraction)
 // seeeeeee|eeeeffff|ffffffff|ffffffff|ffffffff|ffffffff|ffffffff|ffffffff
 //
-// NaNs have all exponent bits set high -- the sign bit is ignored. In
+// Double NaNs have all exponent bits set high -- the sign bit is ignored. In
 // addition, there are two different types of NaNs: quiet (qNaN) and signaling
 // (sNaN). The two are differentiated by the most significant bit of the
 // fraction: qNaNs have the bit set high and sNaNs have it low. sNaNs must also
@@ -52,32 +51,32 @@ static_assert(sizeof(uint64_t) == sizeof(double), "double size mismatch");
 // 01111111|11111000|00000000|00000000|00000000|00000000|00000000|00000000
 // 01111111|11110000|00000000|00000000|00000000|00000000|00000000|00000001
 //
-// This leaves us with enough space to use for other things, like storing
-// values or 48-bit pointers. To do so, we use the following bit-pattern to
-// identify non-double values:
+// This leaves enough space to use for other things, like storing values or
+// 48-bit pointers. To do so, we use the following bit-pattern to identify
+// non-double values:
 // .1111111|1111.1..|........|........|........|........|........|........
 //
-// We use the top four bits as type discriminators for the data store in the
-// remaining six bytes.
+// We use the top four most significant bits as type discriminators and store
+// data in the remaining six bytes.
 
 #define TAGGED_MASK BYTES(7f, f4, 00, 00, 00, 00, 00, 00)
 #define IS_TAGGED(v) ((VAL_U(v) & TAGGED_MASK) == TAGGED_MASK)
 #define IS_DOUBLE(v) (!IS_TAGGED(v))
 
-// We define two categories of values: pointers and data. Pointers have the
-// most significant discriminator bit (the sign bit) set, while data values
+// We define two categories of values: pointers and data. Pointer values have
+// the most significant discriminator bit (the sign bit) set, while data values
 // have it unset.
 #define SIGN_FLAG BYTES(80, 00, 00, 00, 00, 00, 00, 00)
 #define IS_PTR(v) ((VAL_U(v) & (TAGGED_MASK | SIGN_FLAG)) == TAGGED_MASK)
 #define IS_DATA(v)                                                             \
-  ((VAL_U(v) && (TAGGED_MASK | SIGN_FLAG)) == (TAGGED_MASK | SIGN_FLAG))
+  ((VAL_U(v) & (TAGGED_MASK | SIGN_FLAG)) == (TAGGED_MASK | SIGN_FLAG))
 
-// Pointers have additional tagging applied to their least significant bit.
-// This is possible because pointers allocated with malloc are usually aligned
-// (contrary to pointers to arbitrary chars in a string). We assume all
-// pointers are at least two-byte aligned, which means we can use the least
-// significant bit as a flag. If the flag is unset, we say the pointer value
-// "owns" the data and is responsible for freeing it; otherwise it's just a
+// Pointer values have additional tagging applied to their least significant
+// bit. This is possible because pointers allocated with malloc are usually
+// aligned; contrary to, for example, pointers to arbitrary chars in a string.
+// We assume all pointers are at least two-byte aligned, which means we can use
+// the least significant bit as a flag. If the flag is unset, the pointer value
+// "owns" the data and is responsible for freeing it; otherwise, it's just a
 // reference.
 static_assert(sizeof(max_align_t) >= 2, "pointer alginment >= 2");
 #define OWNER_FLAG BYTES(00, 00, 00, 00, 00, 00, 00, 01)
@@ -183,20 +182,18 @@ uint32_t u32_i(int32_t v) {
 #define PAIR_B(v) (u32_i(PAIR_UB(v)))
 
 // Next is the Symbol value which defines the following symbols: FALSE, TRUE,
-// NIL, and ERROR. These four symbols and all others that fit in the least
-// significant two bytes are reserved. The remaining 32-bit space is available
-// for user-defined symbols and flags.
+// and NIL. These symbols and all others that fit in the least significant two
+// bytes are reserved. The remaining 32-bit space is available for user-defined
+// symbols and flags.
 // 11111111|11110101|uuuuuuuu|uuuuuuuu|uuuuuuuu|uuuuuuuu|........|........
 #define SYMB_DATA_TYPE BYTES(ff, f5, 00, 00, 00, 00, 00, 00)
 #define IS_SYMBOL_DATA(v) ((VAL_U(v) & TYPE_MASK) == SYMB_DATA_TYPE)
 #define VAL_FALSE (U_VAL(SYMB_DATA_TYPE))
 #define VAL_TRUE (U_VAL(SYMB_DATA_TYPE + 1))
 #define VAL_NIL (U_VAL(SYMB_DATA_TYPE + 2))
-#define VAL_ERROR (U_VAL(SYMB_DATA_TYPE + 3))
 #define IS_FALSE(v) (VAL_U(v) == VAL_FALSE)
 #define IS_TRUE(v) (VAL_U(v) == VAL_TRUE)
 #define IS_NIL(v) (VAL_U(v) == VAL_NIL)
-#define IS_ERROR(v) (VAL_U(v) == VAL_ERROR)
 
 static inline bool is_res_symbol(Val v) {
   return (VAL_U(v) >= SYMB_DATA_TYPE &&
@@ -211,8 +208,15 @@ static inline bool is_usr_symbol(Val v) {
 #define USR_SYMBOL_MASK BYTES(00, 00, ff, ff, ff, ff, 00, 00)
 #define USR_SYMBOL(v) ((uint32_t)((VAL_U(v) & USR_SYMBOL_MASK) >> 16))
 
-// The remaining six data value types are reserved for later use:
+// There's also a 48-bit unsigned integer value:
 // 11111111|11110110|........|........|........|........|........|........
+#define UINT_DATA_TYPE BYTES(ff, f6, 00, 00, 00, 00, 00, 00)
+#define UINT_MASK BYTES(00, 00, ff, ff, ff, ff, ff, ff)
+#define IS_UINT_DATA(v) ((VAL_U(v) & TYPE_MASK) == UINT_DATA_TYPE)
+#define UINT(v) ((uint64_t)(VAL_U(v) & UINT_MASK))
+#define UINT_DATA_MAX ((2 << 48) - 1)
+
+// The remaining five data value types are reserved for later use:
 // 11111111|11110111|........|........|........|........|........|........
 // 11111111|11111100|........|........|........|........|........|........
 // 11111111|11111101|........|........|........|........|........|........

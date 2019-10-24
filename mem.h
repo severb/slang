@@ -33,7 +33,9 @@
       assert(0);                                                               \
   } while (0)
 
-void *reallocate(void *, size_t old_size, size_t new_size);
+// allocated_memory keeps track of how much memory is currently allocated.
 extern size_t allocated_memory;
+
+void *reallocate(void *, size_t old_size, size_t new_size);
 
 #endif

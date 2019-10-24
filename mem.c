@@ -3,8 +3,7 @@
 #include <assert.h> //assert
 #include <stdlib.h> // free, realloc
 
-// allocated_memory keeps track of how much memory is currently allocated.
-// Assuming a bug-free implemenation, it can't wrap-around.
+// Assuming a bug-free implemenation, allocated_memory can't wrap-around.
 size_t allocated_memory;
 
 void *reallocate(void *prev_ptr, size_t old_size, size_t new_size) {
