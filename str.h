@@ -27,6 +27,14 @@ uint32_t chars_hash(char const *, uint32_t len);
   ((s)->hash > 0 ? (s)->hash                                                   \
                  : ((s)->hash = chars_hash((s)->c, (s)->len), (s)->hash))
 
+// slice() initialize a Slice.
+static inline Slice slice(char const *c, uint32_t len) {
+  return (Slice){
+      .c = c,
+      .len = len,
+      .hash = 0,
+  };
+}
 // TXT_SLICE() create slices out of C string literals.
 #define TXT_SLICE(s) slice((s), sizeof(s) - 1)
 
@@ -45,15 +53,6 @@ static inline Slice str_slice(String *s) {
       .len = s->len,
       .hash = HASH(s), // avoid recomputing the hash
       .c = s->c,
-  };
-}
-
-// slice() initialize a Slice.
-static inline Slice slice(char const *c, uint32_t len) {
-  return (Slice){
-      .c = c,
-      .len = len,
-      .hash = 0,
   };
 }
 
