@@ -103,7 +103,7 @@ static inline void *ptr(Val v) {
 // String is the first pointer type. It points to a String and has the
 // following layout:
 // 01111111|11110100|........|........|........|........|........|.......o
-#define STR_PTR_TYPE BYTES(7f, f4, 00, 00, 00, 00, 00, 00)
+#define STRING_PTR_TYPE BYTES(7f, f4, 00, 00, 00, 00, 00, 00)
 
 #define IS_PTR_F(name, discriminant)                                           \
   static inline bool is_##name##_ptr(Val v) {                                  \
@@ -135,12 +135,12 @@ static inline void *ptr(Val v) {
     return u_val((intptr_t)t | discriminant | REF_FLAG);                       \
   }
 
-IS_PTR_F(string, STR_PTR_TYPE)                 // is_string_ptr
-IS_PTR_OWN_F(string, STR_PTR_TYPE)             // is_string_own
-IS_PTR_REF_F(string, STR_PTR_TYPE)             // is_string_ref
-PTR_F(string, struct String)                   // string_ptr
-PTR_OWN_F(string, struct String, STR_PTR_TYPE) // string_own
-PTR_REF_F(string, struct String, STR_PTR_TYPE) // string_ref
+IS_PTR_F(string, STRING_PTR_TYPE)                 // is_string_ptr
+IS_PTR_OWN_F(string, STRING_PTR_TYPE)             // is_string_own
+IS_PTR_REF_F(string, STRING_PTR_TYPE)             // is_string_ref
+PTR_F(string, struct String)                      // string_ptr
+PTR_OWN_F(string, struct String, STRING_PTR_TYPE) // string_own
+PTR_REF_F(string, struct String, STRING_PTR_TYPE) // string_ref
 
 // Next, we define the Table pointer which has the following layout:
 // 01111111|11110101|........|........|........|........|........|.......o
