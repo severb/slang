@@ -172,18 +172,17 @@ PTR_F(int, uint64_t);                    // int_ptr
 PTR_OWN_F(int, uint64_t, LIST_PTR_TYPE); // int_own
 PTR_REF_F(int, uint64_t, LIST_PTR_TYPE); // int_ref
 
-// The next pointer value type represents an error and points to a
-// null-terminated string which contains the error message.
-// NB: The ownership flag still applies, which makes defining errors
-// cumbersome. We provide a few macros to help with that.
+// The next pointer value type represents an error and points to another Val
+// which contains the error context (usually a String or Slice).
+// NB: The ownership flag applies to the Val.
 // 01111111|11111100|........|........|........|........|........|.......o
 #define ERR_PTR_TYPE BYTES(7f, fc, 00, 00, 00, 00, 00, 00)
-IS_PTR_F(err, ERR_PTR_TYPE);        // is_err_ptr
-IS_PTR_OWN_F(err, ERR_PTR_TYPE);    // is_err_own
-IS_PTR_REF_F(err, ERR_PTR_TYPE);    // is_err_ref
-PTR_F(err, char);                   // err_ptr
-PTR_OWN_F(err, char, ERR_PTR_TYPE); // err_own
-PTR_REF_F(err, char, ERR_PTR_TYPE); // err_ref
+IS_PTR_F(err, ERR_PTR_TYPE);       // is_err_ptr
+IS_PTR_OWN_F(err, ERR_PTR_TYPE);   // is_err_own
+IS_PTR_REF_F(err, ERR_PTR_TYPE);   // is_err_ref
+PTR_F(err, Val);                   // err_ptr
+PTR_OWN_F(err, Val, ERR_PTR_TYPE); // err_own
+PTR_REF_F(err, Val, ERR_PTR_TYPE); // err_ref
 
 // Finally, we define a Slice pointer value type:
 // 01111111|11111101|........|........|........|........|........|.......o

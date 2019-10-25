@@ -1,6 +1,7 @@
 #ifndef clox_mem_h
 #define clox_mem_h
 
+#include <assert.h> // assert
 #include <stddef.h> // size_t
 #include <stdint.h> // SIZE_MAX
 

@@ -3,81 +3,63 @@
 #include "mem.h" // ALLOCATE_FLEX, FREE_FLEX
 
 #include <stdbool.h> // bool, false, true
-#include <stdint.h>  // uint32_t, UINT32_MAX
+#include <stdint.h>  // uint64_t, uint32_t, UINT32_MAX
 #include <stdio.h>   // printf
-#include <string.h>  // memcmp, memcpy, size_t
+#include <string.h>  // memcpy, size_t
 
-uint32_t str_hash(const char *c, size_t len) {
+uint32_t chars_hash(const char *c, uint32_t len) {
   uint32_t res = 2166136261u;
   for (uint32_t i = 0; i < len; i++) {
     res ^= c[i];
     res *= 16777619u;
   }
+  if (!res)
+    res = 7777777;
   return res;
 }
 
-static Str *str_new_sized(uint32_t len) {
-  Str *res = ALLOCATE_FLEX(Str, char, (size_t)len);
+static String *str_new_sized(uint32_t len) {
+  String *res = ALLOCATE_FLEX(String, char, (size_t)len);
   if (res == 0)
     return 0;
-  *res = (Str){
+  *res = (String){
       .len = len,
       .hash = 0,
   };
   return res;
 }
 
-Str *str_new(char const *c, uint32_t len) {
-  Str *res = str_new_sized(len);
+String *chars_concat(char const *a, uint32_t len_a, char const *b,
+                     uint32_t len_b) {
+  uint64_t len = len_a + len_b;
+  if (len > UINT32_MAX)
+    return 0;
+  String *res = str_new_sized(len);
   if (res == 0)
     return 0;
-  memcpy(res->c, c, len);
-  res->hash = str_hash(c, len);
+  memcpy(res->c, a, len_a);
+  memcpy(res->c + len_a, b, len_b);
   return res;
 }
 
-void str_free(Str *str) { FREE_FLEX(str, Str, char, (size_t)str->len); }
+void chars_print(char const *c, uint32_t len) { printf("%.*s", len, c); }
 
-Slice str_slice(Str const *str) {
-  return (Slice){
-      .len = str->len,
-      .hash = str->hash, // avoid recomputing the hash
-      .c = str->c,
-  };
-}
-
-Slice *slice_init(Slice *slice, char const *c, uint32_t len) {
-  if (slice == 0)
+String *str_new(char const *c, uint32_t len) {
+  String *res = str_new_sized(len);
+  if (res == 0)
     return 0;
-  *slice = (Slice){
-      .len = len,
-      .hash = str_hash(c, len),
-      .c = c,
-  };
-  return slice;
+  memcpy(res->c, c, len);
+  return res;
 }
 
-void slice_print(Slice const *slice) { printf("%.*s", slice->len, slice->c); }
+void str_free(String *s) { FREE_FLEX(s, String, char, (size_t)s->len); }
 
-bool slice_equals(Slice const *a, Slice const *b) {
+bool slice_equals(Slice *a, Slice *b) {
   if (a->len != b->len)
     return false;
-  if (a->hash != b->hash)
+  if (SHASH(a) != SHASH(b))
     return false;
   if (a->c == b->c) // NB: compare ptrs only if len is eq
     return true;
   return memcmp(a->c, b->c, a->len) == 0;
-}
-
-Str *slice_concat(Slice const *a, Slice const *b) {
-  uint64_t len = a->len + b->len;
-  if (len > UINT32_MAX)
-    return 0;
-  Str *res = str_new_sized(len);
-  if (res == 0)
-    return 0;
-  memcpy(res->c, a->c, a->len);
-  memcpy(res->c + a->len, b->c, b->len);
-  res->hash = str_hash(res->c, res->len);
-  return res;
 }
