@@ -209,30 +209,31 @@ PTR_REF_F(slice, struct Slice, SLICE_PTR_TYPE) // silce_ref
 // integers a and b. a's size is two bytes and b's size is four bytes:
 // 11111111|11110100|aaaaaaaa|aaaaaaaa|bbbbbbbb|bbbbbbbb|bbbbbbbb|bbbbbbbb
 #define PAIR_DATA_TYPE BYTES(ff, f4, 00, 00, 00, 00, 00, 00)
-#define PAIR_A_MASK BYTES(00, 00, ff, ff, 00, 00, 00, 00)
-#define PAIR_B_MASK BYTES(00, 00, 00, 00, ff, ff, ff, ff)
-#define IS_PAIR_DATA(v) ((val_u(v) & TYPE_MASK) == PAIR_DATA_TYPE)
-#define PAIR_UA(v) ((uint16_t)((val_u(v) & PAIR_A_MASK) >> 32))
-#define PAIR_UB(v) ((uint32_t)(val_u(v) & PAIR_B_MASK))
 
-int16_t u16_i(uint16_t v) {
+#define IS_DATA_F(name, discriminant)                                          \
+  static inline bool is_##name##_data(Val v) {                                 \
+    return (val_u(v) & TYPE_MASK) == discriminant;                             \
+  }
+IS_DATA_F(pair, PAIR_DATA_TYPE) // is_pair_data
+
+static inline uint16_t pair_ua(Val v) { return val_u(v) >> 32; }
+static inline uint32_t pair_ub(Val v) { return val_u(v); }
+
+static inline int16_t pair_a(Val v) {
   union {
     uint16_t as_uint16_t;
     int16_t as_int16_t;
-  } x = {.as_uint16_t = v};
+  } x = {.as_uint16_t = pair_ua(v)};
   return x.as_int16_t;
 }
 
-uint32_t u32_i(int32_t v) {
+static inline int32_t pair_b(Val v) {
   union {
     uint32_t as_uint32_t;
     int32_t as_int32_t;
-  } x = {.as_int32_t = v};
+  } x = {.as_int32_t = pair_ub(v)};
   return x.as_uint32_t;
 }
-
-#define PAIR_A(v) (u16_i(PAIR_UA(v)))
-#define PAIR_B(v) (u32_i(PAIR_UB(v)))
 
 // Next is the Symbol value which defines the following symbols: FALSE, TRUE,
 // and NIL. These symbols and all others that fit in the least significant two
@@ -240,13 +241,15 @@ uint32_t u32_i(int32_t v) {
 // symbols and flags.
 // 11111111|11110101|uuuuuuuu|uuuuuuuu|uuuuuuuu|uuuuuuuu|........|........
 #define SYMB_DATA_TYPE BYTES(ff, f5, 00, 00, 00, 00, 00, 00)
-#define IS_SYMBOL_DATA(v) ((val_u(v) & TYPE_MASK) == SYMB_DATA_TYPE)
-#define VAL_FALSE (u_val(SYMB_DATA_TYPE))
-#define VAL_TRUE (u_val(SYMB_DATA_TYPE + 1))
-#define VAL_NIL (u_val(SYMB_DATA_TYPE + 2))
-#define IS_FALSE(v) (val_u(v) == VAL_FALSE)
-#define IS_TRUE(v) (val_u(v) == VAL_TRUE)
-#define IS_NIL(v) (val_u(v) == VAL_NIL)
+IS_DATA_F(symb, SYMB_DATA_TYPE) // is_symb_data
+
+static const Val VAL_FALSE = (Val){.as = {.u = SYMB_DATA_TYPE}};
+static const Val VAL_TRUE = (Val){.as = {.u = SYMB_DATA_TYPE + 1}};
+static const Val VAL_NIL = (Val){.as = {.u = SYMB_DATA_TYPE + 2}};
+
+static int is_false(Val v) { return val_u(v) == val_u(VAL_FALSE); }
+static int is_true(Val v) { return val_u(v) == val_u(VAL_TRUE); }
+static int is_nil(Val v) { return val_u(v) == val_u(VAL_NIL); }
 
 static inline bool is_res_symbol(Val v) {
   return (val_u(v) >= SYMB_DATA_TYPE &&
@@ -258,16 +261,16 @@ static inline bool is_usr_symbol(Val v) {
           val_u(v) <= SYMB_DATA_TYPE + BYTES(00, 00, ff, ff, ff, ff, ff, ff));
 }
 
-#define USR_SYMBOL_MASK BYTES(00, 00, ff, ff, ff, ff, 00, 00)
-#define USR_SYMBOL(v) ((uint32_t)((val_u(v) & USR_SYMBOL_MASK) >> 16))
+static inline uint32_t usr_symb(Val v) { return val_u(v) >> 16; }
 
 // There's also a 48-bit unsigned integer value:
 // 11111111|11110110|........|........|........|........|........|........
 #define UINT_DATA_TYPE BYTES(ff, f6, 00, 00, 00, 00, 00, 00)
-#define UINT_MASK BYTES(00, 00, ff, ff, ff, ff, ff, ff)
-#define IS_UINT_DATA(v) ((val_u(v) & TYPE_MASK) == UINT_DATA_TYPE)
-#define UINT(v) ((uint64_t)(val_u(v) & UINT_MASK))
+IS_DATA_F(uint, UINT_DATA_TYPE) // is_uint_data
+
 #define UINT_DATA_MAX ((2 << 48) - 1)
+#define UINT_MASK BYTES(00, 00, ff, ff, ff, ff, ff, ff)
+static inline uint64_t uint(Val v) { return val_u(v) & UINT_MASK; }
 
 // The remaining five data value types are reserved for later use:
 // 11111111|11110111|........|........|........|........|........|........
