@@ -100,6 +100,10 @@ static inline void *ptr(Val v) {
 // TYPE_MASK isolates the type discriminant from the stored value.
 #define TYPE_MASK BYTES(ff, ff, 00, 00, 00, 00, 00, 00)
 
+static inline bool same_type(Val a, Val b) {
+  return (val_u(a) & TYPE_MASK) == (val_u(b) & TYPE_MASK);
+}
+
 // String is the first pointer type. It points to a String and has the
 // following layout:
 // 01111111|11110100|........|........|........|........|........|.......o
