@@ -1,7 +1,7 @@
 #ifndef clox_val_h
 #define clox_val_h
 
-#include <assert.h>  // static_assert
+#include <assert.h>  // static_assert, assert
 #include <stdbool.h> // bool
 #include <stddef.h>  // max_align_t
 #include <stdint.h>  // *int16_t, *int32_t, *int64_t, UINT64_C
@@ -125,13 +125,13 @@ static inline void *ptr(Val v) {
 
 #define PTR_OWN_F(prefix, type, discriminant)                                  \
   static inline Val prefix##_own(type *t) {                                    \
-    assert(!((intptr_t)t & REF_FLAG));                                         \
+    assert(!((intptr_t)t & (~PTR_MASK | REF_FLAG)));                           \
     return u_val((intptr_t)t | discriminant);                                  \
   }
 
 #define PTR_REF_F(prefix, type, discriminant)                                  \
   static inline Val prefix##_ref(type *t) {                                    \
-    assert(!((intptr_t)t & REF_FLAG));                                         \
+    assert(!((intptr_t)t & (~PTR_MASK | REF_FLAG)));                           \
     return u_val((intptr_t)t | discriminant | REF_FLAG);                       \
   }
 
