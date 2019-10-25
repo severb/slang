@@ -22,16 +22,16 @@ typedef struct {
   union {
     double d;
     uint64_t u; // for bit fiddling
-  } as;
+  };
 } Val;
 
 // Vals are 64 bits long and use a bit-packing technique called NaN tagging.
 static_assert(sizeof(uint64_t) == sizeof(Val), "Val size mismatch");
 
-static inline uint64_t val_u(Val v) { return v.as.u; }
-static inline double val_d(Val v) { return v.as.d; }
-static inline Val u_val(uint64_t u) { return (Val){.as = {.u = u}}; }
-static inline Val d_val(double d) { return (Val){.as = {.d = d}}; }
+static inline uint64_t val_u(Val v) { return v.u; }
+static inline double val_d(Val v) { return v.d; }
+static inline Val u_val(uint64_t u) { return (Val){.u = u}; }
+static inline Val d_val(double d) { return (Val){.d = d}; }
 
 // BYTES is a visual aid for defining 64 bit patterns.
 #define BYTES(a, b, c, d, e, f, g, h) (UINT64_C(0x##a##b##c##d##e##f##g##h))
@@ -243,9 +243,9 @@ static inline int32_t pair_b(Val v) {
 #define SYMB_DATA_TYPE BYTES(ff, f5, 00, 00, 00, 00, 00, 00)
 IS_DATA_F(symb, SYMB_DATA_TYPE); // is_symb_data
 
-static const Val VAL_FALSE = (Val){.as = {.u = SYMB_DATA_TYPE}};
-static const Val VAL_TRUE = (Val){.as = {.u = SYMB_DATA_TYPE + 1}};
-static const Val VAL_NIL = (Val){.as = {.u = SYMB_DATA_TYPE + 2}};
+static const Val VAL_FALSE = (Val){.u = SYMB_DATA_TYPE};
+static const Val VAL_TRUE = (Val){.u = SYMB_DATA_TYPE + 1};
+static const Val VAL_NIL = (Val){.u = SYMB_DATA_TYPE + 2};
 
 static int is_false(Val v) { return val_u(v) == val_u(VAL_FALSE); }
 static int is_true(Val v) { return val_u(v) == val_u(VAL_TRUE); }
