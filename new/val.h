@@ -54,7 +54,7 @@ static inline Val d_val(double d) { return (Val){.as = {.d = d}}; }
 // non-double values:
 // .1111111|1111.1..|........|........|........|........|........|........
 //
-// We use the top four most significant bits as type discriminators and store
+// We use the top four most significant bits as type discriminants and store
 // data in the remaining six bytes.
 
 #define TAGGED_MASK BYTES(7f, f4, 00, 00, 00, 00, 00, 00)
@@ -64,7 +64,7 @@ static inline bool is_tagged(Val v) {
 static inline bool is_double(Val v) { return !is_tagged(v); }
 
 // We define two categories of values: pointers and data. Pointer values have
-// the most significant discriminator bit (the sign bit) set, while data values
+// the most significant discriminant bit (the sign bit) set, while data values
 // have it unset.
 #define SIGN_FLAG BYTES(80, 00, 00, 00, 00, 00, 00, 00)
 static inline bool is_ptr(Val v) {
@@ -97,7 +97,7 @@ static inline void *ptr(Val v) {
   return (void *)(uintptr_t)(val_u(v) & PTR_MASK);
 }
 
-// TYPE_MASK isolates the type discriminator from the stored value.
+// TYPE_MASK isolates the type discriminant from the stored value.
 #define TYPE_MASK BYTES(ff, ff, 00, 00, 00, 00, 00, 00)
 
 // String is the first pointer type. It points to a String and has the
@@ -105,34 +105,34 @@ static inline void *ptr(Val v) {
 // 01111111|11110100|........|........|........|........|........|.......o
 #define STR_PTR_TYPE BYTES(7f, f4, 00, 00, 00, 00, 00, 00)
 
-#define IS_PTR_F(name, discriminator)                                          \
+#define IS_PTR_F(name, discriminant)                                           \
   static inline bool is_##name##_ptr(Val v) {                                  \
-    return (val_u(v) & TYPE_MASK) == discriminator;                            \
+    return (val_u(v) & TYPE_MASK) == discriminant;                             \
   }
 
-#define IS_PTR_OWN_F(name, discriminator)                                      \
+#define IS_PTR_OWN_F(name, discriminant)                                       \
   static inline bool is_##name##_own(Val v) {                                  \
-    return (val_u(v) & (TYPE_MASK | REF_FLAG)) == discriminator;               \
+    return (val_u(v) & (TYPE_MASK | REF_FLAG)) == discriminant;                \
   }
 
-#define IS_PTR_REF_F(name, discriminator)                                      \
+#define IS_PTR_REF_F(name, discriminant)                                       \
   static inline bool is_##name##_ref(Val v) {                                  \
-    return (val_u(v) & (TYPE_MASK | REF_FLAG)) == (discriminator | REF_FLAG);  \
+    return (val_u(v) & (TYPE_MASK | REF_FLAG)) == (discriminant | REF_FLAG);   \
   }
 
 #define PTR_F(name, type)                                                      \
   static inline type *name##_ptr(Val v) { return (type *)ptr(v); }
 
-#define PTR_OWN_F(prefix, type, discriminator)                                 \
+#define PTR_OWN_F(prefix, type, discriminant)                                  \
   static inline Val prefix##_own(type *t) {                                    \
     assert(!((intptr_t)t & REF_FLAG));                                         \
-    return u_val((intptr_t)t | discriminator);                                 \
+    return u_val((intptr_t)t | discriminant);                                  \
   }
 
-#define PTR_REF_F(prefix, type, discriminator)                                 \
+#define PTR_REF_F(prefix, type, discriminant)                                  \
   static inline Val prefix##_ref(type *t) {                                    \
     assert(!((intptr_t)t & REF_FLAG));                                         \
-    return u_val((intptr_t)t | discriminator | REF_FLAG);                      \
+    return u_val((intptr_t)t | discriminant | REF_FLAG);                       \
   }
 
 IS_PTR_F(string, STR_PTR_TYPE)                 // is_string_ptr
@@ -201,7 +201,7 @@ PTR_REF_F(slice, struct Slice, SLICE_PTR_TYPE) // silce_ref
 
 // Other than the pointer value types, we define a few data value types. All
 // data value types contain their values directly in the storage area and have
-// the most significant discriminator bit (the sign bit) set to 1.
+// the most significant discriminant bit (the sign bit) set to 1.
 // A double is also a data value type, but it's special because it acts as the
 // "hosting" type for all other value types through NaN tagging.
 
