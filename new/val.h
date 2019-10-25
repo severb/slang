@@ -105,34 +105,34 @@ static inline void *ptr(Val v) {
 // 01111111|11110100|........|........|........|........|........|.......o
 #define STR_PTR_TYPE BYTES(7f, f4, 00, 00, 00, 00, 00, 00)
 
-#define IS_PTR_F(name, discriminant)                                           \
+#define IS_PTR_F(name, discriminator)                                          \
   static inline bool is_##name##_ptr(Val v) {                                  \
-    return (val_u(v) & TYPE_MASK) == discriminant;                             \
+    return (val_u(v) & TYPE_MASK) == discriminator;                            \
   }
 
-#define IS_PTR_OWN_F(name, discriminant)                                       \
+#define IS_PTR_OWN_F(name, discriminator)                                      \
   static inline bool is_##name##_own(Val v) {                                  \
-    return (val_u(v) & (TYPE_MASK | REF_FLAG)) == discriminant;                \
+    return (val_u(v) & (TYPE_MASK | REF_FLAG)) == discriminator;               \
   }
 
-#define IS_PTR_REF_F(name, discriminant)                                       \
+#define IS_PTR_REF_F(name, discriminator)                                      \
   static inline bool is_##name##_ref(Val v) {                                  \
-    return (val_u(v) & (TYPE_MASK | REF_FLAG)) == (discriminant | REF_FLAG);   \
+    return (val_u(v) & (TYPE_MASK | REF_FLAG)) == (discriminator | REF_FLAG);  \
   }
 
 #define PTR_F(name, type)                                                      \
   static inline type *name##_ptr(Val v) { return (type *)ptr(v); }
 
-#define PTR_OWN_F(prefix, type, discriminant)                                  \
+#define PTR_OWN_F(prefix, type, discriminator)                                 \
   static inline Val prefix##_own(type *t) {                                    \
     assert(!((intptr_t)t & REF_FLAG));                                         \
-    return u_val((intptr_t)t | discriminant);                                  \
+    return u_val((intptr_t)t | discriminator);                                 \
   }
 
-#define PTR_REF_F(prefix, type, discriminant)                                  \
+#define PTR_REF_F(prefix, type, discriminator)                                 \
   static inline Val prefix##_ref(type *t) {                                    \
     assert(!((intptr_t)t & REF_FLAG));                                         \
-    return u_val((intptr_t)t | discriminant | REF_FLAG);                       \
+    return u_val((intptr_t)t | discriminator | REF_FLAG);                      \
   }
 
 IS_PTR_F(string, STR_PTR_TYPE)                 // is_string_ptr
@@ -201,7 +201,7 @@ PTR_REF_F(slice, struct Slice, SLICE_PTR_TYPE) // silce_ref
 
 // Other than the pointer value types, we define a few data value types. All
 // data value types contain their values directly in the storage area and have
-// the most significant discriminant bit (the sign bit) set to 1.
+// the most significant discriminator bit (the sign bit) set to 1.
 // A double is also a data value type, but it's special because it acts as the
 // "hosting" type for all other value types through NaN tagging.
 
