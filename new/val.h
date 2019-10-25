@@ -28,10 +28,10 @@ typedef struct {
 // Vals are 64 bits long and use a bit-packing technique called NaN tagging.
 static_assert(sizeof(uint64_t) == sizeof(Val), "Val size mismatch");
 
-#define VAL_U(v) ((v).as.u)
-#define VAL_D(v) ((v).as.d)
-#define U_VAL(v) ((Val){.as = {.u = (v)}})
-#define D_VAL(v) ((Val){.as = {.d = (v)}})
+static inline uint64_t val_u(Val v) { return v.as.u; }
+static inline double val_d(Val v) { return v.as.d; }
+static inline Val u_val(uint64_t u) { return (Val){.as = {.u = u}}; }
+static inline Val d_val(double d) { return (Val){.as = {.d = d}}; }
 
 // BYTES is a visual aid for defining 64 bit patterns.
 #define BYTES(a, b, c, d, e, f, g, h) (UINT64_C(0x##a##b##c##d##e##f##g##h))
@@ -58,16 +58,21 @@ static_assert(sizeof(uint64_t) == sizeof(Val), "Val size mismatch");
 // data in the remaining six bytes.
 
 #define TAGGED_MASK BYTES(7f, f4, 00, 00, 00, 00, 00, 00)
-#define IS_TAGGED(v) ((VAL_U(v) & TAGGED_MASK) == TAGGED_MASK)
-#define IS_DOUBLE(v) (!IS_TAGGED(v))
+static inline bool is_tagged(Val v) {
+  return (val_u(v) & TAGGED_MASK) == TAGGED_MASK;
+}
+static inline bool is_double(Val v) { return !is_tagged(v); }
 
 // We define two categories of values: pointers and data. Pointer values have
 // the most significant discriminator bit (the sign bit) set, while data values
 // have it unset.
 #define SIGN_FLAG BYTES(80, 00, 00, 00, 00, 00, 00, 00)
-#define IS_PTR(v) ((VAL_U(v) & (TAGGED_MASK | SIGN_FLAG)) == TAGGED_MASK)
-#define IS_DATA(v)                                                             \
-  ((VAL_U(v) & (TAGGED_MASK | SIGN_FLAG)) == (TAGGED_MASK | SIGN_FLAG))
+static inline bool is_ptr(Val v) {
+  return (val_u(v) & (TAGGED_MASK | SIGN_FLAG)) == TAGGED_MASK;
+}
+static inline bool is_data(Val v) {
+  return (val_u(v) & (TAGGED_MASK | SIGN_FLAG)) == (TAGGED_MASK | SIGN_FLAG);
+}
 
 // Pointer values have additional tagging applied to their least significant
 // bit. This is possible because pointers allocated with malloc are usually
@@ -77,16 +82,20 @@ static_assert(sizeof(uint64_t) == sizeof(Val), "Val size mismatch");
 // "owns" the data and is responsible for freeing it; otherwise, it's just a
 // reference.
 static_assert(sizeof(max_align_t) >= 2, "pointer alginment >= 2");
-#define OWNER_FLAG BYTES(00, 00, 00, 00, 00, 00, 00, 01)
-#define IS_OWN_PTR(v)                                                          \
-  ((VAL_U(v) & (SIGN_FLAG | TAGGED_MASK | OWNER_FLAG)) == TAGGED_MASK)
-#define IS_REF_PTR(v)                                                          \
-  ((VAL_U(v) & (SIGN_FLAG | TAGGED_MASK | OWNER_FLAG)) ==                      \
-   (TAGGED_MASK | OWNER_FLAG))
+#define REF_FLAG BYTES(00, 00, 00, 00, 00, 00, 00, 01)
+static inline bool is_own_ptr(Val v) {
+  return (val_u(v) & (SIGN_FLAG | TAGGED_MASK | REF_FLAG)) == TAGGED_MASK;
+}
+static inline bool is_ref_ptr(Val v) {
+  return (val_u(v) & (SIGN_FLAG | TAGGED_MASK | REF_FLAG)) ==
+         (TAGGED_MASK | REF_FLAG);
+}
 
 // PTR_MASK isolates the pointer value and ignores the ownership flag.
 #define PTR_MASK BYTES(00, 00, FF, FF, FF, FF, FF, FE)
-#define PTR(v) ((void *)(uintptr_t)(VAL_U(v) & PTR_MASK))
+static inline void *ptr(Val v) {
+  return (void *)(uintptr_t)(val_u(v) & PTR_MASK);
+}
 
 // TYPE_MASK isolates the type discriminator from the stored value.
 #define TYPE_MASK BYTES(ff, ff, 00, 00, 00, 00, 00, 00)
@@ -95,39 +104,73 @@ static_assert(sizeof(max_align_t) >= 2, "pointer alginment >= 2");
 // following layout:
 // 01111111|11110100|........|........|........|........|........|.......o
 #define STR_PTR_TYPE BYTES(7f, f4, 00, 00, 00, 00, 00, 00)
-#define IS_STR_PTR(v) ((VAL_U(v) & TYPE_MASK) == STR_PTR_TYPE)
-#define IS_STR_OWN(v) ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == STR_PTR_TYPE)
-#define IS_STR_REF(v)                                                          \
-  ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (STR_PTR_TYPE | OWNER_FLAG))
-#define STR_PTR(v) ((String *)PTR(v))
+
+#define IS_PTR_F(name, discriminant)                                           \
+  static inline bool is_##name##_ptr(Val v) {                                  \
+    return (val_u(v) & TYPE_MASK) == discriminant;                             \
+  }
+
+#define IS_PTR_OWN_F(name, discriminant)                                       \
+  static inline bool is_##name##_own(Val v) {                                  \
+    return (val_u(v) & (TYPE_MASK | REF_FLAG)) == discriminant;                \
+  }
+
+#define IS_PTR_REF_F(name, discriminant)                                       \
+  static inline bool is_##name##_ref(Val v) {                                  \
+    return (val_u(v) & (TYPE_MASK | REF_FLAG)) == (discriminant | REF_FLAG);   \
+  }
+
+#define PTR_F(name, type)                                                      \
+  static inline type *name##_ptr(Val v) { return (type *)ptr(v); }
+
+#define PTR_OWN_F(prefix, type, discriminant)                                  \
+  static inline Val prefix##_own(type *t) {                                    \
+    assert(!((intptr_t)t & REF_FLAG));                                         \
+    return u_val((intptr_t)t | discriminant);                                  \
+  }
+
+#define PTR_REF_F(prefix, type, discriminant)                                  \
+  static inline Val prefix##_ref(type *t) {                                    \
+    assert(!((intptr_t)t & REF_FLAG));                                         \
+    return u_val((intptr_t)t | discriminant | REF_FLAG);                       \
+  }
+
+IS_PTR_F(string, STR_PTR_TYPE)                 // is_string_ptr
+IS_PTR_OWN_F(string, STR_PTR_TYPE)             // is_string_own
+IS_PTR_REF_F(string, STR_PTR_TYPE)             // is_string_ref
+PTR_F(string, struct String)                   // string_ptr
+PTR_OWN_F(string, struct String, STR_PTR_TYPE) // string_own
+PTR_REF_F(string, struct String, STR_PTR_TYPE) // string_ref
 
 // Next, we define the Table pointer which has the following layout:
 // 01111111|11110101|........|........|........|........|........|.......o
 #define TABLE_PTR_TYPE BYTES(7f, f5, 00, 00, 00, 00, 00, 00)
-#define IS_TABLE_PTR(v) (VAL_U(v) & TYPE_MASK == TABLE_PTR_TYPE)
-#define IS_TABLE_OWN(v)                                                        \
-  ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == TABLE_PTR_TYPE)
-#define IS_TABLE_REF(v)                                                        \
-  ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (TABLE_PTR_TYPE | OWNER_FLAG))
-#define TABLE_PTR(v) ((Table *)PTR(v))
+IS_PTR_F(table, TABLE_PTR_TYPE)                // is_table_ptr
+IS_PTR_OWN_F(table, TABLE_PTR_TYPE)            // is_table_own
+IS_PTR_REF_F(table, TABLE_PTR_TYPE);           // is_table_ref
+PTR_F(table, struct Table);                    // table_ptr
+PTR_OWN_F(table, struct Table, TABLE_PTR_TYPE) // table_own
+PTR_REF_F(table, struct Table, TABLE_PTR_TYPE) // table_ref
 
 // The List pointer has the following layout:
 // 01111111|11110110|........|........|........|........|........|.......o
 #define LIST_PTR_TYPE BYTES(7f, f6, 00, 00, 00, 00, 00, 00)
-#define IS_LIST_PTR(v) (VAL_U(v) & TYPE_MASK == LIST_PTR_TYPE)
-#define IS_LIST_OWN(v) ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == LIST_PTR_TYPE)
-#define IS_LIST_REF(v)                                                         \
-  ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (LIST_PTR_TYPE | OWNER_FLAG))
-#define LIST_PTR(v) ((List *)PTR(v))
+IS_PTR_F(list, LIST_PTR_TYPE)               // is_list_ptr
+IS_PTR_OWN_F(list, LIST_PTR_TYPE)           // is_list_own
+IS_PTR_REF_F(list, LIST_PTR_TYPE);          // is_list_ref
+PTR_F(list, struct List);                   // list_ptr
+PTR_OWN_F(list, struct List, LIST_PTR_TYPE) // list_own
+PTR_REF_F(list, struct List, LIST_PTR_TYPE) // list_ref
 
 // We also define a "big" 64-bit signed integer pointer (i.e., int64_t):
 // 01111111|11110111|........|........|........|........|........|.......o
 #define INT_PTR_TYPE BYTES(7f, f7, 00, 00, 00, 00, 00, 00)
-#define IS_INT_PTR(v) ((VAL_U(v) & TYPE_MASK) == INT_PTR_TYPE)
-#define IS_INT_OWN(v) ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == INT_PTR_TYPE)
-#define IS_INT_REF(v)                                                          \
-  ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (INT_PTR_TYPE | OWNER_FLAG))
-#define INT_PTR(v) ((int64_t *)PTR(v))
+IS_PTR_F(int, INT_PTR_TYPE)             // is_int_ptr
+IS_PTR_OWN_F(int, INT_PTR_TYPE)         // is_int_own
+IS_PTR_REF_F(int, INT_PTR_TYPE);        // is_int_ref
+PTR_F(int, uint64_t);                   // int_ptr
+PTR_OWN_F(int, uint64_t, LIST_PTR_TYPE) // int_own
+PTR_REF_F(int, uint64_t, LIST_PTR_TYPE) // int_ref
 
 // The next pointer value type represents an error and points to a
 // null-terminated string which contains the error message.
@@ -135,21 +178,22 @@ static_assert(sizeof(max_align_t) >= 2, "pointer alginment >= 2");
 // cumbersome. We provide a few macros to help with that.
 // 01111111|11111100|........|........|........|........|........|.......o
 #define ERR_PTR_TYPE BYTES(7f, fc, 00, 00, 00, 00, 00, 00)
-#define IS_ERR_PTR(v) ((VAL_U(v) & TYPE_MASK) == ERR_PTR_TYPE)
-#define IS_ERR_OWN(v) ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == ERR_PTR_TYPE)
-#define IS_ERR_REF(v)                                                          \
-  ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (ERR_PTR_TYPE | OWNER_FLAG))
-#define ERR_PTR(v) ((char *)PTR(v))
+IS_PTR_F(err, ERR_PTR_TYPE)        // is_err_ptr
+IS_PTR_OWN_F(err, ERR_PTR_TYPE)    // is_err_own
+IS_PTR_REF_F(err, ERR_PTR_TYPE);   // is_err_ref
+PTR_F(err, char);                  // err_ptr
+PTR_OWN_F(err, char, ERR_PTR_TYPE) // err_own
+PTR_REF_F(err, char, ERR_PTR_TYPE) // err_ref
 
 // Finally, we define a Slice pointer value type:
 // 01111111|11111101|........|........|........|........|........|.......o
 #define SLICE_PTR_TYPE BYTES(7f, fd, 00, 00, 00, 00, 00, 00)
-#define IS_SLICE_PTR(v) ((VAL_U(v) & TYPE_MASK) == SLICE_PTR_TYPE)
-#define IS_SLICE_OWN(v)                                                        \
-  ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == SLICE_PTR_TYPE)
-#define IS_SLICE_REF(v)                                                        \
-  ((VAL_U(v) & (TYPE_MASK | OWNER_FLAG)) == (SLICE_PTR_TYPE | OWNER_FLAG))
-#define SLICE_PTR(v) ((Slice *)PTR(v))
+IS_PTR_F(slice, SLICE_PTR_TYPE)                // is_silce_ptr
+IS_PTR_OWN_F(slice, SLICE_PTR_TYPE)            // is_silce_own
+IS_PTR_REF_F(slice, SLICE_PTR_TYPE);           // is_silce_ref
+PTR_F(slice, struct Slice);                    // silce_ptr
+PTR_OWN_F(slice, struct Slice, SLICE_PTR_TYPE) // silce_own
+PTR_REF_F(slice, struct Slice, SLICE_PTR_TYPE) // silce_ref
 
 // The remaining two pointer value types are reserved for later use:
 // 01111111|11111110|........|........|........|........|........|.......o
@@ -167,9 +211,9 @@ static_assert(sizeof(max_align_t) >= 2, "pointer alginment >= 2");
 #define PAIR_DATA_TYPE BYTES(ff, f4, 00, 00, 00, 00, 00, 00)
 #define PAIR_A_MASK BYTES(00, 00, ff, ff, 00, 00, 00, 00)
 #define PAIR_B_MASK BYTES(00, 00, 00, 00, ff, ff, ff, ff)
-#define IS_PAIR_DATA(v) ((VAL_U(v) & TYPE_MASK) == PAIR_DATA_TYPE)
-#define PAIR_UA(v) ((uint16_t)((VAL_U(v) & PAIR_A_MASK) >> 32))
-#define PAIR_UB(v) ((uint32_t)(VAL_U(v) & PAIR_B_MASK))
+#define IS_PAIR_DATA(v) ((val_u(v) & TYPE_MASK) == PAIR_DATA_TYPE)
+#define PAIR_UA(v) ((uint16_t)((val_u(v) & PAIR_A_MASK) >> 32))
+#define PAIR_UB(v) ((uint32_t)(val_u(v) & PAIR_B_MASK))
 
 int16_t u16_i(uint16_t v) {
   union {
@@ -196,33 +240,33 @@ uint32_t u32_i(int32_t v) {
 // symbols and flags.
 // 11111111|11110101|uuuuuuuu|uuuuuuuu|uuuuuuuu|uuuuuuuu|........|........
 #define SYMB_DATA_TYPE BYTES(ff, f5, 00, 00, 00, 00, 00, 00)
-#define IS_SYMBOL_DATA(v) ((VAL_U(v) & TYPE_MASK) == SYMB_DATA_TYPE)
-#define VAL_FALSE (U_VAL(SYMB_DATA_TYPE))
-#define VAL_TRUE (U_VAL(SYMB_DATA_TYPE + 1))
-#define VAL_NIL (U_VAL(SYMB_DATA_TYPE + 2))
-#define IS_FALSE(v) (VAL_U(v) == VAL_FALSE)
-#define IS_TRUE(v) (VAL_U(v) == VAL_TRUE)
-#define IS_NIL(v) (VAL_U(v) == VAL_NIL)
+#define IS_SYMBOL_DATA(v) ((val_u(v) & TYPE_MASK) == SYMB_DATA_TYPE)
+#define VAL_FALSE (u_val(SYMB_DATA_TYPE))
+#define VAL_TRUE (u_val(SYMB_DATA_TYPE + 1))
+#define VAL_NIL (u_val(SYMB_DATA_TYPE + 2))
+#define IS_FALSE(v) (val_u(v) == VAL_FALSE)
+#define IS_TRUE(v) (val_u(v) == VAL_TRUE)
+#define IS_NIL(v) (val_u(v) == VAL_NIL)
 
 static inline bool is_res_symbol(Val v) {
-  return (VAL_U(v) >= SYMB_DATA_TYPE &&
-          VAL_U(v) <= SYMB_DATA_TYPE + BYTES(00, 00, 00, 00, 00, 00, ff, ff));
+  return (val_u(v) >= SYMB_DATA_TYPE &&
+          val_u(v) <= SYMB_DATA_TYPE + BYTES(00, 00, 00, 00, 00, 00, ff, ff));
 }
 
 static inline bool is_usr_symbol(Val v) {
-  return (VAL_U(v) >= SYMB_DATA_TYPE + BYTES(00, 00, 00, 00, 00, 01, 00, 00) &&
-          VAL_U(v) <= SYMB_DATA_TYPE + BYTES(00, 00, ff, ff, ff, ff, ff, ff));
+  return (val_u(v) >= SYMB_DATA_TYPE + BYTES(00, 00, 00, 00, 00, 01, 00, 00) &&
+          val_u(v) <= SYMB_DATA_TYPE + BYTES(00, 00, ff, ff, ff, ff, ff, ff));
 }
 
 #define USR_SYMBOL_MASK BYTES(00, 00, ff, ff, ff, ff, 00, 00)
-#define USR_SYMBOL(v) ((uint32_t)((VAL_U(v) & USR_SYMBOL_MASK) >> 16))
+#define USR_SYMBOL(v) ((uint32_t)((val_u(v) & USR_SYMBOL_MASK) >> 16))
 
 // There's also a 48-bit unsigned integer value:
 // 11111111|11110110|........|........|........|........|........|........
 #define UINT_DATA_TYPE BYTES(ff, f6, 00, 00, 00, 00, 00, 00)
 #define UINT_MASK BYTES(00, 00, ff, ff, ff, ff, ff, ff)
-#define IS_UINT_DATA(v) ((VAL_U(v) & TYPE_MASK) == UINT_DATA_TYPE)
-#define UINT(v) ((uint64_t)(VAL_U(v) & UINT_MASK))
+#define IS_UINT_DATA(v) ((val_u(v) & TYPE_MASK) == UINT_DATA_TYPE)
+#define UINT(v) ((uint64_t)(val_u(v) & UINT_MASK))
 #define UINT_DATA_MAX ((2 << 48) - 1)
 
 // The remaining five data value types are reserved for later use:
