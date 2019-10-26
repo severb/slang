@@ -18,7 +18,7 @@ uint32_t chars_hash(const char *c, uint32_t len) {
   return res;
 }
 
-static String *str_new_sized(uint32_t len) {
+static String *string_new_sized(uint32_t len) {
   String *res = ALLOCATE_FLEX(String, char, (size_t)len);
   if (res == 0)
     return 0;
@@ -34,7 +34,7 @@ String *chars_concat(char const *a, uint32_t len_a, char const *b,
   uint64_t len = len_a + len_b;
   if (len > UINT32_MAX)
     return 0;
-  String *res = str_new_sized(len);
+  String *res = string_new_sized(len);
   if (res == 0)
     return 0;
   memcpy(res->c, a, len_a);
@@ -44,20 +44,20 @@ String *chars_concat(char const *a, uint32_t len_a, char const *b,
 
 void chars_print(char const *c, uint32_t len) { printf("%.*s", len, c); }
 
-String *str_new(char const *c, uint32_t len) {
-  String *res = str_new_sized(len);
+String *string_new(char const *c, uint32_t len) {
+  String *res = string_new_sized(len);
   if (res == 0)
     return 0;
   memcpy(res->c, c, len);
   return res;
 }
 
-void str_free(String *s) { FREE_FLEX(s, String, char, (size_t)s->len); }
+void string_free(String *s) { FREE_FLEX(s, String, char, (size_t)s->len); }
 
 bool slice_equals(Slice *a, Slice *b) {
   if (a->len != b->len)
     return false;
-  if (SHASH(a) != SHASH(b))
+  if (S_HASH(a) != S_HASH(b))
     return false;
   if (a->c == b->c) // NB: compare ptrs only if len is eq
     return true;

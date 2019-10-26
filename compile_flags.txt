@@ -14,3 +14,4 @@
 -Wjump-misses-init
 -O2
 -std=c11
+-I.

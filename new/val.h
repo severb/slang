@@ -83,10 +83,10 @@ static inline bool is_data(Val v) {
 // reference.
 static_assert(sizeof(max_align_t) >= 2, "pointer alginment >= 2");
 #define REF_FLAG BYTES(00, 00, 00, 00, 00, 00, 00, 01)
-static inline bool is_own_ptr(Val v) {
+static inline bool is_ptr_own(Val v) {
   return (val_u(v) & (SIGN_FLAG | TAGGED_MASK | REF_FLAG)) == TAGGED_MASK;
 }
-static inline bool is_ref_ptr(Val v) {
+static inline bool is_ptr_ref(Val v) {
   return (val_u(v) & (SIGN_FLAG | TAGGED_MASK | REF_FLAG)) ==
          (TAGGED_MASK | REF_FLAG);
 }
@@ -246,13 +246,13 @@ static inline int32_t pair_b(Val v) {
 #define SYMB_DATA_TYPE BYTES(ff, f5, 00, 00, 00, 00, 00, 00)
 IS_DATA_F(symb, SYMB_DATA_TYPE); // is_symb_data
 
-static const Val VAL_FALSE = (Val){.u = SYMB_DATA_TYPE};
-static const Val VAL_TRUE = (Val){.u = SYMB_DATA_TYPE + 1};
-static const Val VAL_NIL = (Val){.u = SYMB_DATA_TYPE + 2};
+#define FALSE SYMB_DATA_TYPE
+#define TRUE (SYMB_DATA_TYPE + 1)
+#define NIL (SYMB_DATA_TYPE + 2)
 
-static int is_false(Val v) { return val_u(v) == val_u(VAL_FALSE); }
-static int is_true(Val v) { return val_u(v) == val_u(VAL_TRUE); }
-static int is_nil(Val v) { return val_u(v) == val_u(VAL_NIL); }
+static int is_false(Val v) { return val_u(v) == FALSE; }
+static int is_true(Val v) { return val_u(v) == TRUE; }
+static int is_nil(Val v) { return val_u(v) == NIL; }
 
 static inline bool is_res_symbol(Val v) {
   return (val_u(v) >= SYMB_DATA_TYPE &&
@@ -281,5 +281,13 @@ static inline uint64_t uint(Val v) { return val_u(v) & UINT_MASK; }
 // 11111111|11111101|........|........|........|........|........|........
 // 11111111|11111110|........|........|........|........|........|........
 // 11111111|11111111|........|........|........|........|........|........
+
+void val_destroy(Val *);
+void val_print(Val);
+void val_print_repr(Val);
+uint32_t val_hash(Val);
+bool val_truthy(Val);
+
+bool val_equals(Val, Val);
 
 #endif
