@@ -169,12 +169,12 @@ PTR_REF_F(list, struct List, LIST_PTR_TYPE) // list_ref
 // We also define a "big" 64-bit signed integer pointer (i.e., int64_t):
 // 01111111|11110111|........|........|........|........|........|.......o
 #define INT_PTR_TYPE BYTES(7f, f7, 00, 00, 00, 00, 00, 00)
-IS_PTR_F(int, INT_PTR_TYPE)             // is_int_ptr
-IS_PTR_OWN_F(int, INT_PTR_TYPE)         // is_int_own
-IS_PTR_REF_F(int, INT_PTR_TYPE)         // is_int_ref
-PTR_F(int, uint64_t)                    // int_ptr
-PTR_OWN_F(int, uint64_t, LIST_PTR_TYPE) // int_own
-PTR_REF_F(int, uint64_t, LIST_PTR_TYPE) // int_ref
+IS_PTR_F(int, INT_PTR_TYPE)            // is_int_ptr
+IS_PTR_OWN_F(int, INT_PTR_TYPE)        // is_int_own
+IS_PTR_REF_F(int, INT_PTR_TYPE)        // is_int_ref
+PTR_F(int, int64_t)                    // int_ptr
+PTR_OWN_F(int, int64_t, LIST_PTR_TYPE) // int_own
+PTR_REF_F(int, int64_t, LIST_PTR_TYPE) // int_ref
 
 // The next pointer value type represents an error and points to another Val
 // which contains the error context (usually a String or Slice).
@@ -208,8 +208,8 @@ PTR_REF_F(slice, struct Slice, SLICE_PTR_TYPE) // silce_ref
 // A double is also a data value type, but it's special because it acts as the
 // "hosting" type for all other value types through NaN tagging.
 
-// The first data value type is the unsigned Pair. It stores a pair of two
-// integers a and b. a's size is two bytes and b's size is four bytes:
+// The first data value type is the Pair. It stores a pair of two integers a
+// and b. a's size is two bytes and b's size is four bytes:
 // 11111111|11110100|aaaaaaaa|aaaaaaaa|bbbbbbbb|bbbbbbbb|bbbbbbbb|bbbbbbbb
 #define PAIR_DATA_TYPE BYTES(ff, f4, 00, 00, 00, 00, 00, 00)
 
@@ -266,16 +266,8 @@ static inline bool is_usr_symbol(Val v) {
 
 static inline uint32_t usr_symb(Val v) { return val_u(v) >> 16; }
 
-// There's also a 48-bit unsigned integer value:
+// The remaining data value types are reserved for later use:
 // 11111111|11110110|........|........|........|........|........|........
-#define UINT_DATA_TYPE BYTES(ff, f6, 00, 00, 00, 00, 00, 00)
-IS_DATA_F(uint, UINT_DATA_TYPE) // is_uint_data
-
-#define UINT_DATA_MAX ((2 << 48) - 1)
-#define UINT_MASK BYTES(00, 00, ff, ff, ff, ff, ff, ff)
-static inline uint64_t uint(Val v) { return val_u(v) & UINT_MASK; }
-
-// The remaining five data value types are reserved for later use:
 // 11111111|11110111|........|........|........|........|........|........
 // 11111111|11111100|........|........|........|........|........|........
 // 11111111|11111101|........|........|........|........|........|........

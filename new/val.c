@@ -71,9 +71,6 @@ void val_print(Val v) {
       break;
     }
     break;
-  case UINT_DATA_TYPE:
-    printf("%luu", uint(v));
-    break;
   default:
     assert(0);
   }
@@ -128,11 +125,6 @@ void val_print_repr(Val v) {
     val_print(v);
     printf(">");
     break;
-  case UINT_DATA_TYPE:
-    printf("<UINT ");
-    val_print(v);
-    printf(">");
-    break;
   default:
     assert(0);
   }
@@ -140,49 +132,54 @@ void val_print_repr(Val v) {
 }
 
 uint32_t val_hash(Val v) {
+#define HASH_HALVES(i) ((i >> 32) ^ i)
   switch (val_u(v) | TYPE_MASK) {
   case STRING_PTR_TYPE:
     return S_HASH(string_ptr(v));
   case TABLE_PTR_TYPE:
   case LIST_PTR_TYPE:
     return (intptr_t)ptr(v) >> sizeof(max_align_t);
-  case INT_PTR_TYPE:
-    return (uint(v) >> 32) && uint(v);
+  case INT_PTR_TYPE: {
+    uint64_t i = (uint64_t)*int_ptr(v);
+    return HASH_HALVES(i);
+  }
   case ERR_PTR_TYPE:
-    return val_hash(*err_ptr(v));
+    return val_hash(*err_ptr(v)) + 17;
   case SLICE_PTR_TYPE:
     return S_HASH(slice_ptr(v));
   case PAIR_DATA_TYPE: // for data xor the halves
   case SYMB_DATA_TYPE:
-  case UINT_DATA_TYPE:
-    return (val_u(v) >> 32) ^ (val_u(v));
+    return HASH_HALVES(val_u(v));
   default:
     assert(0);
   }
+#undef HASH_HALVES
 }
 
 bool val_truthy(Val v) { return !(is_nil(v) || is_false(v)); }
 
 bool val_equals(Val a, Val b) {
   switch (val_u(a) | TYPE_MASK) {
+  case SLICE_PTR_TYPE:
+    return (val_u(a) == val_u(b)) ||
+           (is_string_ptr(b) && S_EQUALS(slice_ptr(a), string_ptr(b))) ||
+           (is_slice_ptr(b) && S_EQUALS(slice_ptr(a), slice_ptr(b)));
   case STRING_PTR_TYPE:
-    return (is_string_ptr(b) && S_EQUALS(string_ptr(a), string_ptr(b))) ||
+    return (val_u(a) == val_u(b)) ||
+           (is_string_ptr(b) && S_EQUALS(string_ptr(a), string_ptr(b))) ||
            (is_slice_ptr(b) && S_EQUALS(string_ptr(a), slice_ptr(b)));
-  case TABLE_PTR_TYPE:
-  case LIST_PTR_TYPE:
-    return ptr(a) == ptr(b);
   case INT_PTR_TYPE:
-    return is_int_ptr(b) && *int_ptr(a) == *int_ptr(b);
+    return (val_u(a) == val_u(b)) ||
+           (is_int_ptr(b) && (*int_ptr(a) == *int_ptr(b))) ||
+           (is_pair_data(b) && (pair_ua(b) == 0) && (*int_ptr(a) == pair_b(b)));
+  case PAIR_DATA_TYPE:
+    return (val_u(a) == val_u(b)) ||
+           ((pair_ua(a) == 0) && is_int_ptr(b) && (pair_b(a) == *int_ptr(b)));
   case ERR_PTR_TYPE:
     return is_err_ptr(b) && val_equals(*err_ptr(a), *err_ptr(b));
-  case SLICE_PTR_TYPE:
-    return (is_string_ptr(b) && S_EQUALS(slice_ptr(a), string_ptr(b))) ||
-           (is_slice_ptr(b) && S_EQUALS(slice_ptr(a), slice_ptr(b)));
-  case PAIR_DATA_TYPE: // for data xor the halves
-    return is_pair_data(b) &&
-           (pair_ub(a) == pair_ub(b) && pair_ua(a) == pair_ua(b));
+  case TABLE_PTR_TYPE:
+  case LIST_PTR_TYPE:
   case SYMB_DATA_TYPE:
-  case UINT_DATA_TYPE:
     return val_u(a) == val_u(b);
   default:
     assert(0);
