@@ -93,8 +93,7 @@ static inline bool is_ptr_ref(Val v) {
          (TAGGED_MASK | REF_FLAG);
 }
 static inline Val ref(Val v) {
-  assert(is_ptr(v));
-  return u_val(val_u(v) & REF_FLAG);
+  return is_ptr_own(v) ? u_val(val_u(v) & REF_FLAG) : v;
 }
 
 // PTR_MASK isolates the pointer value and ignores the ownership flag.
@@ -175,12 +174,12 @@ PTR_REF_F(list, struct List, LIST_PTR_TYPE) // list_ref
 // We also define a "big" 64-bit signed integer pointer (i.e., int64_t):
 // 01111111|11110111|........|........|........|........|........|.......o
 #define INT_PTR_TYPE BYTES(7f, f7, 00, 00, 00, 00, 00, 00)
-IS_PTR_F(int, INT_PTR_TYPE)            // is_int_ptr
-IS_PTR_OWN_F(int, INT_PTR_TYPE)        // is_int_own
-IS_PTR_REF_F(int, INT_PTR_TYPE)        // is_int_ref
-PTR_F(int, int64_t)                    // int_ptr
-PTR_OWN_F(int, int64_t, LIST_PTR_TYPE) // int_own
-PTR_REF_F(int, int64_t, LIST_PTR_TYPE) // int_ref
+IS_PTR_F(int, INT_PTR_TYPE)           // is_int_ptr
+IS_PTR_OWN_F(int, INT_PTR_TYPE)       // is_int_own
+IS_PTR_REF_F(int, INT_PTR_TYPE)       // is_int_ref
+PTR_F(int, int64_t)                   // int_ptr
+PTR_OWN_F(int, int64_t, INT_PTR_TYPE) // int_own
+PTR_REF_F(int, int64_t, INT_PTR_TYPE) // int_ref
 
 // The next pointer value type represents an error and points to another Val
 // which contains the error context (usually a String or Slice).
@@ -237,20 +236,28 @@ IS_DATA_F(pair, PAIR_DATA_TYPE) // is_pair_data
 static inline uint16_t pair_ua(Val v) { return val_u(v) >> 32; }
 static inline uint32_t pair_ub(Val v) { return val_u(v); }
 
+union i16 {
+  uint16_t as_uint16_t;
+  int16_t as_int16_t;
+};
+union i32 {
+  uint32_t as_uint32_t;
+  int32_t as_int32_t;
+};
 static inline int16_t pair_a(Val v) {
-  union {
-    uint16_t as_uint16_t;
-    int16_t as_int16_t;
-  } x = {.as_uint16_t = pair_ua(v)};
-  return x.as_int16_t;
+  return (union i16){.as_uint16_t = pair_ua(v)}.as_int16_t;
+}
+static inline int32_t pair_b(Val v) {
+  return (union i32){.as_uint32_t = pair_ub(v)}.as_int32_t;
 }
 
-static inline int32_t pair_b(Val v) {
-  union {
-    uint32_t as_uint32_t;
-    int32_t as_int32_t;
-  } x = {.as_int32_t = pair_ub(v)};
-  return x.as_uint32_t;
+static inline Val upair(uint16_t a, uint32_t b) {
+  return u_val(PAIR_DATA_TYPE | ((uint64_t)a << 32) | b);
+}
+static inline Val pair(int16_t a, int32_t b) {
+  uint16_t ua = (union i16){.as_int16_t = a}.as_uint16_t;
+  uint32_t ub = (union i32){.as_int32_t = b}.as_uint32_t;
+  return upair(ua, ub);
 }
 
 // Next is the Symbol value which defines the following symbols: FALSE, TRUE,
