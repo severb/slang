@@ -15,7 +15,7 @@ void list_destroy(List *list) {
   if (list == 0)
     return;
   for (size_t i = 0; i < list->len; i++) {
-    val_destroy(&list->vals[i]);
+    val_destroy(list->vals[i]);
   }
   FREE_ARRAY(list->vals, Val, list->cap);
   list_init(list);
@@ -52,15 +52,17 @@ void list_seal(List *list) {
 }
 
 Val list_get(const List *list, size_t i) {
+  DECL_STATIC_ERR(err_bad_index, "bad index")
   assert(list->cap >= list->len);
   if (i < list->len)
-    return list->vals[i]; // TODO: return reference
-  return 0;               // TODO: return error
+    return ref(list->vals[i]);
+  return err_bad_index;
 }
 
 Val list_pop(List *list) {
+  DECL_STATIC_ERR(err_empty_list, "pop from empty list");
   if (list->len == 0)
-    return 0; // TODO: return error
+    return err_empty_list;
   list->len--;
-  return list->vals[list->len]; // TODO: return reference
+  return ref(list->vals[list->len]);
 }

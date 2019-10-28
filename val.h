@@ -1,6 +1,8 @@
 #ifndef clox_val_h
 #define clox_val_h
 
+#include "str.h" // TXT_SLICE
+
 #include <assert.h>  // static_assert, assert
 #include <stdbool.h> // bool
 #include <stddef.h>  // max_align_t
@@ -90,6 +92,10 @@ static inline bool is_ptr_ref(Val v) {
   return (val_u(v) & (SIGN_FLAG | TAGGED_MASK | REF_FLAG)) ==
          (TAGGED_MASK | REF_FLAG);
 }
+static inline Val ref(Val v) {
+  assert(is_ptr(v));
+  return u_val(val_u(v) & REF_FLAG);
+}
 
 // PTR_MASK isolates the pointer value and ignores the ownership flag.
 #define PTR_MASK BYTES(00, 00, FF, FF, FF, FF, FF, FE)
@@ -129,13 +135,13 @@ static inline bool same_type(Val a, Val b) {
 
 #define PTR_OWN_F(prefix, type, discriminant)                                  \
   static inline Val prefix##_own(type *t) {                                    \
-    assert(!((intptr_t)t & (~PTR_MASK | REF_FLAG)));                           \
+    assert(((intptr_t)t & (TYPE_MASK | REF_FLAG)) == 0);                       \
     return u_val((intptr_t)t | discriminant);                                  \
   }
 
 #define PTR_REF_F(prefix, type, discriminant)                                  \
   static inline Val prefix##_ref(type *t) {                                    \
-    assert(!((intptr_t)t & (~PTR_MASK | REF_FLAG)));                           \
+    assert(((intptr_t)t & (TYPE_MASK | REF_FLAG)) == 0);                       \
     return u_val((intptr_t)t | discriminant | REF_FLAG);                       \
   }
 
@@ -187,6 +193,15 @@ IS_PTR_REF_F(err, ERR_PTR_TYPE)   // is_err_ref
 PTR_F(err, Val)                   // err_ptr
 PTR_OWN_F(err, Val, ERR_PTR_TYPE) // err_own
 PTR_REF_F(err, Val, ERR_PTR_TYPE) // err_ref
+
+#define DECL_STATIC_ERR(name, text)                                            \
+  static Slice const name##__slice = TXT_SLICE(text);                          \
+  assert(((intptr_t)&name##__slice & (TYPE_MASK | REF_FLAG)) == 0);            \
+  static Val const name##__val = {                                             \
+      .u = (REF_FLAG + SLICE_PTR_TYPE + (uintptr_t)&name##__slice)};           \
+  assert(((intptr_t)&name##__val & (TYPE_MASK | REF_FLAG)) == 0);              \
+  static Val const name = {                                                    \
+      .u = (REF_FLAG + ERR_PTR_TYPE + (uintptr_t)&name##__val)};
 
 // Finally, we define a Slice pointer value type:
 // 01111111|11111101|........|........|........|........|........|.......o
