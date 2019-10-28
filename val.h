@@ -274,7 +274,7 @@ static inline uint32_t usr_symb(Val v) { return val_u(v) >> 16; }
 // 11111111|11111110|........|........|........|........|........|........
 // 11111111|11111111|........|........|........|........|........|........
 
-void val_destroy(Val *);
+void val_destroy(Val);
 void val_print(Val);
 void val_print_repr(Val);
 uint32_t val_hash(Val);

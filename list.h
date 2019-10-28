@@ -1,21 +1,20 @@
-#ifndef clox_array_h
-#define clox_array_h
+#ifndef clox_list_h
+#define clox_list_h
 
-#include "common.h"
 #include "val.h"
 
-typedef struct sArray {
+typedef struct List {
   size_t cap;
   size_t len;
   Val *vals;
-} Array;
+} List;
 
-Array *array_init(Array *);
-void array_destroy(Array *);
+List *list_init(List *);
+void list_destroy(List *);
 
-size_t array_append(Array *, Val *);
-void array_seal(Array *);
-Val *array_get(const Array *, size_t i);
-Val *array_pop(Array *);
+size_t list_append(List *, Val);
+void list_seal(List *);
+Val list_get(const List *, size_t idx);
+Val list_pop(List *);
 
 #endif

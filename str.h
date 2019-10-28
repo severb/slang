@@ -36,7 +36,7 @@ static inline Slice slice(char const *c, uint32_t len) {
   };
 }
 // TXT_SLICE() create slices out of C string literals.
-#define TXT_SLICE(s) slice((s), sizeof(s) - 1)
+#define TXT_SLICE(s) ((Slice){.c = (s), .len = sizeof(s) - 1})
 
 String *chars_concat(char const *a, uint32_t len_a, char const *b,
                      uint32_t len_b);

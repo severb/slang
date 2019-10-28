@@ -1,50 +1,66 @@
-#include "array.h"
+#include "list.h"
+
 #include "mem.h"
+#include "str.h"
 #include "val.h"
 
-Array *array_init(Array *array) {
-  if (array == 0)
+List *list_init(List *list) {
+  if (list == 0)
     return 0;
-  *array = (Array){0};
-  return array;
+  *list = (List){.cap = 0, .len = 0, .vals = 0};
+  return list;
 }
 
-void array_destroy(Array *array) {
-  if (array == 0)
+void list_destroy(List *list) {
+  if (list == 0)
     return;
-  for (int i = 0; i < array->len; i++) {
-    val_destroy(&array->vals[i]);
+  for (size_t i = 0; i < list->len; i++) {
+    val_destroy(&list->vals[i]);
   }
-  FREE_ARRAY(array->vals, Val, array->cap);
-  array_init(array);
+  FREE_ARRAY(list->vals, Val, list->cap);
+  list_init(list);
 }
 
-size_t array_append(Array *array, Val *val) {
-  if (array->cap < array->len + 1) {
-    int old_cap = array->cap;
-    array->cap = GROW_CAPACITY(old_cap);
-    array->vals = GROW_ARRAY(array->vals, Val, old_cap, array->cap);
+// Append the value and return its index. SIZE_MAX is an invalid index and it's
+// returend on error.
+size_t list_append(List *list, Val val) {
+  assert(list->cap >= list->len);
+  if (list->cap == list->len) {
+    size_t old_cap = list->cap;
+    if (list->cap < 8) {
+      list->cap = 8;
+    } else if (list->cap <= (SIZE_MAX / 2 / sizeof(Val) - 1)) {
+      list->cap *= 2;
+    } else {
+      return SIZE_MAX;
+    }
+    list->vals = GROW_ARRAY(list->vals, Val, old_cap, list->cap);
+    if (list->vals == 0) {
+      return SIZE_MAX;
+    }
   }
-  array->vals[array->len] = *val;
-  *val = VAL_LIT_NIL;
-  array->len++;
-  return array->len - 1;
+  size_t idx = list->len;
+  list->len++;
+  list->vals[idx] = val;
+  return idx;
 }
 
-void array_seal(Array *array) {
-  array->vals = GROW_ARRAY(array->vals, Val, array->cap, array->len);
-  array->cap = array->len;
+void list_seal(List *list) {
+  assert(list->cap >= list->len);
+  list->vals = GROW_ARRAY(list->vals, Val, list->cap, list->len);
+  list->cap = list->len;
 }
 
-Val *array_get(const Array *array, size_t i) {
-  if (!(0 <= i && i < array->len))
-    return 0;
-  return &array->vals[i];
+Val list_get(const List *list, size_t i) {
+  assert(list->cap >= list->len);
+  if (i < list->len)
+    return list->vals[i]; // TODO: return reference
+  return 0;               // TODO: return error
 }
 
-Val *array_pop(Array *array) {
-  if (array->len == 0)
-    return 0;
-  array->len--;
-  return &array->vals[array->len];
+Val list_pop(List *list) {
+  if (list->len == 0)
+    return 0; // TODO: return error
+  list->len--;
+  return list->vals[list->len]; // TODO: return reference
 }

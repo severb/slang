@@ -1,5 +1,6 @@
-#include "new/val.h"
+#include "val.h"
 
+#include "list.h"  // list_destroy
 #include "mem.h"   // FREE
 #include "str.h"   // string_free
 #include "table.h" // table_destroy
@@ -8,32 +9,31 @@
 #include <stdint.h> // uint64_t, intptr_t
 #include <stdio.h>  // printf
 
-void val_destroy(Val *v) {
-  if (is_ptr_own(*v)) {
-    switch (val_u(*v) | TYPE_MASK) {
+void val_destroy(Val v) {
+  if (is_ptr_own(v)) {
+    switch (val_u(v) | TYPE_MASK) {
     case STRING_PTR_TYPE:
-      string_free(string_ptr(*v));
+      string_free(string_ptr(v));
       break;
     case TABLE_PTR_TYPE:
-      table_destroy(table_ptr(*v));
+      table_destroy(table_ptr(v));
     case LIST_PTR_TYPE:
-      // list_destroy(list_ptr(*v));
+      list_destroy(list_ptr(v));
       break;
     case INT_PTR_TYPE:
-      FREE(int_ptr(*v), uint64_t);
+      FREE(int_ptr(v), uint64_t);
       break;
     case ERR_PTR_TYPE:
-      val_destroy(err_ptr(*v));
-      FREE(err_ptr(*v), Val);
+      val_destroy(*err_ptr(v));
+      FREE(err_ptr(v), Val);
       break;
     case SLICE_PTR_TYPE:
-      FREE(slice_ptr(*v), Slice);
+      FREE(slice_ptr(v), Slice);
       break;
     default:
       assert(0);
     }
   }
-  *v = u_val(NIL);
 }
 
 void val_print(Val v) {
