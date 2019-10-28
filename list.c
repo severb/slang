@@ -21,8 +21,6 @@ void list_destroy(List *list) {
   list_init(list);
 }
 
-// Append the value and return its index. SIZE_MAX is an invalid index and it's
-// returend on error.
 size_t list_append(List *list, Val val) {
   assert(list->cap >= list->len);
   if (list->cap == list->len) {
