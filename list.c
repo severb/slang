@@ -29,7 +29,8 @@ size_t list_append(List *list, Val val) {
     size_t old_cap = list->cap;
     if (list->cap < 8) {
       list->cap = 8;
-    } else if (list->cap <= (SIZE_MAX / 2 / sizeof(Val) - 1)) {
+    } else if (list->cap <= (SIZE_MAX / 2 / sizeof(Val))) {
+      // NB: cap < SIZE_MAX for sizeof(Val) > 1
       list->cap *= 2;
     } else {
       return SIZE_MAX;
