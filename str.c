@@ -3,18 +3,18 @@
 #include "mem.h" // ALLOCATE_FLEX, FREE_FLEX
 
 #include <stdbool.h> // bool, false, true
-#include <stdint.h>  // uint64_t, uint32_t, UINT32_MAX
+#include <stdint.h>  // uint64_t, uint32_t, UINT32_MAX, UINT32_C
 #include <stdio.h>   // printf
 #include <string.h>  // memcpy, size_t
 
 uint32_t chars_hash(const char *c, uint32_t len) {
-  uint32_t res = 2166136261u;
+  uint32_t res = UINT32_C(2166136261);
   for (uint32_t i = 0; i < len; i++) {
     res ^= c[i];
-    res *= 16777619u;
+    res *= UINT32_C(16777619);
   }
   if (!res)
-    res = 7777777;
+    res = UINT32_C(7777777);
   return res;
 }
 
@@ -53,13 +53,3 @@ String *string_new(char const *c, uint32_t len) {
 }
 
 void string_free(String *s) { FREE_FLEX(s, String, char, (size_t)s->len); }
-
-bool slice_equals(Slice *a, Slice *b) {
-  if (a->len != b->len)
-    return false;
-  if (S_HASH(a) != S_HASH(b))
-    return false;
-  if (a->c == b->c) // NB: compare ptrs only if len is eq
-    return true;
-  return memcmp(a->c, b->c, a->len) == 0;
-}

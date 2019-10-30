@@ -1,8 +1,11 @@
 #include "list.h"
 
-#include "mem.h"
-#include "str.h"
-#include "val.h"
+#include "mem.h" // FREE_ARRAY
+#include "val.h" // val_destroy
+
+#include <assert.h> // assert
+#include <stdio.h>  // fptus, stderr
+#include <stdlib.h> // abort, size_t
 
 List *list_init(List *list) {
   if (list == 0)
@@ -21,47 +24,26 @@ void list_destroy(List *list) {
   list_init(list);
 }
 
-size_t list_append(List *list, Val val) {
+void list_grow(List *list) {
   assert(list->cap >= list->len);
-  if (list->cap == list->len) {
-    size_t old_cap = list->cap;
-    if (list->cap < 8) {
-      list->cap = 8;
-    } else if (list->cap <= (SIZE_MAX / 2 / sizeof(Val))) {
-      // NB: cap < SIZE_MAX for sizeof(Val) > 1
-      list->cap *= 2;
-    } else {
-      return SIZE_MAX;
-    }
-    list->vals = GROW_ARRAY(list->vals, Val, old_cap, list->cap);
-    if (list->vals == 0) {
-      return SIZE_MAX;
-    }
+  size_t old_cap = list->cap;
+  if (list->cap < 8) {
+    list->cap = 8;
+  } else if (list->cap <= (SIZE_MAX / 2 / sizeof(Val))) {
+    list->cap *= 2;
+  } else {
+    fputs("list exceeds its maximum length", stderr);
+    abort();
   }
-  size_t idx = list->len;
-  list->len++;
-  list->vals[idx] = val;
-  return idx;
+  list->vals = GROW_ARRAY(list->vals, Val, old_cap, list->cap);
+  if (list->vals == 0) {
+    fputs("not enough memory to grow the list", stderr);
+    abort();
+  }
 }
 
 void list_seal(List *list) {
   assert(list->cap >= list->len);
   list->vals = GROW_ARRAY(list->vals, Val, list->cap, list->len);
   list->cap = list->len;
-}
-
-Val list_get(const List *list, size_t i) {
-  DECL_STATIC_ERR(err_bad_index, "bad index")
-  assert(list->cap >= list->len);
-  if (i < list->len)
-    return ref(list->vals[i]);
-  return err_bad_index;
-}
-
-Val list_pop(List *list) {
-  DECL_STATIC_ERR(err_empty_list, "pop from empty list");
-  if (list->len == 0)
-    return err_empty_list;
-  list->len--;
-  return ref(list->vals[list->len]);
 }
