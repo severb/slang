@@ -1,9 +1,9 @@
 #include "val.h"
 
-#include "list.h" // list_destroy
-#include "mem.h"  // FREE
-#include "str.h"  // string_free
-// #include "table.h" // table_destroy
+#include "list.h"  // list_destroy
+#include "mem.h"   // FREE
+#include "str.h"   // string_free
+#include "table.h" // table_destroy
 
 #include <inttypes.h> // PRId64, PRId32, PRId16
 #include <stddef.h>   // max_align_t
@@ -17,7 +17,7 @@ void val_destroy(Val v) {
       string_free(string_ptr(v));
       break;
     case TABLE_PTR_TYPE:
-      // table_destroy(table_ptr(v));
+      table_destroy(table_ptr(v));
       break;
     case LIST_PTR_TYPE:
       list_destroy(list_ptr(v));
@@ -46,7 +46,7 @@ void val_print(Val v) {
     break;
   }
   case TABLE_PTR_TYPE:
-    // printf("<table[%zu]>", table_ptr(v)->len);
+    printf("<table[%zu]>", table_ptr(v)->len);
     break;
   case LIST_PTR_TYPE:
     printf("<list[%zu]>", list_ptr(v)->len);
@@ -104,7 +104,7 @@ void val_print_repr(Val v) {
     printf("'>");
     break;
   case TABLE_PTR_TYPE:
-    // printf("<TABLE[%zu] ", table_ptr(v)->len);
+    printf("<TABLE[%zu] ", table_ptr(v)->len);
     PTR_DETAILS;
     printf(">");
     break;
