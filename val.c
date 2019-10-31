@@ -152,21 +152,22 @@ void val_print_repr(Val v) {
 }
 
 uint32_t val_hash(Val v) {
-#define HASH_HALVES(i) ((i >> 32) ^ i)
+#define HASH_HALVES(i) ((((i) >> 32) ^ (i)) * 3)
   switch (val_u(v) & TYPE_MASK) {
   case STRING_PTR_TYPE: {
     String *s = string_ptr(v);
     return unsafe_hash(s);
   }
   case TABLE_PTR_TYPE:
-  case LIST_PTR_TYPE:
-    return (uintptr_t)ptr(v) >> sizeof(max_align_t);
+  case LIST_PTR_TYPE: {
+    return ((uintptr_t)ptr(v) >> sizeof(max_align_t)) * 3 + 5;
+  }
   case INT_PTR_TYPE: {
     uint64_t i = (uint64_t)*int_ptr(v);
     return HASH_HALVES(i);
   }
   case ERR_PTR_TYPE:
-    return val_hash(*err_ptr(v)) + 17;
+    return val_hash(*err_ptr(v)) * 5 + 17;
   case SLICE_PTR_TYPE: {
     Slice *s = slice_ptr(v);
     return unsafe_hash(s);

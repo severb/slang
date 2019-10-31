@@ -3,11 +3,10 @@
 #include <string.h>
 #include <time.h>
 
-#include "../common.h"
-#include "../mem.h"
-#include "../str.h"
-#include "../table.h"
-#include "../val.h"
+#include "mem.h"
+#include "str.h"
+#include "table.h"
+#include "val.h"
 
 #define CYCLES 10000000
 
@@ -25,17 +24,17 @@ int main(int argc, const char *argv[]) {
   srand(1337);
 
   clock_t start = clock();
-
-  for (int i = 0; i < CYCLES; i++) {
+  for (uint32_t i = 0; i < CYCLES; i++) {
     int n = rand() % keyspace;
-    Val key = VAL_LIT_NUMBER(n);
-    Val val = VAL_LIT_NUMBER(i);
-    table_set(&tbench, &key, &val);
+    Val key = pair(0, n);
+    Val val = upair(1, i);
+    table_set(&tbench, key, val);
   }
   clock_t duration = clock() - start;
 
-  printf("numbers\n");
-  printf("cap:%8lu len:%8lu duration:%8lu\n", tbench.cap, tbench.len, duration);
+  fprintf(stderr, "numbers\n");
+  fprintf(stderr, "cap:%8lu len:%8lu duration:%8lu\n", tbench.cap, tbench.len,
+          duration);
 
   keyspace += 12;
   char *c = GROW_ARRAY(0, char, 0, keyspace);
@@ -43,26 +42,31 @@ int main(int argc, const char *argv[]) {
                    "abcdefghijklmnopqrstuvwxyz"
                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   char *dest = c;
-  int i = keyspace;
-  while (i-- > 0) {
+  int j = keyspace;
+  while (j-- > 0) {
     size_t index = (double)rand() / RAND_MAX * (sizeof charset - 1);
     *dest++ = charset[index];
   }
 
   table_destroy(&tbench);
+
+  table_init(&tbench);
+  Slice *slices = GROW_ARRAY(0, Slice, 0, keyspace);
+  for (uint32_t i = 0; i < keyspace; i++) {
+    slices[i] = slice(&c[i % (keyspace - 1)], 12);
+  }
   start = clock();
 
   for (int i = 0; i < CYCLES; i++) {
-    Slice k_v;
-    slice_init(&k_v, &c[i % (keyspace - 12)], 12);
-    Val key = VAL_LIT_SLICE(k_v);
-    Val val = VAL_LIT_SLICE(k_v);
-    table_set(&tbench, &key, &val);
+    uint32_t n = i % keyspace;
+    Val kv = slice_ref(&slices[n]);
+    table_set(&tbench, kv, kv);
   }
   duration = clock() - start;
 
-  printf("slices\n");
-  printf("cap:%8lu len:%8lu duration:%8lu\n", tbench.cap, tbench.len, duration);
+  fprintf(stderr, "slices\n");
+  fprintf(stderr, "cap:%8lu len:%8lu duration:%8lu\n", tbench.cap, tbench.len,
+          duration);
 
   table_destroy(&tbench);
 
