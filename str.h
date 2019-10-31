@@ -11,7 +11,7 @@ typedef struct String {
   char c[];
 } String;
 
-String *string_new(const char *, uint32_t len);
+String *string_new(char const *, uint32_t len);
 #define STRING(s) (string_new(#s, sizeof(#s) - 1))
 
 void string_free(String *);
@@ -19,7 +19,7 @@ void string_free(String *);
 typedef struct Slice {
   uint32_t len;
   uint32_t hash;
-  const char *c;
+  char const *c;
 } Slice;
 
 // chars_hash() returns a non-zero hash value.
