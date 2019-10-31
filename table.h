@@ -1,7 +1,10 @@
 #ifndef clox_table_h
 #define clox_table_h
 
-#include "val.h"
+#include "val.h" // Val
+
+#include <stdbool.h> // bool
+#include <stdlib.h>  // size_t
 
 typedef struct {
   Val key;
@@ -17,16 +20,17 @@ typedef struct Table {
 Table *table_init(Table *);
 void table_destroy(Table *);
 
-#define SET_NEW usr_val_(0)
-#define SET_OVERRIDE usr_val_(1)
+// table_set() sets the key and returns true if the pair is new.
+bool table_set(Table *, Val key, Val);
+Val table_setorgetref(Table *, Val key, Val);
 
-// table_set() returns an error Val if the table cannot grow or a user symbol
-// (either SET_NEW or SET_OVERRIDE) to indicate if the key/value pair is new.
-Val table_set(Table *, Val key, Val);
+// key_err is returned when the key is not found and can be used with val_biteq
+// to check if the operation was successful or not.
+extern Val key_err;
 
-Val table_setdefault(Table *, Val key, Val);
-Val table_get(const Table *, Val key);
+Val table_getref(const Table *, Val key);
 Val table_pop(Table *, Val key);
+bool table_del(Table *, Val key);
 
 typedef struct {
   Entry *entries;

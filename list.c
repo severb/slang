@@ -32,7 +32,7 @@ void list_grow(List *list) {
   } else if (list->cap <= (SIZE_MAX / 2 / sizeof(Val))) {
     list->cap *= 2;
   } else {
-    fputs("list exceeds its maximum length", stderr);
+    fputs("list exceeds its maximum capacity", stderr);
     abort();
   }
   list->vals = GROW_ARRAY(list->vals, Val, old_cap, list->cap);

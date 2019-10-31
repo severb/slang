@@ -1,7 +1,7 @@
 #ifndef clox_list_h
 #define clox_list_h
 
-#include "val.h" // Val
+#include "val.h" // Val, ref
 
 #include <assert.h> // assert
 #include <stddef.h> // size_t
@@ -36,7 +36,6 @@ static inline Val list_get(const List *list, size_t idx) {
 }
 
 static inline Val list_getref(const List *list, size_t idx) {
-  assert(idx < list->len);
   return ref(list_get(list, idx));
 }
 

@@ -1,17 +1,24 @@
 #include "table.h"
 
+#include "err.h" // ERROR
 #include "mem.h" // FREE_ARRAY, GROW_ARRAY
-#include "val.h" // BYTES, SYMB_DATA_TYPE, Val, val_u, ref
+#include "val.h" // Val, val_biteq, usr_val_, val_destroy, val_hash, ref
 
-#include <assert.h> // assert
+#include <assert.h>  // assert
+#include <stdbool.h> // bool
+#include <stdio.h>   // fptus, stderr
+#include <stdlib.h>  // abort, size_t
 
-#define TABLE_MAX_LOAD(n) ((n / 4) * 3)
+#define TABLE_MAX_LOAD(n) (((n) / 4) * 3)
+#define UNSET usr_val_(0)
+#define TOMBSTONE usr_val_(1)
 
-#define UNSET usr_val_(100)
-#define TOMBSTONE usr_val_(200)
+Val err_key = ERROR(key not found);
 
-#define is_unset_(v) (val_biteq_(v, UNSET) || val_biteq_(v, TOMBSTONE))
-#define is_tombstone_(v) (val_biteq_(v, TOMBSTONE))
+static inline bool is_tombstone(Val v) { return val_biteq(v, TOMBSTONE); }
+static inline bool is_unset(Val v) {
+  return val_biteq(v, UNSET) || is_tombstone(v);
+}
 
 TableIter *tableiter_init(TableIter *iter, const Table *table) {
   if (iter == 0)
@@ -29,7 +36,7 @@ Entry *tableiter_next(TableIter *iter) {
     size_t i = iter->idx;
     iter->idx++;
     Entry *entry = &iter->entries[i];
-    if (is_unset_(entry->key))
+    if (is_unset(entry->key))
       continue;
     return entry;
   }
@@ -57,8 +64,8 @@ void table_destroy(Table *table) {
   table_init(table);
 }
 
-static bool table_grow(Table *table) {
-  // NB: instead of reallocating the entries array, allocate a new array ond
+static void table_grow(Table *table) {
+  // NB: instead of reallocating the entries array, allocate a new one ond
   // rehash the entries from the old array
   TableIter iter;
   tableiter_init(&iter, table);
@@ -67,22 +74,26 @@ static bool table_grow(Table *table) {
   } else if (table->cap <= (SIZE_MAX / 2 / sizeof(Entry))) {
     table->cap *= 2;
   } else {
-    return false;
+    fputs("table exceeds its maximum capacity", stderr);
+    abort();
   }
   table->entries = GROW_ARRAY(0, Entry, 0, table->cap);
+  if (!table->entries) {
+    fputs("not enough memory to grow the table", stderr);
+    abort();
+  }
   table->len = 0;
   for (size_t i = 0; i < table->cap; i++) {
-    Entry *entry = &table->entries[i];
-    // unset but not tombstone
-    entry->key = UNSET;
-    entry->val = UNSET;
+    // unset, but not tombstone
+    table->entries[i].key = UNSET;
   };
   Entry *entry;
   while ((entry = tableiter_next(&iter))) {
     table_set(table, entry->key, entry->val);
   }
-  FREE_ARRAY(iter.entries, Entry, iter.cap);
-  return true;
+  if (iter.cap) {
+    FREE_ARRAY(iter.entries, Entry, iter.cap);
+  }
 }
 
 static Entry *table_find_entry(const Table *table, Val key) {
@@ -90,8 +101,8 @@ static Entry *table_find_entry(const Table *table, Val key) {
   Entry *frst_tmbstone = 0;
   for (;;) {
     Entry *entry = &table->entries[idx];
-    if (is_unset_(entry->key)) {
-      if (is_tombstone_(entry->key)) {
+    if (is_unset(entry->key)) {
+      if (is_tombstone(entry->key)) {
         frst_tmbstone = frst_tmbstone != 0 ? frst_tmbstone : entry;
       } else {
         return frst_tmbstone != 0 ? frst_tmbstone : entry;
@@ -108,18 +119,14 @@ static Entry *table_find_entry(const Table *table, Val key) {
 Val table_setorgetref(Table *table, Val key, Val val) {
   assert(!is_usr_symbol(key));
   assert(table->len == 0 || table->len < table->cap);
-  Val err_grow = UNSET;
-  // DECL_STATIC_ERR(err_grow, "cannot grow the table")
   if (table->len + 1 > TABLE_MAX_LOAD(table->cap)) {
-    if (!table_grow(table)) {
-      return err_grow;
-    }
+    table_grow(table);
   }
   Entry *entry = table_find_entry(table, key);
-  bool is_new = is_unset_(entry->key);
+  bool is_new = is_unset(entry->key);
   if (is_new) {
-    if (!is_tombstone_(entry->key)) {
-      table->len++; // inc len only when !tombstone
+    if (!is_tombstone(entry->key)) {
+      table->len++; // inc len only when not tombstone
     }
     entry->key = key;
     entry->val = val;
@@ -130,21 +137,17 @@ Val table_setorgetref(Table *table, Val key, Val val) {
   return ref(entry->val);
 }
 
-Val table_set(Table *table, Val key, Val val) {
+bool table_set(Table *table, Val key, Val val) {
   assert(!is_usr_symbol(key));
   assert(table->len == 0 || table->len < table->cap);
-  Val err_grow = UNSET;
-  // DECL_STATIC_ERR(err_grow, "cannot grow the table")
   if (table->len + 1 > TABLE_MAX_LOAD(table->cap)) {
-    if (!table_grow(table)) {
-      return err_grow;
-    }
+    table_grow(table);
   }
   Entry *entry = table_find_entry(table, key);
-  bool is_new = is_unset_(entry->key);
+  bool is_new = is_unset(entry->key);
   if (is_new) {
-    if (!is_tombstone_(entry->key)) {
-      table->len++; // inc len only when !tombstone
+    if (!is_tombstone(entry->key)) {
+      table->len++; // inc len only when not tombstone
     }
     entry->key = key;
   } else {
@@ -152,39 +155,41 @@ Val table_set(Table *table, Val key, Val val) {
     val_destroy(key); // keep the old key
   }
   entry->val = val;
-  return is_new ? SET_NEW : SET_OVERRIDE;
+  return is_new;
 }
 
 Val table_getref(const Table *table, Val key) {
   assert(!is_usr_symbol(key));
-  Val err_empty_table = UNSET;
-  Val err_bad_key = UNSET;
-  // DECL_STATIC_ERR(err_empty_table, "getref on empty table")
-  // DECL_STATIC_ERR(err_bad_key, "bad key")
-  if (table->len == 0)
-    return err_empty_table;
+  if (table->len == 0) {
+    return err_key;
+  }
   Entry *entry = table_find_entry(table, key);
-  if (is_unset_(entry->key))
-    return err_bad_key;
+  if (is_unset(entry->key)) {
+    return err_key;
+  }
   return ref(entry->val);
 }
 
 Val table_pop(Table *table, Val key) {
   assert(!is_usr_symbol(key));
-  Val err_empty_table = UNSET;
-  Val err_bad_key = UNSET;
-  Val err_unset_val = UNSET;
-  // DECL_STATIC_ERR(err_empty_table, "pop on empty table")
-  // DECL_STATIC_ERR(err_bad_key, "bad key")
-  // DECL_STATIC_ERR(err_unset_val, "unset value")
-  if (table->len == 0)
-    return err_empty_table;
+  if (table->len == 0) {
+    return err_key;
+  }
   Entry *entry = table_find_entry(table, key);
-  if (is_unset_(entry->key))
-    return err_bad_key;
+  if (is_unset(entry->key)) {
+    return err_key;
+  }
   Val res = entry->val;
   val_destroy(entry->key);
   entry->key = TOMBSTONE; // unset and tombstone
-  entry->val = err_unset_val;
   return res;
+}
+
+bool table_del(Table *table, Val key) {
+  Val v = table_pop(table, key);
+  bool found = !val_biteq(v, err_key);
+  if (found) {
+    val_destroy(v);
+  }
+  return found;
 }
