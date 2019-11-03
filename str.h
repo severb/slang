@@ -52,8 +52,8 @@ static inline Slice string_slice(String *s) {
 }
 
 #define unsafe_equals(a, b)                                                    \
-  (((a)->len == (b)->len) &&                                                   \
-   (unsafe_hash(a) == unsafe_hash(b) && (a)->c == (b)->c ||                    \
-    memcmp((a)->c, (b)->c, (a)->len) == 0))
+  (((uintptr_t)(a) == (uintptr_t)(b)) ||                                       \
+   ((((a)->len == (b)->len) && unsafe_hash(a) == unsafe_hash(b)) &&            \
+    ((a)->c == (b)->c || memcmp((a)->c, (b)->c, (a)->len) == 0)))
 
 #endif
