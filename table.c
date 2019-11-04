@@ -21,13 +21,12 @@ static inline bool is_unset(Val v) {
 }
 
 TableIter *tableiter_init(TableIter *iter, const Table *table) {
-  if (iter == 0)
-    return 0;
-  *iter = (TableIter){
-      .entries = table->entries,
-      .cap = table->cap,
-      .idx = 0,
-  };
+  if (iter != 0)
+    *iter = (TableIter){
+        .entries = table->entries,
+        .cap = table->cap,
+        .idx = 0,
+    };
   return iter;
 }
 
@@ -44,9 +43,8 @@ Entry *tableiter_next(TableIter *iter) {
 }
 
 Table *table_init(Table *table) {
-  if (table == 0)
-    return 0;
-  *table = (Table){.len = 0, .cap = 0, .entries = 0};
+  if (table != 0)
+    *table = (Table){.len = 0, .cap = 0, .entries = 0};
   return table;
 }
 

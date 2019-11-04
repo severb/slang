@@ -1,7 +1,7 @@
 #ifndef clox_scanner_h
 #define clox_scanner_h
 
-#include "common.h"
+#include <stddef.h> // size_t
 
 #define FOREACH_TOKEN(TOKEN)                                                   \
   TOKEN(TOKEN_LEFT_PAREN)                                                      \
@@ -54,20 +54,20 @@ typedef enum { FOREACH_TOKEN(GENERATE_ENUM) } TokenType;
 #undef GENERATE_ENUM
 
 typedef struct {
-  const char *start;
-  const char *current;
+  char const *start;
+  char const *current;
   size_t line;
 } Scanner;
 
 typedef struct {
   TokenType type;
-  const char *start;
+  char const *start;
   size_t len;
   size_t line;
 } Token;
 
-void scanner_init(Scanner *, const char *);
-Token scanner_consume(Scanner *);
-void scanner_print(Scanner);
+Scanner *scanner_init(Scanner *, char const *);
+void scanner_consume(Scanner *, Token *);
+void scanner_print(Scanner const *);
 
 #endif

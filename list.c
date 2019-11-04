@@ -8,9 +8,8 @@
 #include <stdlib.h> // abort, size_t
 
 List *list_init(List *list) {
-  if (list == 0)
-    return 0;
-  *list = (List){.cap = 0, .len = 0, .vals = 0};
+  if (list != 0)
+    *list = (List){.cap = 0, .len = 0, .vals = 0};
   return list;
 }
 
