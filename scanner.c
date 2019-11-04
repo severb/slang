@@ -7,9 +7,11 @@
 #include <stdio.h>   // printf
 #include <string.h>  // memcmp
 
-#define GENERATE_STRING(STRING) #STRING,
-static const char *TOKEN_TO_STRING[] = {FOREACH_TOKEN(GENERATE_STRING)};
-#undef GENERATE_STRING
+#define TOKEN(STRING) #STRING,
+static const char *TOKEN_TO_STRING[] = {
+#include "tokens.enum"
+};
+#undef TOKEN
 
 Scanner *scanner_init(Scanner *scanner, const char *source) {
   if (scanner != 0)
