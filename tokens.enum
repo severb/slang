@@ -1,4 +1,4 @@
-// This file is to be included after a custom TOKEN macro is defined.
+// This file is supposed to be included after a custom TOKEN macro is defined.
 
 TOKEN(TOKEN_LEFT_PAREN)
 TOKEN(TOKEN_RIGHT_PAREN)
