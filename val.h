@@ -23,7 +23,7 @@ typedef struct Val {
 struct String;
 struct Slice;
 struct Table;
-struct List;
+struct List_val;
 
 // Vals are 64 bits long and use a bit-packing technique called NaN tagging.
 static_assert(sizeof(uint64_t) == sizeof(Val), "Val size mismatch");
@@ -194,9 +194,9 @@ PTR_REF_F(table, struct Table, TABLE_PTR_TYPE) // table_ref
 IS_PTR_F(list, LIST_PTR_TYPE)               // is_list_ptr
 IS_PTR_OWN_F(list, LIST_PTR_TYPE)           // is_list_own
 IS_PTR_REF_F(list, LIST_PTR_TYPE)           // is_list_ref
-PTR_F(list, struct List)                    // list_ptr
-PTR_OWN_F(list, struct List, LIST_PTR_TYPE) // list_own
-PTR_REF_F(list, struct List, LIST_PTR_TYPE) // list_ref
+PTR_F(list, struct List_val)                    // list_ptr
+PTR_OWN_F(list, struct List_val, LIST_PTR_TYPE) // list_own
+PTR_REF_F(list, struct List_val, LIST_PTR_TYPE) // list_ref
 
 // We also define a "big" 64-bit signed integer pointer (i.e., int64_t):
 // 01111111|11110111|........|........|........|........|........|.......o

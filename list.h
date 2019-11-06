@@ -1,48 +1,23 @@
 #ifndef clox_list_h
 #define clox_list_h
 
-#include "val.h" // Val, ref
+#include "listgen.h" // LIST_H
+#include "val.h"     // Val, ref
 
-#include <assert.h> // assert
-#include <stddef.h> // size_t
+LIST_H(val, Val)
 
-typedef struct List {
-  size_t cap;
-  size_t len;
-  Val *vals;
-} List;
+typedef List_val List;
 
-List *list_init(List *);
-void list_destroy(List *);
-
-void list_grow(List *);
-void list_seal(List *);
-
-static inline size_t list_append(List *list, Val val) {
-  assert(list->cap >= list->len);
-  if (list->cap == list->len) {
-    list_grow(list);
-  }
-  size_t idx = list->len;
-  list->len++;
-  list->vals[idx] = val;
-  return idx;
-}
-
-#define list_get_(l, i) ((l).vals[(i)])
-static inline Val list_get(const List *list, size_t idx) {
-  assert(idx < list->len);
-  return list_get_(*list, idx);
-}
+#define list_init(l) list_val_init(l)
+#define list_destroy(l) list_val_destroy(l)
+#define list_grow(l) list_val_grow(l)
+#define list_seal(l) list_val_seal(l)
+#define list_append(l, v) list_val_append(l, v)
+#define list_get(l, i) list_val_get(l, i)
+#define list_pop(l) list_val_pop(l)
 
 static inline Val list_getref(const List *list, size_t idx) {
   return ref(list_get(list, idx));
-}
-
-static inline Val list_pop(List *list) {
-  assert(list->len);
-  list->len--;
-  return list->vals[list->len];
 }
 
 #endif
