@@ -8,7 +8,7 @@
 #include <string.h>  // memcmp
 
 #define TOKEN(STRING) #STRING,
-static const char *TOKEN_TO_STRING[] = {
+static char const *TOKEN_TO_STRING[] = {
 #include "tokens.enum"
 };
 #undef TOKEN
