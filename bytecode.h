@@ -10,7 +10,7 @@
 typedef enum {
 #include "opcodes.enum"
 } OpCode;
-#undef GENERATE_ENUM
+#undef OPCODE
 
 typedef struct {
   struct {
