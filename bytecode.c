@@ -1,24 +1,19 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include "bytecode.h"
 
-#include "array.h"
-#include "chunk.h"
-#include "common.h"
-#include "mem.h"
-#include "str.h"
 #include "table.h"
-#include "val.h"
 
-#define GENERATE_STRING(STRING) #STRING,
-static const char *OPCODE_TO_STRING[] = {FOREACH_OPCODE(GENERATE_STRING)};
-#undef GENERATE_STRING
+#define OPCODE(STRING) #STRING,
+static char const *OPCODE_TO_STRING[] = {
+#include "opcodes.enum"
+};
+#undef OPCODE
 
 Chunk *chunk_init(Chunk *chunk) {
-  if (chunk == 0)
+  if (chunk == 0) {
     return 0;
+  }
   *chunk = (Chunk){0};
-  array_init(&chunk->consts);
-  table_init(&chunk->const_pos);
+  table_init(&chunk->const_to_idx);
   return chunk;
 }
 
