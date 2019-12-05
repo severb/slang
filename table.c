@@ -88,7 +88,7 @@ static inline void rehash(Table *table, size_t i) {
     return;
   }
   Val val = table->vals[i].val;
-  table->vals[i] = (Entry){UNSET, NIL};
+  table->vals[i] = UNSET_ENTRY;
   Entry *e = table_find_entry(table, key);
   e->key = key;
   e->val = val;

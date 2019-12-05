@@ -19,14 +19,14 @@ typedef struct Val {
   };
 } Val;
 
+// Vals are 64 bits long and use a bit-packing technique called NaN tagging.
+static_assert(sizeof(uint64_t) == sizeof(double), "Val size mismatch");
+
 // Forward declarations of some types defined elsewhere:
 struct String;
 struct Slice;
 struct Table;
-struct List_val;
-
-// Vals are 64 bits long and use a bit-packing technique called NaN tagging.
-static_assert(sizeof(uint64_t) == sizeof(Val), "Val size mismatch");
+struct List;
 
 #define val_u_(x) ((x).u)
 static inline uint64_t val_u(Val v) { return val_u_(v); }
@@ -76,8 +76,8 @@ static inline bool is_tagged(Val v) { return is_tagged_(v); }
 static inline bool is_double(Val v) { return is_double_(v); }
 
 // We define two categories of values: pointers and data. Pointer values have
-// the most significant discriminant bit (the sign bit) set, while data values
-// have it unset.
+// the most significant discriminant bit (the sign bit) unset, while data values
+// have it set.
 
 #define SIGN_FLAG BYTES(80, 00, 00, 00, 00, 00, 00, 00)
 
@@ -125,7 +125,7 @@ static inline bool same_type(Val a, Val b) { return same_type_(a, b); }
 
 // String is the first pointer type. It points to a String and has the
 // following layout:
-// 01111111|11110100|........|........|........|........|........|.......o
+// 01111111|11110100|........|........|........|........|........|.......*
 #define STRING_PTR_TYPE BYTES(7f, f4, 00, 00, 00, 00, 00, 00)
 
 #define is_type_(discriminant, v) ((val_u_(v) & TYPE_MASK) == (discriminant))
@@ -194,12 +194,12 @@ PTR_REF_F(table, struct Table, TABLE_PTR_TYPE) // table_ref
 IS_PTR_F(list, LIST_PTR_TYPE)               // is_list_ptr
 IS_PTR_OWN_F(list, LIST_PTR_TYPE)           // is_list_own
 IS_PTR_REF_F(list, LIST_PTR_TYPE)           // is_list_ref
-PTR_F(list, struct List_val)                    // list_ptr
-PTR_OWN_F(list, struct List_val, LIST_PTR_TYPE) // list_own
-PTR_REF_F(list, struct List_val, LIST_PTR_TYPE) // list_ref
+PTR_F(list, struct List)                    // list_ptr
+PTR_OWN_F(list, struct List, LIST_PTR_TYPE) // list_own
+PTR_REF_F(list, struct List, LIST_PTR_TYPE) // list_ref
 
 // We also define a "big" 64-bit signed integer pointer (i.e., int64_t):
-// 01111111|11110111|........|........|........|........|........|.......o
+// 01111111|11110111|........|........|........|........|........|.......*
 #define INT_PTR_TYPE BYTES(7f, f7, 00, 00, 00, 00, 00, 00)
 IS_PTR_F(int, INT_PTR_TYPE)           // is_int_ptr
 IS_PTR_OWN_F(int, INT_PTR_TYPE)       // is_int_own
@@ -211,7 +211,7 @@ PTR_REF_F(int, int64_t, INT_PTR_TYPE) // int_ref
 // The next pointer value type represents an error and points to another Val
 // which contains the error context (usually a String or Slice).
 // NB: The ownership flag applies to the Val.
-// 01111111|11111100|........|........|........|........|........|.......o
+// 01111111|11111100|........|........|........|........|........|.......*
 #define ERR_PTR_TYPE BYTES(7f, fc, 00, 00, 00, 00, 00, 00)
 IS_PTR_F(err, ERR_PTR_TYPE)       // is_err_ptr
 IS_PTR_OWN_F(err, ERR_PTR_TYPE)   // is_err_own
@@ -221,7 +221,7 @@ PTR_OWN_F(err, Val, ERR_PTR_TYPE) // err_own
 PTR_REF_F(err, Val, ERR_PTR_TYPE) // err_ref
 
 // Finally, we define a Slice pointer value type:
-// 01111111|11111101|........|........|........|........|........|.......o
+// 01111111|11111101|........|........|........|........|........|.......*
 #define SLICE_PTR_TYPE BYTES(7f, fd, 00, 00, 00, 00, 00, 00)
 IS_PTR_F(slice, SLICE_PTR_TYPE)                // is_silce_ptr
 IS_PTR_OWN_F(slice, SLICE_PTR_TYPE)            // is_silce_own
@@ -231,8 +231,8 @@ PTR_OWN_F(slice, struct Slice, SLICE_PTR_TYPE) // silce_own
 PTR_REF_F(slice, struct Slice, SLICE_PTR_TYPE) // silce_ref
 
 // The remaining two pointer value types are reserved for later use:
-// 01111111|11111110|........|........|........|........|........|.......o
-// 01111111|11111111|........|........|........|........|........|.......o
+// 01111111|11111110|........|........|........|........|........|.......*
+// 01111111|11111111|........|........|........|........|........|.......*
 
 // Other than the pointer value types, we define a few data value types. All
 // data value types contain their values directly in the storage area and have
@@ -273,7 +273,8 @@ static inline int16_t pair_a(Val v) { return pair_a_(v); }
 static inline int32_t pair_b(Val v) { return pair_b_(v); }
 
 #define upair_(a, b)                                                           \
-  (u_val_(PAIR_DATA_TYPE | ((uint64_t)(a) << 32) | (uint64_t)(b)))
+  (u_val_(PAIR_DATA_TYPE | ((uint64_t)(uint16_t)(a) << 32) |                   \
+          (uint64_t)(uint32_t)(b)))
 static inline Val upair(uint16_t a, uint32_t b) { return upair_(a, b); }
 
 #define pair_(a, b)                                                            \
