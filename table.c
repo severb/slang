@@ -1,17 +1,30 @@
 #include "table.h"
 
-#include "err.h" // ERROR
-#include "mem.h" // FREE_ARRAY, GROW_ARRAY
-#include "val.h" // Val, val_biteq, usr_val_, val_destroy, val_hash, ref
+#include "err.h"     // ERROR
+#include "listgen.h" // LIST_IMPL
+#include "val.h"     // Val, val_biteq, usr_val_, val_destroy, val_hash, ref
 
 #include <assert.h>  // assert
-#include <stdbool.h> // bool
+#include <stdbool.h> // bool, uint32_t
 #include <stdio.h>   // fptus, stderr
 #include <stdlib.h>  // abort, size_t
 
 #define TABLE_MAX_LOAD(n) (((n) / 4) * 3)
 #define UNSET usr_val_(0)
 #define TOMBSTONE usr_val_(1)
+
+#define EXTRA_DESTROY                                                          \
+  TableIter iter;                                                              \
+  tableiter_init(&iter, list);                                                 \
+  Entry *entry;                                                                \
+  while ((entry = tableiter_next(&iter))) {                                    \
+    val_destroy(entry->key);                                                   \
+    val_destroy(entry->val);                                                   \
+  }
+
+LIST_IMPL(entry, Entry)
+
+#undef EXTRA_DESTROY
 
 Val err_key = ERROR(key not found);
 
@@ -23,18 +36,17 @@ static inline bool is_unset(Val v) {
 TableIter *tableiter_init(TableIter *iter, const Table *table) {
   if (iter != 0)
     *iter = (TableIter){
-        .entries = table->entries,
-        .cap = table->cap,
+        .table = table,
         .idx = 0,
     };
   return iter;
 }
 
 Entry *tableiter_next(TableIter *iter) {
-  while (iter->idx < iter->cap) {
+  while (iter->idx < iter->table->cap) {
     size_t i = iter->idx;
     iter->idx++;
-    Entry *entry = &iter->entries[i];
+    Entry *entry = &iter->table->vals[i];
     if (is_unset(entry->key))
       continue;
     return entry;
@@ -42,63 +54,12 @@ Entry *tableiter_next(TableIter *iter) {
   return 0;
 }
 
-Table *table_init(Table *table) {
-  if (table != 0)
-    *table = (Table){.len = 0, .cap = 0, .entries = 0};
-  return table;
-}
-
-void table_destroy(Table *table) {
-  if (table == 0)
-    return;
-  TableIter iter;
-  tableiter_init(&iter, table);
-  Entry *entry;
-  while ((entry = tableiter_next(&iter))) {
-    val_destroy(entry->key);
-    val_destroy(entry->val);
-  }
-  FREE_ARRAY(table->entries, Entry, table->cap);
-  table_init(table);
-}
-
-static void table_grow(Table *table) {
-  // NB: instead of reallocating the entries array, allocate a new one ond
-  // rehash the entries from the old array
-  TableIter iter;
-  tableiter_init(&iter, table);
-  if (table->cap < 8) {
-    table->cap = 8;
-  } else if (table->cap <= (SIZE_MAX / 2 / sizeof(Entry))) {
-    table->cap *= 2;
-  } else {
-    fputs("table exceeds its maximum capacity", stderr);
-    abort();
-  }
-  table->entries = GROW_ARRAY(0, Entry, 0, table->cap);
-  if (!table->entries) {
-    fputs("not enough memory to grow the table", stderr);
-    abort();
-  }
-  table->len = 0;
-  for (size_t i = 0; i < table->cap; i++) {
-    // unset, but not tombstone
-    table->entries[i].key = UNSET;
-  };
-  Entry *entry;
-  while ((entry = tableiter_next(&iter))) {
-    table_set(table, entry->key, entry->val);
-  }
-  if (iter.cap) {
-    FREE_ARRAY(iter.entries, Entry, iter.cap);
-  }
-}
-
 static Entry *table_find_entry(const Table *table, Val key) {
-  int idx = val_hash(key) % table->cap;
+  // TODO: hash tables can't grow as large as lists because hashes are only 32b
+  uint32_t idx = val_hash(key) % table->cap;
   Entry *frst_tmbstone = 0;
   for (;;) {
-    Entry *entry = &table->entries[idx];
+    Entry *entry = &table->vals[idx];
     if (is_unset(entry->key)) {
       if (is_tombstone(entry->key)) {
         frst_tmbstone = frst_tmbstone != 0 ? frst_tmbstone : entry;
@@ -110,11 +71,68 @@ static Entry *table_find_entry(const Table *table, Val key) {
         return entry;
       }
     }
-    idx = (idx + 1) % table->cap;
+    idx = (idx + 1) % table->cap; // OK to wrap-around on addition
   }
 }
 
-Val table_setorgetref(Table *table, Val key, Val val) {
+#define UNSET_ENTRY                                                            \
+  (Entry) { UNSET, NIL }
+
+static inline void rehash(Table *table, size_t i) {
+  Val key = table->vals[i].key;
+  if (val_biteq(key, UNSET))
+    return;
+  if (is_tombstone(key)) {
+    table->vals[i].key = UNSET; // continue to convert tobstones to unsets
+    table->len--;
+    return;
+  }
+  Val val = table->vals[i].val;
+  table->vals[i] = (Entry){UNSET, NIL};
+  Entry *e = table_find_entry(table, key);
+  e->key = key;
+  e->val = val;
+}
+
+// table_grow() grows the list and re-hashes the entries inline.
+static void table_grow(Table *table) {
+  size_t old_cap = table->cap;
+  list_entry_grow(table);
+  // make new entries UNSET
+  for (size_t i = old_cap; i < table->cap; i++) {
+    table->vals[i] = UNSET_ENTRY;
+  }
+  // start is the index of the 1st entry preceded by at least one UNSET and
+  // zero or more TOMBSTONEs. This entry and all others to its right have
+  // their hash pos >= than their idx, property needed for inline rehashing.
+  size_t start = 0;
+  bool unset_found = false;
+  // find the start position
+  while (table->len) {
+    Val key = table->vals[start].key;
+    unset_found = unset_found || val_biteq(key, UNSET);
+    if (unset_found) {
+      if (is_tombstone(key)) {
+        // convert any TOMBSTONEs between the last UNSET and the first entry
+        table->vals[start].key = UNSET;
+        table->len--;
+      } else {
+        break; // found it
+      }
+    }
+    start = (start + 1) % old_cap; // OK to wrap-around on addition
+  }
+  if (!table->len)
+    return;
+  for (size_t i = start; i < old_cap; i++) {
+    rehash(table, i);
+  }
+  for (size_t i = 0; i < start; i++) {
+    rehash(table, i);
+  }
+}
+
+Val table_setorget(Table *table, Val key, Val val) {
   assert(!is_usr_symbol(key));
   assert(table->len == 0 || table->len < table->cap);
   if (table->len + 1 > TABLE_MAX_LOAD(table->cap)) {
@@ -156,7 +174,7 @@ bool table_set(Table *table, Val key, Val val) {
   return is_new;
 }
 
-Val table_getref(const Table *table, Val key) {
+Val table_get(Table const *table, Val key) {
   assert(!is_usr_symbol(key));
   if (table->len == 0) {
     return err_key;
@@ -179,7 +197,7 @@ Val table_pop(Table *table, Val key) {
   }
   Val res = entry->val;
   val_destroy(entry->key);
-  entry->key = TOMBSTONE; // unset and tombstone
+  entry->key = TOMBSTONE; // tombstone is unset
   return res;
 }
 

@@ -7,7 +7,7 @@
 #include <stdio.h>  // fptus, stderr
 #include <stdlib.h> // abort, size_t
 
-#define LIST_H(name, type)                                                     \
+#define LIST_DECL(name, type)                                                  \
                                                                                \
   typedef struct List_##name {                                                 \
     size_t cap;                                                                \
@@ -43,7 +43,7 @@
     return list->vals[list->len];                                              \
   }
 
-#define LIST_C(name, type)                                                     \
+#define LIST_IMPL(name, type)                                                  \
                                                                                \
   List_##name *list_##name##_init(List_##name *list) {                         \
     if (list != 0) {                                                           \

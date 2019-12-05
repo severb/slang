@@ -1,6 +1,6 @@
 #include "list.h"
 
-#include "listgen.h" // LIST_C
+#include "listgen.h" // LIST_IMPL
 #include "val.h"     // Val, val_destroy
 
 #define EXTRA_DESTROY                                                          \
@@ -8,6 +8,6 @@
     val_destroy(list->vals[i]);                                                \
   }
 
-LIST_C(val, Val)
+LIST_IMPL(val, Val)
 
 #undef EXTRA_DESTROY

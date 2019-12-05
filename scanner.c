@@ -42,16 +42,21 @@ static void error(Scanner const *scanner, const char *msg, Token *t) {
   };
 }
 
-static bool is_digit(char c) { return '0' <= c && c <= '9'; }
+static inline bool is_digit(char c) { return '0' <= c && c <= '9'; }
 
-static bool is_alpha(char c) {
+static inline bool is_alpha(char c) {
   return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
 }
 
-static char peek(Scanner const *scanner) { return *scanner->current; }
+static inline char peek(Scanner const *scanner) { return *scanner->current; }
 
-static bool is_at_eof(Scanner const *scanner) { return peek(scanner) == '\0'; }
-static bool is_at_eol(Scanner const *scanner) { return peek(scanner) == '\n'; }
+static inline bool is_at_eof(Scanner const *scanner) {
+  return peek(scanner) == '\0';
+}
+
+static inline bool is_at_eol(Scanner const *scanner) {
+  return peek(scanner) == '\n';
+}
 
 static char peek_next(Scanner const *scanner) {
   if (is_at_eof(scanner))
@@ -61,7 +66,8 @@ static char peek_next(Scanner const *scanner) {
 
 static char advance(Scanner *scanner) {
   char res = peek(scanner);
-  scanner->current++;
+  if (!is_at_eof(scanner))
+    scanner->current++;
   return res;
 }
 

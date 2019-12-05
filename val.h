@@ -108,7 +108,7 @@ static inline bool is_ptr_own(Val v) { return is_ptr_own_(v); }
    (TAGGED_MASK | REF_FLAG))
 static inline bool is_ptr_ref(Val v) { return is_ptr_ref_(v); }
 
-#define ref_(v) (u_val_(val_u_(v) & REF_FLAG))
+#define ref_(v) (u_val_(val_u_(v) | REF_FLAG))
 static inline Val ref(Val v) { return is_ptr_own(v) ? ref_(v) : v; }
 
 // PTR_MASK isolates the pointer value and ignores the ownership flag.

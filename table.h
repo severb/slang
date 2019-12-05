@@ -3,6 +3,8 @@
 
 #include "val.h" // Val
 
+#include "listgen.h" // LIST_DECL
+
 #include <stdbool.h> // bool
 #include <stdlib.h>  // size_t
 
@@ -11,30 +13,27 @@ typedef struct {
   Val val;
 } Entry;
 
-typedef struct Table {
-  size_t len;
-  size_t cap;
-  Entry *entries;
-} Table;
+LIST_DECL(entry, Entry)
 
-Table *table_init(Table *);
-void table_destroy(Table *);
+typedef List_entry Table;
+
+#define table_init(t) list_entry_init(t)
+#define table_destroy(t) list_entry_destroy(t)
 
 // table_set() sets the key and returns true if the pair is new.
 bool table_set(Table *, Val key, Val);
-Val table_setorgetref(Table *, Val key, Val);
+Val table_setorget(Table *, Val key, Val);
 
 // key_err is returned when the key is not found and can be used with val_biteq
 // to check if the operation was successful or not.
-extern Val key_err;
+extern Val err_key;
 
-Val table_getref(const Table *, Val key);
+Val table_get(Table const *, Val key);
 Val table_pop(Table *, Val key);
 bool table_del(Table *, Val key);
 
 typedef struct {
-  Entry *entries;
-  size_t cap;
+  Table const *table;
   size_t idx;
 } TableIter;
 

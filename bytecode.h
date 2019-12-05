@@ -3,8 +3,8 @@
 
 #include "table.h" // Table
 
-#include <stdint.h> // uint32_t, uint8_t
 #include <stdbool.h> // bool
+#include <stdint.h>  // uint32_t, uint8_t
 
 #define OPCODE(ENUM) ENUM,
 typedef enum {
@@ -13,27 +13,26 @@ typedef enum {
 #undef OPCODE
 
 typedef struct {
-  struct {
-    uint32_t cap;
-    uint32_t len;
-    uint8_t *code;
-  } bytecode;
-  struct {
-    uint32_t cap;
-    uint32_t len;
-    uint32_t start_line;
-    uint32_t *lines;
-  } line_idx;
-  struct {
-    Table const_to_idx;
-    uint32_t idx;
-  };
+  size_t cap;
+  size_t len;
+  uint8_t *code;
+} Bytecode;
+
+typedef struct {
+  size_t cap;
+  size_t len;
+  uint32_t *lines;
+} LineIdx;
+
+typedef struct {
+  Bytecode bytecode;
+  LineIdx lines;
   Val *consts;
 } Chunk;
 
 typedef struct {
   Chunk *chunk;
-  uint32_t cursor;
+  size_t cursor;
 } Bookmark;
 
 Chunk *chunk_init(Chunk *);

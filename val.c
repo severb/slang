@@ -16,9 +16,9 @@ void val_destroy(Val v) {
     case STRING_PTR_TYPE:
       string_free(string_ptr(v));
       break;
-    case TABLE_PTR_TYPE:
-      table_destroy(table_ptr(v));
-      break;
+//    case TABLE_PTR_TYPE:
+//      table_destroy(table_ptr(v));
+//      break;
     case LIST_PTR_TYPE:
       list_destroy(list_ptr(v));
       break;
@@ -45,9 +45,9 @@ void val_print(Val v) {
     unsafe_print(*s);
     break;
   }
-  case TABLE_PTR_TYPE:
-    printf("<table[%zu]>", table_ptr(v)->len);
-    break;
+//  case TABLE_PTR_TYPE:
+//    printf("<table[%zu]>", table_ptr(v)->len);
+//    break;
   case LIST_PTR_TYPE:
     printf("<list[%zu]>", list_ptr(v)->len);
     break;
@@ -104,9 +104,11 @@ void val_print_repr(Val v) {
     printf("'>");
     break;
   case TABLE_PTR_TYPE:
-    printf("<TABLE[%zu] ", table_ptr(v)->len);
-    PTR_DETAILS;
-    printf(">");
+    printf("<TABLE>");
+    // TODO: fix this
+    // printf("<TABLE[%zu] ", table_ptr(v)->len);
+    // PTR_DETAILS;
+    // printf(">");
     break;
   case LIST_PTR_TYPE:
     printf("<LIST[%zu] ", list_ptr(v)->len);
@@ -158,7 +160,7 @@ uint32_t val_hash(Val v) {
     String *s = string_ptr(v);
     return unsafe_hash(s);
   }
-  case TABLE_PTR_TYPE:
+//  case TABLE_PTR_TYPE:
   case LIST_PTR_TYPE: {
     return ((uintptr_t)ptr(v) >> sizeof(max_align_t)) * 3 + 5;
   }
