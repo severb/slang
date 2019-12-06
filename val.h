@@ -171,64 +171,64 @@ static inline bool same_type(Val a, Val b) { return same_type_(a, b); }
     return ptr_ref_((discriminant), t);                                        \
   }
 
-IS_PTR_F(string, STRING_PTR_TYPE)                 // is_string_ptr
-IS_PTR_OWN_F(string, STRING_PTR_TYPE)             // is_string_own
-IS_PTR_REF_F(string, STRING_PTR_TYPE)             // is_string_ref
-PTR_F(string, struct String)                      // string_ptr
-PTR_OWN_F(string, struct String, STRING_PTR_TYPE) // string_own
-PTR_REF_F(string, struct String, STRING_PTR_TYPE) // string_ref
+IS_PTR_F(string, STRING_PTR_TYPE)                 // is_string_ptr()
+IS_PTR_OWN_F(string, STRING_PTR_TYPE)             // is_string_own()
+IS_PTR_REF_F(string, STRING_PTR_TYPE)             // is_string_ref()
+PTR_F(string, struct String)                      // string_ptr()
+PTR_OWN_F(string, struct String, STRING_PTR_TYPE) // string_own()
+PTR_REF_F(string, struct String, STRING_PTR_TYPE) // string_ref()
 
 // Next, we define the Table pointer which has the following layout:
 // 01111111|11110101|........|........|........|........|........|.......o
 #define TABLE_PTR_TYPE BYTES(7f, f5, 00, 00, 00, 00, 00, 00)
-IS_PTR_F(table, TABLE_PTR_TYPE)                // is_table_ptr
-IS_PTR_OWN_F(table, TABLE_PTR_TYPE)            // is_table_own
-IS_PTR_REF_F(table, TABLE_PTR_TYPE)            // is_table_ref
-PTR_F(table, struct Table)                     // table_ptr
-PTR_OWN_F(table, struct Table, TABLE_PTR_TYPE) // table_own
-PTR_REF_F(table, struct Table, TABLE_PTR_TYPE) // table_ref
+IS_PTR_F(table, TABLE_PTR_TYPE)                // is_table_ptr()
+IS_PTR_OWN_F(table, TABLE_PTR_TYPE)            // is_table_own()
+IS_PTR_REF_F(table, TABLE_PTR_TYPE)            // is_table_ref()
+PTR_F(table, struct Table)                     // table_ptr()
+PTR_OWN_F(table, struct Table, TABLE_PTR_TYPE) // table_own()
+PTR_REF_F(table, struct Table, TABLE_PTR_TYPE) // table_ref()
 
 // The List pointer has the following layout:
 // 01111111|11110110|........|........|........|........|........|.......o
 #define LIST_PTR_TYPE BYTES(7f, f6, 00, 00, 00, 00, 00, 00)
-IS_PTR_F(list, LIST_PTR_TYPE)               // is_list_ptr
-IS_PTR_OWN_F(list, LIST_PTR_TYPE)           // is_list_own
-IS_PTR_REF_F(list, LIST_PTR_TYPE)           // is_list_ref
-PTR_F(list, struct List)                    // list_ptr
-PTR_OWN_F(list, struct List, LIST_PTR_TYPE) // list_own
-PTR_REF_F(list, struct List, LIST_PTR_TYPE) // list_ref
+IS_PTR_F(list, LIST_PTR_TYPE)               // is_list_ptr()
+IS_PTR_OWN_F(list, LIST_PTR_TYPE)           // is_list_own()
+IS_PTR_REF_F(list, LIST_PTR_TYPE)           // is_list_ref()
+PTR_F(list, struct List)                    // list_ptr()
+PTR_OWN_F(list, struct List, LIST_PTR_TYPE) // list_own()
+PTR_REF_F(list, struct List, LIST_PTR_TYPE) // list_ref()
 
 // We also define a "big" 64-bit signed integer pointer (i.e., int64_t):
 // 01111111|11110111|........|........|........|........|........|.......*
 #define INT_PTR_TYPE BYTES(7f, f7, 00, 00, 00, 00, 00, 00)
-IS_PTR_F(int, INT_PTR_TYPE)           // is_int_ptr
-IS_PTR_OWN_F(int, INT_PTR_TYPE)       // is_int_own
-IS_PTR_REF_F(int, INT_PTR_TYPE)       // is_int_ref
-PTR_F(int, int64_t)                   // int_ptr
-PTR_OWN_F(int, int64_t, INT_PTR_TYPE) // int_own
-PTR_REF_F(int, int64_t, INT_PTR_TYPE) // int_ref
+IS_PTR_F(int, INT_PTR_TYPE)           // is_int_ptr()
+IS_PTR_OWN_F(int, INT_PTR_TYPE)       // is_int_own()
+IS_PTR_REF_F(int, INT_PTR_TYPE)       // is_int_ref()
+PTR_F(int, int64_t)                   // int_ptr()
+PTR_OWN_F(int, int64_t, INT_PTR_TYPE) // int_own()
+PTR_REF_F(int, int64_t, INT_PTR_TYPE) // int_ref()
 
 // The next pointer value type represents an error and points to another Val
 // which contains the error context (usually a String or Slice).
 // NB: The ownership flag applies to the Val.
 // 01111111|11111100|........|........|........|........|........|.......*
 #define ERR_PTR_TYPE BYTES(7f, fc, 00, 00, 00, 00, 00, 00)
-IS_PTR_F(err, ERR_PTR_TYPE)       // is_err_ptr
-IS_PTR_OWN_F(err, ERR_PTR_TYPE)   // is_err_own
-IS_PTR_REF_F(err, ERR_PTR_TYPE)   // is_err_ref
-PTR_F(err, Val)                   // err_ptr
-PTR_OWN_F(err, Val, ERR_PTR_TYPE) // err_own
-PTR_REF_F(err, Val, ERR_PTR_TYPE) // err_ref
+IS_PTR_F(err, ERR_PTR_TYPE)       // is_err_ptr()
+IS_PTR_OWN_F(err, ERR_PTR_TYPE)   // is_err_own()
+IS_PTR_REF_F(err, ERR_PTR_TYPE)   // is_err_ref()
+PTR_F(err, Val)                   // err_ptr()
+PTR_OWN_F(err, Val, ERR_PTR_TYPE) // err_own()
+PTR_REF_F(err, Val, ERR_PTR_TYPE) // err_ref()
 
 // Finally, we define a Slice pointer value type:
 // 01111111|11111101|........|........|........|........|........|.......*
 #define SLICE_PTR_TYPE BYTES(7f, fd, 00, 00, 00, 00, 00, 00)
-IS_PTR_F(slice, SLICE_PTR_TYPE)                // is_silce_ptr
-IS_PTR_OWN_F(slice, SLICE_PTR_TYPE)            // is_silce_own
-IS_PTR_REF_F(slice, SLICE_PTR_TYPE)            // is_silce_ref
-PTR_F(slice, struct Slice)                     // silce_ptr
-PTR_OWN_F(slice, struct Slice, SLICE_PTR_TYPE) // silce_own
-PTR_REF_F(slice, struct Slice, SLICE_PTR_TYPE) // silce_ref
+IS_PTR_F(slice, SLICE_PTR_TYPE)                // is_silce_ptr()
+IS_PTR_OWN_F(slice, SLICE_PTR_TYPE)            // is_silce_own()
+IS_PTR_REF_F(slice, SLICE_PTR_TYPE)            // is_silce_ref()
+PTR_F(slice, struct Slice)                     // silce_ptr()
+PTR_OWN_F(slice, struct Slice, SLICE_PTR_TYPE) // silce_own()
+PTR_REF_F(slice, struct Slice, SLICE_PTR_TYPE) // silce_ref()
 
 // The remaining two pointer value types are reserved for later use:
 // 01111111|11111110|........|........|........|........|........|.......*
@@ -249,7 +249,7 @@ PTR_REF_F(slice, struct Slice, SLICE_PTR_TYPE) // silce_ref
   static inline bool is_##name##_data(Val v) {                                 \
     return is_type_((discriminant), v);                                        \
   }
-IS_DATA_F(pair, PAIR_DATA_TYPE) // is_pair_data
+IS_DATA_F(pair, PAIR_DATA_TYPE) // is_pair_data()
 
 #define pair_ua_(v) ((uint16_t)(val_u_(v) >> 32))
 static inline uint16_t pair_ua(Val v) { return pair_ua_(v); }
@@ -288,7 +288,7 @@ static inline Val pair(int16_t a, int32_t b) { return pair_(a, b); }
 // values are available for user-defined symbols and flags.
 // 11111111|11110101|........|........|........|........|........|........
 #define SYMB_DATA_TYPE BYTES(ff, f5, 00, 00, 00, 00, 00, 00)
-IS_DATA_F(symb, SYMB_DATA_TYPE) // is_symb_data
+IS_DATA_F(symb, SYMB_DATA_TYPE) // is_symb_data()
 
 #define FALSEu (SYMB_DATA_TYPE)
 #define FALSE u_val_(SYMB_DATA_TYPE)
