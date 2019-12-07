@@ -7,7 +7,5 @@
   for (size_t i = 0; i < list->len; i++) {                                     \
     val_destroy(list->vals[i]);                                                \
   }
-
-LIST_IMPL(val, Val)
-
+LIST_IMPL(List, list, Val,)
 #undef EXTRA_DESTROY

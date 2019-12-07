@@ -1,17 +1,20 @@
 #include "table.h"
 
 #include "err.h"     // ERROR
-#include "listgen.h" // LIST_IMPL
+#include "listgen.h" // LIST_DECL, LIST_IMPL
 #include "val.h"     // Val, val_biteq, usr_val_, val_destroy, val_hash, ref
 
 #include <assert.h>  // assert
 #include <stdbool.h> // bool, uint32_t
-#include <stdio.h>   // fptus, stderr
-#include <stdlib.h>  // abort, size_t
+#include <stdlib.h>  // size_t
 
 #define TABLE_MAX_LOAD(n) (((n) / 4) * 3)
 #define UNSET usr_val_(0)
 #define TOMBSTONE usr_val_(1)
+#define UNSET_ENTRY                                                            \
+  (Entry) { UNSET, NIL }
+
+LIST_DECL(Table, tbl, Entry, static)
 
 #define EXTRA_DESTROY                                                          \
   TableIter iter;                                                              \
@@ -21,9 +24,7 @@
     val_destroy(entry->key);                                                   \
     val_destroy(entry->val);                                                   \
   }
-
-LIST_IMPL(entry, Entry)
-
+LIST_IMPL(Table, tbl, Entry, static)
 #undef EXTRA_DESTROY
 
 Val err_key = ERROR(key not found);
@@ -54,6 +55,9 @@ Entry *tableiter_next(TableIter *iter) {
   return 0;
 }
 
+Table *table_init(Table *table) {return tbl_init(table); }
+void table_destroy(Table *table) { tbl_destroy(table); }
+
 static Entry *table_find_entry(const Table *table, Val key) {
   // TODO: hash tables can't grow as large as lists because hashes are only 32b
   uint32_t idx = val_hash(key) % table->cap;
@@ -75,9 +79,6 @@ static Entry *table_find_entry(const Table *table, Val key) {
   }
 }
 
-#define UNSET_ENTRY                                                            \
-  (Entry) { UNSET, NIL }
-
 static inline void rehash(Table *table, size_t i) {
   Val key = table->vals[i].key;
   if (val_biteq(key, UNSET))
@@ -97,7 +98,7 @@ static inline void rehash(Table *table, size_t i) {
 // table_grow() grows the list and re-hashes the entries inline.
 static void table_grow(Table *table) {
   size_t old_cap = table->cap;
-  list_entry_grow(table);
+  tbl_grow(table);
   // make new entries UNSET
   for (size_t i = old_cap; i < table->cap; i++) {
     table->vals[i] = UNSET_ENTRY;

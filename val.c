@@ -11,30 +11,30 @@
 #include <stdio.h>    // printf
 
 void val_destroy(Val v) {
-  if (is_ptr_own(v)) {
-    switch (val_u(v) & TYPE_MASK) {
-    case STRING_PTR_TYPE:
-      string_free(string_ptr(v));
-      break;
-//    case TABLE_PTR_TYPE:
-//      table_destroy(table_ptr(v));
-//      break;
-    case LIST_PTR_TYPE:
-      list_destroy(list_ptr(v));
-      break;
-    case INT_PTR_TYPE:
-      FREE(int_ptr(v), int64_t);
-      break;
-    case ERR_PTR_TYPE:
-      val_destroy(*err_ptr(v));
-      FREE(err_ptr(v), Val);
-      break;
-    case SLICE_PTR_TYPE:
-      FREE(slice_ptr(v), Slice);
-      break;
-    default:
-      assert(0);
-    }
+  if (!is_ptr_own(v))
+    return;
+  switch (val_u(v) & TYPE_MASK) {
+  case STRING_PTR_TYPE:
+    string_free(string_ptr(v));
+    break;
+  case TABLE_PTR_TYPE:
+    table_destroy(table_ptr(v));
+    break;
+  case LIST_PTR_TYPE:
+    list_destroy(list_ptr(v));
+    break;
+  case INT_PTR_TYPE:
+    FREE(int_ptr(v), int64_t);
+    break;
+  case ERR_PTR_TYPE:
+    val_destroy(*err_ptr(v));
+    FREE(err_ptr(v), Val); // TODO: is this right?
+    break;
+  case SLICE_PTR_TYPE:
+    FREE(slice_ptr(v), Slice);
+    break;
+  default:
+    assert(0);
   }
 }
 
@@ -45,9 +45,9 @@ void val_print(Val v) {
     unsafe_print(*s);
     break;
   }
-//  case TABLE_PTR_TYPE:
-//    printf("<table[%zu]>", table_ptr(v)->len);
-//    break;
+  case TABLE_PTR_TYPE:
+    printf("<table[%zu]>", table_ptr(v)->len);
+    break;
   case LIST_PTR_TYPE:
     printf("<list[%zu]>", list_ptr(v)->len);
     break;
@@ -105,10 +105,9 @@ void val_print_repr(Val v) {
     break;
   case TABLE_PTR_TYPE:
     printf("<TABLE>");
-    // TODO: fix this
-    // printf("<TABLE[%zu] ", table_ptr(v)->len);
-    // PTR_DETAILS;
-    // printf(">");
+    printf("<TABLE[%zu] ", table_ptr(v)->len);
+    PTR_DETAILS;
+    printf(">");
     break;
   case LIST_PTR_TYPE:
     printf("<LIST[%zu] ", list_ptr(v)->len);
@@ -160,7 +159,7 @@ uint32_t val_hash(Val v) {
     String *s = string_ptr(v);
     return unsafe_hash(s);
   }
-//  case TABLE_PTR_TYPE:
+  case TABLE_PTR_TYPE:
   case LIST_PTR_TYPE: {
     return ((uintptr_t)ptr(v) >> sizeof(max_align_t)) * 3 + 5;
   }

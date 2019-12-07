@@ -1,9 +1,8 @@
 #ifndef clox_table_h
 #define clox_table_h
 
+#include "listgen.h" // LIST_TYPE
 #include "val.h" // Val
-
-#include "listgen.h" // LIST_DECL
 
 #include <stdbool.h> // bool
 #include <stdlib.h>  // size_t
@@ -13,12 +12,10 @@ typedef struct {
   Val val;
 } Entry;
 
-LIST_DECL(entry, Entry)
+LIST_TYPE(Table, Entry)
 
-typedef List_entry Table;
-
-#define table_init(t) list_entry_init(t)
-#define table_destroy(t) list_entry_destroy(t)
+Table *table_init(Table *);
+void table_destroy(Table *);
 
 // table_set() sets the key and returns true if the pair is new.
 bool table_set(Table *, Val key, Val);
