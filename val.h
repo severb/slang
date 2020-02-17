@@ -13,7 +13,7 @@
 // are equal if their bit strings are equal. The reverse in not necessarily
 // true. For example, two String pointer values can point to different, but
 // equal, strings.
-typedef struct Val {
+typedef struct {
   union {
     double d;
     uint64_t u; // for bit fiddling
@@ -172,9 +172,9 @@ typedef struct {
 IS_PTR_FUNC(is_string_ptr, STRING_PTR_TYPE)
 IS_PTR_OWN_FUNC(is_string_own, STRING_PTR_TYPE)
 IS_PTR_REF_FUNC(is_string_ref, STRING_PTR_TYPE)
-PTR_FUNC(string_ptr, struct String)
-PTR_OWN_FUNC(string_own, struct String, STRING_PTR_TYPE)
-PTR_REF_FUNC(string_ref, struct String, STRING_PTR_TYPE)
+PTR_FUNC(string_ptr, String)
+PTR_OWN_FUNC(string_own, String, STRING_PTR_TYPE)
+PTR_REF_FUNC(string_ref, String, STRING_PTR_TYPE)
 
 // Next, we define the Table pointer which has the following bit pattern:
 // 01111111|11110101|........|........|........|........|........|.......o
@@ -189,12 +189,12 @@ typedef struct {
   } * entries;
 } Table;
 
-IS_PTR_FUNC(is_trable_ptr, TABLE_PTR_TYPE)            // is_table_ptr
-IS_PTR_OWN_FUNC(is_table_own, TABLE_PTR_TYPE)         // is_table_own
-IS_PTR_REF_FUNC(is_table_ref, TABLE_PTR_TYPE)         // is_table_ref
-PTR_FUNC(table_ptr, struct Table)                     // table_ptr
-PTR_OWN_FUNC(table_own, struct Table, TABLE_PTR_TYPE) // table_own
-PTR_REF_FUNC(table_ref, struct Table, TABLE_PTR_TYPE) // table_ref
+IS_PTR_FUNC(is_trable_ptr, TABLE_PTR_TYPE)
+IS_PTR_OWN_FUNC(is_table_own, TABLE_PTR_TYPE)
+IS_PTR_REF_FUNC(is_table_ref, TABLE_PTR_TYPE)
+PTR_FUNC(table_ptr, Table)
+PTR_OWN_FUNC(table_own, Table, TABLE_PTR_TYPE)
+PTR_REF_FUNC(table_ref, Table, TABLE_PTR_TYPE)
 
 // The List pointer has the following bit pattern:
 // 01111111|11110110|........|........|........|........|........|.......o
@@ -206,23 +206,23 @@ typedef struct {
   Val *vals;
 } List;
 
-IS_PTR_FUNC(is_list_ptr, LIST_PTR_TYPE)            // is_list_ptr
-IS_PTR_OWN_FUNC(is_list_own, LIST_PTR_TYPE)        // is_list_own
-IS_PTR_REF_FUNC(is_list_ref, LIST_PTR_TYPE)        // is_list_ref
-PTR_FUNC(list_ptr, struct List)                    // list_ptr
-PTR_OWN_FUNC(list_own, struct List, LIST_PTR_TYPE) // list_own
-PTR_REF_FUNC(list_ref, struct List, LIST_PTR_TYPE) // list_ref
+IS_PTR_FUNC(is_list_ptr, LIST_PTR_TYPE)
+IS_PTR_OWN_FUNC(is_list_own, LIST_PTR_TYPE)
+IS_PTR_REF_FUNC(is_list_ref, LIST_PTR_TYPE)
+PTR_FUNC(list_ptr, List)
+PTR_OWN_FUNC(list_own, List, LIST_PTR_TYPE)
+PTR_REF_FUNC(list_ref, List, LIST_PTR_TYPE)
 
 // We also define a "big" 64-bit signed integer pointer (i.e., int64_t):
 // 01111111|11110111|........|........|........|........|........|.......*
 #define INT_PTR_TYPE BYTES(7f, f7, 00, 00, 00, 00, 00, 00)
 
-IS_PTR_FUNC(is_int_ptr, INT_PTR_TYPE)        // is_int_ptr
-IS_PTR_OWN_FUNC(is_int_own, INT_PTR_TYPE)    // is_int_own
-IS_PTR_REF_FUNC(is_int_ref, INT_PTR_TYPE)    // is_int_ref
-PTR_FUNC(int_ptr, int64_t)                   // int_ptr
-PTR_OWN_FUNC(int_own, int64_t, INT_PTR_TYPE) // int_own
-PTR_REF_FUNC(int_ref, int64_t, INT_PTR_TYPE) // int_ref
+IS_PTR_FUNC(is_int_ptr, INT_PTR_TYPE)
+IS_PTR_OWN_FUNC(is_int_own, INT_PTR_TYPE)
+IS_PTR_REF_FUNC(is_int_ref, INT_PTR_TYPE)
+PTR_FUNC(int_ptr, int64_t)
+PTR_OWN_FUNC(int_own, int64_t, INT_PTR_TYPE)
+PTR_REF_FUNC(int_ref, int64_t, INT_PTR_TYPE)
 
 // The next pointer value type represents an error and points to another Val
 // which contains the error context (usually a String or Slice).
@@ -230,14 +230,14 @@ PTR_REF_FUNC(int_ref, int64_t, INT_PTR_TYPE) // int_ref
 // 01111111|11111100|........|........|........|........|........|.......*
 #define ERR_PTR_TYPE BYTES(7f, fc, 00, 00, 00, 00, 00, 00)
 
-IS_PTR_FUNC(is_err_ptr, ERR_PTR_TYPE)     // is_err_ptr
-IS_PTR_OWN_FUNC(is_err_own, ERR_PTR_TYPE) // is_err_own
-IS_PTR_REF_FUNC(is_err_ref, ERR_PTR_TYPE) // is_err_ref
-PTR_FUNC(err_ptr, Val)                    // err_ptr
-PTR_OWN_FUNC(err_own, Val, ERR_PTR_TYPE)  // err_own
-PTR_REF_FUNC(err_ref, Val, ERR_PTR_TYPE)  // err_ref
+IS_PTR_FUNC(is_err_ptr, ERR_PTR_TYPE)
+IS_PTR_OWN_FUNC(is_err_own, ERR_PTR_TYPE)
+IS_PTR_REF_FUNC(is_err_ref, ERR_PTR_TYPE)
+PTR_FUNC(err_ptr, Val)
+PTR_OWN_FUNC(err_own, Val, ERR_PTR_TYPE)
+PTR_REF_FUNC(err_ref, Val, ERR_PTR_TYPE)
 
-// Finally, we define a Slice pointer value type, which can point to a string
+// Next, we define a Slice pointer value type, which can point to a string
 // located in an arbitrary location:
 // 01111111|11111101|........|........|........|........|........|.......o
 #define SLICE_PTR_TYPE BYTES(7f, fd, 00, 00, 00, 00, 00, 00)
@@ -248,12 +248,12 @@ typedef struct Slice {
   char const *c;
 } Slice;
 
-IS_PTR_FUNC(is_slice_ptr, SLICE_PTR_TYPE)             // is_silce_ptr
-IS_PTR_OWN_FUNC(is_slice_own, SLICE_PTR_TYPE)         // is_silce_own
-IS_PTR_REF_FUNC(is_slice_ref, SLICE_PTR_TYPE)         // is_silce_ref
-PTR_FUNC(slice_ptr, struct Slice)                     // silce_ptr
-PTR_OWN_FUNC(slice_own, struct Slice, SLICE_PTR_TYPE) // silce_own
-PTR_REF_FUNC(slice_ref, struct Slice, SLICE_PTR_TYPE) // silce_ref
+IS_PTR_FUNC(is_slice_ptr, SLICE_PTR_TYPE)
+IS_PTR_OWN_FUNC(is_slice_own, SLICE_PTR_TYPE)
+IS_PTR_REF_FUNC(is_slice_ref, SLICE_PTR_TYPE)
+PTR_FUNC(slice_ptr, Slice)
+PTR_OWN_FUNC(slice_own, Slice, SLICE_PTR_TYPE)
+PTR_REF_FUNC(slice_ref, Slice, SLICE_PTR_TYPE)
 
 // TODO: finish reviewing from here
 
