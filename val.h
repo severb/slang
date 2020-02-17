@@ -144,19 +144,13 @@ static inline bool same_type(Val a, Val b) {
 #define ptr_own_(discriminant, ptr) (u_val_((uintptr_t)ptr | (discriminant)))
 
 #define PTR_OWN_FUNC(name, type, discriminant)                                 \
-  static inline Val name(type *t) {                                            \
-    assert(((uintptr_t)t & (TYPE_MASK | REF_FLAG)) == 0);                      \
-    return ptr_own_((discriminant), t);                                        \
-  }
+  static inline Val name(type *t) { return ptr_own_((discriminant), t); }
 
 #define ptr_ref_(discriminant, ptr)                                            \
   (u_val_((uintptr_t)ptr | (discriminant) | REF_FLAG))
 
 #define PTR_REF_FUNC(name, type, discriminant)                                 \
-  static inline Val name(type *t) {                                            \
-    assert(((uintptr_t)t & (TYPE_MASK | REF_FLAG)) == 0);                      \
-    return ptr_ref_((discriminant), t);                                        \
-  }
+  static inline Val name(type *t) { return ptr_ref_((discriminant), t); }
 
 // String is the first pointer type. It points to a struct with a flexible
 // characters array member and has the following bit pattern:
