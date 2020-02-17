@@ -7,11 +7,12 @@
 #include <stdint.h>  // *int16_t, *int32_t, *int64_t, UINT64_C
 
 // Val is a tagged union. It stores all value types exposed by the language and
-// can be used with all collections. Because Vals are so versatile, they are
-// often used internally by the compiler and VM for bookkeeping. All Vals,
-// except doubles, have the following invariant: two Vals are equal if their
-// bit strings are equal. The reverse in not necessarily true. For example, two
-// String pointer values can point to different, but equal, strings.
+// can be used with all collections. Because Vals are so versatile (i.e.,
+// polymorphic), they are also often used internally by the compiler and VM for
+// bookkeeping. All Vals, except doubles, have the following invariant: two Vals
+// are equal if their bit strings are equal. The reverse in not necessarily
+// true. For example, two String pointer values can point to different, but
+// equal, strings.
 typedef struct Val {
   union {
     double d;
@@ -20,13 +21,7 @@ typedef struct Val {
 } Val;
 
 // Vals are 64 bits long and use a bit-packing technique called NaN tagging.
-static_assert(sizeof(uint64_t) == sizeof(double), "Val size mismatch");
-
-// Forward declarations of some types defined elsewhere:
-struct String;
-struct Slice;
-struct Table;
-struct List;
+static_assert(sizeof(uint64_t) == sizeof(Val), "Val size mismatch");
 
 #define val_u_(x) ((x).u)
 static inline uint64_t val_u(Val v) { return val_u_(v); }
@@ -111,7 +106,7 @@ static inline bool is_ptr_ref(Val v) { return is_ptr_ref_(v); }
 #define ref_(v) (u_val_(val_u_(v) | REF_FLAG))
 static inline Val ref(Val v) { return is_ptr_own(v) ? ref_(v) : v; }
 
-// PTR_MASK isolates the pointer value and ignores the ownership flag.
+// PTR_MASK isolates the pointer value, ignoring the ownership flag.
 #define PTR_MASK BYTES(00, 00, FF, FF, FF, FF, FF, FE)
 
 #define ptr_(v) ((void *)(uintptr_t)(val_u_(v) & PTR_MASK))
@@ -121,43 +116,35 @@ static inline void *ptr(Val v) { return ptr_(v); }
 #define TYPE_MASK BYTES(ff, ff, 00, 00, 00, 00, 00, 00)
 
 #define same_type_(a, b) ((val_u_(a) & TYPE_MASK) == (val_u_(b) && TYPE_MASK))
-static inline bool same_type(Val a, Val b) { return same_type_(a, b); }
+static inline bool same_type(Val a, Val b) {
+  return (!is_tagged(a) && !is_tagged(b)) || same_type_(a, b);
+}
 
-// String is the first pointer type. It points to a String and has the
-// following layout:
-// 01111111|11110100|........|........|........|........|........|.......*
-#define STRING_PTR_TYPE BYTES(7f, f4, 00, 00, 00, 00, 00, 00)
+// Function templates for pointer types:
 
 #define is_type_(discriminant, v) ((val_u_(v) & TYPE_MASK) == (discriminant))
 
-#define IS_PTR_F(name, discriminant)                                           \
-  static inline bool is_##name##_ptr(Val v) {                                  \
-    return is_type_((discriminant), v);                                        \
+#define IS_PTR_FUNC(name, discriminant)                                        \
+  static inline bool name(Val v) { return is_type_((discriminant), v); }
+
+#define IS_PTR_OWN_FUNC(name, discriminant)                                    \
+  static inline bool name(Val v) {                                             \
+    return ((val_u_(v) & (TYPE_MASK | REF_FLAG)) == (discriminant));           \
   }
 
-#define is_ptr_x_own_(discriminant, v)                                         \
-  ((val_u_(v) & (TYPE_MASK | REF_FLAG)) == (discriminant))
-
-#define IS_PTR_OWN_F(name, discriminant)                                       \
-  static inline bool is_##name##_own(Val v) {                                  \
-    return is_ptr_x_own_((discriminant), v);                                   \
+#define IS_PTR_REF_FUNC(name, discriminant)                                    \
+  static inline bool name(Val v) {                                             \
+    return ((val_u_(v) & (TYPE_MASK | REF_FLAG)) ==                            \
+            ((discriminant) | REF_FLAG));                                      \
   }
 
-#define is_ptr_x_ref_(discriminant, v)                                         \
-  ((val_u_(v) & (TYPE_MASK | REF_FLAG)) == ((discriminant) | REF_FLAG))
-
-#define IS_PTR_REF_F(name, discriminant)                                       \
-  static inline bool is_##name##_ref(Val v) {                                  \
-    return is_ptr_x_ref_((discriminant), v);                                   \
-  }
-
-#define PTR_F(name, type)                                                      \
-  static inline type *name##_ptr(Val v) { return (type *)ptr(v); }
+#define PTR_FUNC(name, type)                                                   \
+  static inline type *name(Val v) { return (type *)ptr(v); }
 
 #define ptr_own_(discriminant, ptr) (u_val_((uintptr_t)ptr | (discriminant)))
 
-#define PTR_OWN_F(prefix, type, discriminant)                                  \
-  static inline Val prefix##_own(type *t) {                                    \
+#define PTR_OWN_FUNC(name, type, discriminant)                                 \
+  static inline Val name(type *t) {                                            \
     assert(((uintptr_t)t & (TYPE_MASK | REF_FLAG)) == 0);                      \
     return ptr_own_((discriminant), t);                                        \
   }
@@ -165,70 +152,110 @@ static inline bool same_type(Val a, Val b) { return same_type_(a, b); }
 #define ptr_ref_(discriminant, ptr)                                            \
   (u_val_((uintptr_t)ptr | (discriminant) | REF_FLAG))
 
-#define PTR_REF_F(prefix, type, discriminant)                                  \
-  static inline Val prefix##_ref(type *t) {                                    \
+#define PTR_REF_FUNC(name, type, discriminant)                                 \
+  static inline Val name(type *t) {                                            \
     assert(((uintptr_t)t & (TYPE_MASK | REF_FLAG)) == 0);                      \
     return ptr_ref_((discriminant), t);                                        \
   }
 
-IS_PTR_F(string, STRING_PTR_TYPE)                 // is_string_ptr()
-IS_PTR_OWN_F(string, STRING_PTR_TYPE)             // is_string_own()
-IS_PTR_REF_F(string, STRING_PTR_TYPE)             // is_string_ref()
-PTR_F(string, struct String)                      // string_ptr()
-PTR_OWN_F(string, struct String, STRING_PTR_TYPE) // string_own()
-PTR_REF_F(string, struct String, STRING_PTR_TYPE) // string_ref()
+// String is the first pointer type. It points to a struct with a flexible
+// characters array member and has the following bit pattern:
+// 01111111|11110100|........|........|........|........|........|.......o
+#define STRING_PTR_TYPE BYTES(7f, f4, 00, 00, 00, 00, 00, 00)
 
-// Next, we define the Table pointer which has the following layout:
+typedef struct {
+  size_t len;
+  uint64_t hash;
+  char c[]; // flexible array member
+} String;
+
+IS_PTR_FUNC(is_string_ptr, STRING_PTR_TYPE)
+IS_PTR_OWN_FUNC(is_string_own, STRING_PTR_TYPE)
+IS_PTR_REF_FUNC(is_string_ref, STRING_PTR_TYPE)
+PTR_FUNC(string_ptr, struct String)
+PTR_OWN_FUNC(string_own, struct String, STRING_PTR_TYPE)
+PTR_REF_FUNC(string_ref, struct String, STRING_PTR_TYPE)
+
+// Next, we define the Table pointer which has the following bit pattern:
 // 01111111|11110101|........|........|........|........|........|.......o
 #define TABLE_PTR_TYPE BYTES(7f, f5, 00, 00, 00, 00, 00, 00)
-IS_PTR_F(table, TABLE_PTR_TYPE)                // is_table_ptr()
-IS_PTR_OWN_F(table, TABLE_PTR_TYPE)            // is_table_own()
-IS_PTR_REF_F(table, TABLE_PTR_TYPE)            // is_table_ref()
-PTR_F(table, struct Table)                     // table_ptr()
-PTR_OWN_F(table, struct Table, TABLE_PTR_TYPE) // table_own()
-PTR_REF_F(table, struct Table, TABLE_PTR_TYPE) // table_ref()
 
-// The List pointer has the following layout:
+typedef struct {
+  size_t len;
+  size_t cap;
+  struct {
+    Val key;
+    Val val;
+  } * entries;
+} Table;
+
+IS_PTR_FUNC(is_trable_ptr, TABLE_PTR_TYPE)            // is_table_ptr
+IS_PTR_OWN_FUNC(is_table_own, TABLE_PTR_TYPE)         // is_table_own
+IS_PTR_REF_FUNC(is_table_ref, TABLE_PTR_TYPE)         // is_table_ref
+PTR_FUNC(table_ptr, struct Table)                     // table_ptr
+PTR_OWN_FUNC(table_own, struct Table, TABLE_PTR_TYPE) // table_own
+PTR_REF_FUNC(table_ref, struct Table, TABLE_PTR_TYPE) // table_ref
+
+// The List pointer has the following bit pattern:
 // 01111111|11110110|........|........|........|........|........|.......o
 #define LIST_PTR_TYPE BYTES(7f, f6, 00, 00, 00, 00, 00, 00)
-IS_PTR_F(list, LIST_PTR_TYPE)               // is_list_ptr()
-IS_PTR_OWN_F(list, LIST_PTR_TYPE)           // is_list_own()
-IS_PTR_REF_F(list, LIST_PTR_TYPE)           // is_list_ref()
-PTR_F(list, struct List)                    // list_ptr()
-PTR_OWN_F(list, struct List, LIST_PTR_TYPE) // list_own()
-PTR_REF_F(list, struct List, LIST_PTR_TYPE) // list_ref()
+
+typedef struct {
+  size_t cap;
+  size_t len;
+  Val *vals;
+} List;
+
+IS_PTR_FUNC(is_list_ptr, LIST_PTR_TYPE)            // is_list_ptr
+IS_PTR_OWN_FUNC(is_list_own, LIST_PTR_TYPE)        // is_list_own
+IS_PTR_REF_FUNC(is_list_ref, LIST_PTR_TYPE)        // is_list_ref
+PTR_FUNC(list_ptr, struct List)                    // list_ptr
+PTR_OWN_FUNC(list_own, struct List, LIST_PTR_TYPE) // list_own
+PTR_REF_FUNC(list_ref, struct List, LIST_PTR_TYPE) // list_ref
 
 // We also define a "big" 64-bit signed integer pointer (i.e., int64_t):
 // 01111111|11110111|........|........|........|........|........|.......*
 #define INT_PTR_TYPE BYTES(7f, f7, 00, 00, 00, 00, 00, 00)
-IS_PTR_F(int, INT_PTR_TYPE)           // is_int_ptr()
-IS_PTR_OWN_F(int, INT_PTR_TYPE)       // is_int_own()
-IS_PTR_REF_F(int, INT_PTR_TYPE)       // is_int_ref()
-PTR_F(int, int64_t)                   // int_ptr()
-PTR_OWN_F(int, int64_t, INT_PTR_TYPE) // int_own()
-PTR_REF_F(int, int64_t, INT_PTR_TYPE) // int_ref()
+
+IS_PTR_FUNC(is_int_ptr, INT_PTR_TYPE)        // is_int_ptr
+IS_PTR_OWN_FUNC(is_int_own, INT_PTR_TYPE)    // is_int_own
+IS_PTR_REF_FUNC(is_int_ref, INT_PTR_TYPE)    // is_int_ref
+PTR_FUNC(int_ptr, int64_t)                   // int_ptr
+PTR_OWN_FUNC(int_own, int64_t, INT_PTR_TYPE) // int_own
+PTR_REF_FUNC(int_ref, int64_t, INT_PTR_TYPE) // int_ref
 
 // The next pointer value type represents an error and points to another Val
 // which contains the error context (usually a String or Slice).
 // NB: The ownership flag applies to the Val.
 // 01111111|11111100|........|........|........|........|........|.......*
 #define ERR_PTR_TYPE BYTES(7f, fc, 00, 00, 00, 00, 00, 00)
-IS_PTR_F(err, ERR_PTR_TYPE)       // is_err_ptr()
-IS_PTR_OWN_F(err, ERR_PTR_TYPE)   // is_err_own()
-IS_PTR_REF_F(err, ERR_PTR_TYPE)   // is_err_ref()
-PTR_F(err, Val)                   // err_ptr()
-PTR_OWN_F(err, Val, ERR_PTR_TYPE) // err_own()
-PTR_REF_F(err, Val, ERR_PTR_TYPE) // err_ref()
 
-// Finally, we define a Slice pointer value type:
-// 01111111|11111101|........|........|........|........|........|.......*
+IS_PTR_FUNC(is_err_ptr, ERR_PTR_TYPE)     // is_err_ptr
+IS_PTR_OWN_FUNC(is_err_own, ERR_PTR_TYPE) // is_err_own
+IS_PTR_REF_FUNC(is_err_ref, ERR_PTR_TYPE) // is_err_ref
+PTR_FUNC(err_ptr, Val)                    // err_ptr
+PTR_OWN_FUNC(err_own, Val, ERR_PTR_TYPE)  // err_own
+PTR_REF_FUNC(err_ref, Val, ERR_PTR_TYPE)  // err_ref
+
+// Finally, we define a Slice pointer value type, which can point to a string
+// located in an arbitrary location:
+// 01111111|11111101|........|........|........|........|........|.......o
 #define SLICE_PTR_TYPE BYTES(7f, fd, 00, 00, 00, 00, 00, 00)
-IS_PTR_F(slice, SLICE_PTR_TYPE)                // is_silce_ptr()
-IS_PTR_OWN_F(slice, SLICE_PTR_TYPE)            // is_silce_own()
-IS_PTR_REF_F(slice, SLICE_PTR_TYPE)            // is_silce_ref()
-PTR_F(slice, struct Slice)                     // silce_ptr()
-PTR_OWN_F(slice, struct Slice, SLICE_PTR_TYPE) // silce_own()
-PTR_REF_F(slice, struct Slice, SLICE_PTR_TYPE) // silce_ref()
+
+typedef struct Slice {
+  size_t len;
+  size_t hash;
+  char const *c;
+} Slice;
+
+IS_PTR_FUNC(is_slice_ptr, SLICE_PTR_TYPE)             // is_silce_ptr
+IS_PTR_OWN_FUNC(is_slice_own, SLICE_PTR_TYPE)         // is_silce_own
+IS_PTR_REF_FUNC(is_slice_ref, SLICE_PTR_TYPE)         // is_silce_ref
+PTR_FUNC(slice_ptr, struct Slice)                     // silce_ptr
+PTR_OWN_FUNC(slice_own, struct Slice, SLICE_PTR_TYPE) // silce_own
+PTR_REF_FUNC(slice_ref, struct Slice, SLICE_PTR_TYPE) // silce_ref
+
+// TODO: finish reviewing from here
 
 // The remaining two pointer value types are reserved for later use:
 // 01111111|11111110|........|........|........|........|........|.......*
@@ -351,7 +378,7 @@ void val_print(Val);
 void val_print_repr(Val);
 uint32_t val_hash(Val);
 bool val_truthy(Val);
-
-bool val_equals(Val, Val);
+bool val_cmp(Val, Val);
+Val val_add(Val, Val);
 
 #endif
