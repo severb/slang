@@ -1,90 +1,97 @@
 #include "val.h"
 
-#include "list.h"  // list_destroy
-#include "mem.h"   // FREE
-#include "str.h"   // string_free
-#include "table.h" // table_destroy
+#include "types.h" // String, string_free, string_print, string_hash
+                   // Slice, slice_free, slice_print, slice_hash
+                   // Table, table_free, table_print
+                   // List, list_free, list_print
 
-#include <inttypes.h> // PRId64, PRId32, PRId16
+#include "mem.h" // mem_free, mem_free_flex
+
+#include <inttypes.h> // PRId*
 #include <stddef.h>   // max_align_t
-#include <stdint.h>   // int64_t, uintptr_t
+#include <stdint.h>   // uint*_t, int*_t, uintptr_t
 #include <stdio.h>    // printf
+#include <string.h>   // memcmp
+#include <stdbool.h>  // bool
 
-void val_destroy(Val v) {
-  if (!is_ptr_own(v))
-    return;
-  switch (val_u(v) & TYPE_MASK) {
-  case STRING_PTR_TYPE:
-    string_free(string_ptr(v));
+void val_free(Val v) {
+  if (!val_is_ptr_own(v))
+    return; // we can only destroy owned pointer values
+  switch (val_type(v)) {
+  case VAL_STRING: {
+    String *s = val_ptr2string(v);
+    mem_free_flex(s, sizeof(String), sizeof(char), s->len);
     break;
-  case TABLE_PTR_TYPE:
-    table_destroy(table_ptr(v));
+  }
+  case VAL_TABLE:
+    table_free(val_ptr2table(v));
+    mem_free(val_ptr2table(v), sizeof(Table));
     break;
-  case LIST_PTR_TYPE:
-    list_destroy(list_ptr(v));
+  case VAL_LIST:
+    list_free(val_ptr2list(v));
+    mem_free(val_ptr2list(v), sizeof(List));
     break;
-  case INT_PTR_TYPE:
-    FREE(int_ptr(v), int64_t);
+  case VAL_I64:
+    mem_free(val_ptr2int64(v), sizeof(int64_t));
     break;
-  case ERR_PTR_TYPE:
-    val_destroy(*err_ptr(v));
-    FREE(err_ptr(v), Val); // TODO: is this right?
+  case VAL_ERR:
+    val_free(*val_ptr2err(v));
+    mem_free(val_ptr2err(v), sizeof(Val));
     break;
-  case SLICE_PTR_TYPE:
-    FREE(slice_ptr(v), Slice);
+  case VAL_SLICE:
+    mem_free(val_ptr2slice(v), sizeof(Slice));
     break;
+  case VAL_DOUBLE:
+  case VAL_PAIR:
+  case VAL_SYMBOL:
   default:
     assert(0);
   }
 }
 
 void val_print(Val v) {
-  switch (val_u(v) & TYPE_MASK) {
-  case STRING_PTR_TYPE: {
-    String *s = string_ptr(v);
-    unsafe_print(*s);
+  switch (val_type(v)) {
+  case VAL_STRING: {
+    string_print(val_ptr2string(v));
     break;
   }
-  case TABLE_PTR_TYPE:
-    printf("<table[%zu]>", table_ptr(v)->len);
+  case VAL_TABLE:
+    table_print(val_ptr2table(v));
     break;
-  case LIST_PTR_TYPE:
-    printf("<list[%zu]>", list_ptr(v)->len);
+  case VAL_LIST:
+    list_print(val_ptr2list(v));
     break;
-  case INT_PTR_TYPE:
-    printf("%" PRId64, *int_ptr(v));
+  case VAL_I64:
+    printf("%" PRId64, *val_ptr2int64(v));
     break;
-  case ERR_PTR_TYPE:
+  case VAL_ERR:
     printf("error: ");
-    val_print(*err_ptr(v));
+    val_print(*val_ptr2err(v));
     break;
-  case SLICE_PTR_TYPE: {
-    Slice s = *slice_ptr(v);
-    unsafe_print(s);
+  case VAL_SLICE: {
+    slice_print(val_ptr2slice(v));
     break;
   }
-  case PAIR_DATA_TYPE:
-    printf("(%" PRId16 ", %" PRId32 ")", pair_a(v), pair_b(v));
+  case VAL_PAIR:
+    printf("(%" PRId16 ", %" PRId32 ")", val_data2pair_a(v),
+           val_data2pair_b(v));
     break;
-  case SYMB_DATA_TYPE:
-    switch (val_u(v)) {
-    case FALSEu:
+  case VAL_SYMBOL:
+    switch (val_data2symbol(v)) {
+    case SYM_FALSE:
       printf("false");
       break;
-    case TRUEu:
+    case SYM_TRUE:
       printf("true");
       break;
-    case NILu:
+    case SYM_NIL:
       printf("nil");
       break;
-    case OKu:
+    case SYM_OK:
       printf("ok");
       break;
     default:
-      if (is_usr_symbol(v))
-        printf("<user symbol: %" PRIx64 ">", val_usr(v));
-      else
-        printf("<reserved symbol: %" PRIx16 ">", (uint16_t)val_u(v));
+      printf("<symbol: %u>", val_data2symbol(v));
       break;
     }
     break;
@@ -93,141 +100,182 @@ void val_print(Val v) {
   }
 }
 
-void val_print_repr(Val v) {
-#define PTR_DETAILS printf("@%p (%s)", ptr(v), is_ptr_own(v) ? "o" : "r")
-  switch (val_u(v) & TYPE_MASK) {
-  case STRING_PTR_TYPE:
-    printf("<STRING ");
-    PTR_DETAILS;
-    printf(" '");
-    val_print(v);
-    printf("'>");
-    break;
-  case TABLE_PTR_TYPE:
-    printf("<TABLE>");
-    printf("<TABLE[%zu] ", table_ptr(v)->len);
-    PTR_DETAILS;
-    printf(">");
-    break;
-  case LIST_PTR_TYPE:
-    printf("<LIST[%zu] ", list_ptr(v)->len);
-    PTR_DETAILS;
-    printf(">");
-    break;
-  case INT_PTR_TYPE:
-    printf("<INT ");
-    PTR_DETAILS;
-    printf(" ");
-    val_print(v);
-    printf(">");
-    break;
-  case ERR_PTR_TYPE:
-    printf("<ERR ");
-    PTR_DETAILS;
-    printf(" ");
-    val_print_repr(*err_ptr(v));
-    printf(">");
-    break;
-  case SLICE_PTR_TYPE:
-    printf("<SLICE ");
-    PTR_DETAILS;
-    printf(" '");
-    val_print(v);
-    printf("'>");
-    break;
-  case PAIR_DATA_TYPE:
-    printf("<PAIR ");
-    printf(" ");
-    val_print(v);
-    printf(">");
-    break;
-  case SYMB_DATA_TYPE:
-    printf("<SYMB ");
-    val_print(v);
-    printf(">");
-    break;
+union d {
+  double d;
+  uint64_t u;
+};
+
+size_t val_hash(Val v) {
+  switch (val_type(v)) {
+  case VAL_STRING:
+    return string_hash(val_ptr2string(v));
+  case VAL_TABLE:
+  case VAL_LIST:
+    return (size_t)0xDEADBEEF ^
+           (size_t)((uintptr_t)val_ptr2ptr(v) >> sizeof(max_align_t));
+  case VAL_I64:
+    return (size_t)*val_ptr2int64(v);
+  case VAL_ERR:
+    return (size_t)0xC0FFEE ^ val_hash(*val_ptr2err(v));
+  case VAL_SLICE:
+    return slice_hash(val_ptr2slice(v));
+  case VAL_DOUBLE:
+    return (size_t)((union d){.d = val_data2double(v)}.u);
+  case VAL_PAIR:
+    return ((uint64_t)val_data2pair_ua(v) << 32 |
+            (uint64_t)val_data2pair_ub(v));
+  case VAL_SYMBOL:
+    return (size_t)0xCACA0 ^ (size_t)val_data2symbol(v);
   default:
     assert(0);
   }
-#undef PTR_DETAILS
 }
 
-uint32_t val_hash(Val v) {
-#define HASH_HALVES(i) ((((i) >> 32) ^ (i)) * 3)
-  switch (val_u(v) & TYPE_MASK) {
-  case STRING_PTR_TYPE: {
-    String *s = string_ptr(v);
-    return unsafe_hash(s);
-  }
-  case TABLE_PTR_TYPE:
-  case LIST_PTR_TYPE: {
-    return ((uintptr_t)ptr(v) >> sizeof(max_align_t)) * 3 + 5;
-  }
-  case INT_PTR_TYPE: {
-    uint64_t i = (uint64_t)*int_ptr(v);
-    return HASH_HALVES(i);
-  }
-  case ERR_PTR_TYPE:
-    return val_hash(*err_ptr(v)) * 5 + 17;
-  case SLICE_PTR_TYPE: {
-    Slice *s = slice_ptr(v);
-    return unsafe_hash(s);
-  }
-  case PAIR_DATA_TYPE: // for data, xor the halves
-  case SYMB_DATA_TYPE:
-    return HASH_HALVES(val_u(v));
-  default:
-    assert(0);
-  }
-#undef HASH_HALVES
-}
-
-bool val_truthy(Val v) { return !(is_nil(v) || is_false(v)); }
-
-bool val_equals(Val a, Val b) {
-  switch (val_u(a) & TYPE_MASK) {
-  case SLICE_PTR_TYPE: {
-    if (val_biteq(a, b))
+bool val_is_true(Val v) {
+  switch (val_type(v)) {
+  case VAL_STRING:
+    return val_ptr2string(v)->len != 0;
+  case VAL_TABLE:
+    return val_ptr2table(v)->len != 0;
+  case VAL_LIST:
+    return val_ptr2list(v)->len != 0;
+  case VAL_I64:
+    return *val_ptr2int64(v) != 0;
+  case VAL_ERR:
+    return true;
+  case VAL_SLICE:
+    return val_ptr2slice(v)->len != 0;
+  case VAL_DOUBLE:
+    return val_data2double(v) != (double)0;
+  case VAL_PAIR:
+    return val_data2pair_ub(v) != 0 || val_data2pair_ua(v) != 0;
+  case VAL_SYMBOL:
+    switch (val_data2symbol(v)) {
+    case SYM_FALSE:
+    case SYM_NIL:
+      return false;
+    default:
       return true;
-    if (is_slice_ptr(b)) {
-      Slice *a_ptr = slice_ptr(a);
-      Slice *b_ptr = slice_ptr(b);
-      return unsafe_equals(a_ptr, b_ptr);
     }
-    if (is_string_ptr(b)) {
-      Slice *a_ptr = slice_ptr(a);
-      String *b_ptr = string_ptr(b);
-      return unsafe_equals(a_ptr, b_ptr);
+  default:
+    assert(0);
+  }
+}
+
+bool val_eq(Val a, Val b) {
+  size_t a_hash, a_len, b_hash, b_len;
+  const char *a_c, *b_c;
+  if (val_biteq(a, b)) {
+    return true;
+  }
+  if (val_is_ptr(a) && (val_ptr2ptr(a) == val_ptr2ptr(b))) {
+    return true;
+  }
+  switch (val_type(a)) {
+  case VAL_STRING: {
+    String *as = val_ptr2string(a);
+    a_hash = as->hash;
+    a_len = as->len;
+    a_c = as->c;
+    goto compare_strings;
+  }
+  case VAL_SLICE: {
+    Slice *as = val_ptr2slice(a);
+    a_hash = as->hash;
+    a_len = as->len;
+    a_c = as->c;
+    goto compare_strings;
+  }
+  case VAL_I64:
+    switch (val_type(b)) {
+    case VAL_I64:
+      return *val_ptr2int64(a) = *val_ptr2int64(b);
+    case VAL_PAIR:
+      return ((val_data2pair_ua(b) == 0) &&
+              (*val_ptr2int64(a) == val_data2pair_b(b)));
+    case VAL_DOUBLE:
+      return *val_ptr2int64(a) == val_data2double(b);
+    default:
+      return false;
     }
+  case VAL_DOUBLE:
+    switch (val_type(b)) {
+    case VAL_I64:
+      return val_data2double(a) == *val_ptr2int64(b);
+    case VAL_PAIR:
+      return ((val_data2pair_ua(b) == 0) &&
+              (val_data2double(a) == val_data2pair_b(b)));
+    case VAL_DOUBLE:
+      return val_data2double(a) == val_data2double(b);
+    default:
+      return false;
+    }
+  case VAL_ERR:
+    return val_is_err(b) && val_eq(*val_ptr2err(a), *val_ptr2err(b));
+  case VAL_TABLE:
+    return (val_type(b) == VAL_TABLE) &&
+           table_eq(val_ptr2table(a), val_ptr2table(b));
+  case VAL_LIST:
+    return (val_type(b) == VAL_LIST) &&
+           list_eq(val_ptr2list(a), val_ptr2list(b));
+  case VAL_SYMBOL:
+    return false; // because of the early val_biteq
+  default:
+    assert(0);
+  }
+compare_strings:
+  switch (val_type(b)) {
+  case VAL_STRING: {
+    String *bs = val_ptr2string(b);
+    b_hash = bs->hash;
+    b_len = bs->len;
+    b_c = bs->c;
+  }
+  case VAL_SLICE: {
+    Slice *bs = val_ptr2slice(b);
+    b_hash = bs->hash;
+    b_len = bs->len;
+    b_c = bs->c;
+  }
+  default:
     return false;
   }
-  case STRING_PTR_TYPE:
-    if (val_biteq(a, b))
-      return true;
-    if (is_slice_ptr(b)) {
-      String *a_ptr = string_ptr(a);
-      Slice *b_ptr = slice_ptr(b);
-      return unsafe_equals(a_ptr, b_ptr);
-    }
-    if (is_string_ptr(b)) {
-      String *a_ptr = string_ptr(a);
-      String *b_ptr = string_ptr(b);
-      return unsafe_equals(a_ptr, b_ptr);
-    }
+  if (a_len != b_len) {
     return false;
-  case INT_PTR_TYPE:
-    return val_biteq(a, b) || (is_int_ptr(b) && (*int_ptr(a) == *int_ptr(b))) ||
-           (is_pair_data(b) && (pair_ua(b) == 0) && (*int_ptr(a) == pair_b(b)));
-  case PAIR_DATA_TYPE:
-    return val_biteq(a, b) ||
-           ((pair_ua(a) == 0) && is_int_ptr(b) && (pair_b(a) == *int_ptr(b)));
-  case ERR_PTR_TYPE:
-    return is_err_ptr(b) && val_equals(*err_ptr(a), *err_ptr(b));
-  case TABLE_PTR_TYPE:
-  case LIST_PTR_TYPE:
-  case SYMB_DATA_TYPE:
-    return val_biteq(a, b);
-  default:
-    assert(0);
   }
+  if ((a_hash != 0) && (b_hash != 0) && (a_hash != b_hash)) {
+    return false;
+  }
+  return memcmp(a_c, b_c, b_len) == 0;
 }
+
+extern inline double val_data2double(Val);
+extern inline Val val_data4double(double);
+extern inline bool val_biteq(Val, Val);
+extern inline bool val_is_ptr(Val);
+extern inline bool val_is_data(Val);
+extern inline bool val_is_ptr_own(Val);
+extern inline bool val_is_ptr_ref(Val);
+extern inline Val val_ptr2ref(Val);
+extern inline void *val_ptr2ptr(Val);
+extern inline ValType val_type(Val);
+extern inline Val val_ptr4string(String *);
+extern inline String *val_ptr2string(Val);
+extern inline Val val_ptr4table(Table *);
+extern inline Table *val_ptr2table(Val);
+extern inline Val val_ptr4list(List *);
+extern inline List *val_ptr2list(Val);
+extern inline Val val_ptr4int64(int64_t *);
+extern inline int64_t *val_ptr2int64(Val);
+extern inline bool val_is_err(Val);
+extern inline Val val_ptr4err(Val *);
+extern inline Val *val_ptr2err(Val);
+extern inline Val val_ptr4slice(Slice *);
+extern inline Slice *val_ptr2slice(Val);
+extern inline uint16_t val_data2pair_ua(Val);
+extern inline uint32_t val_data2pair_ub(Val);
+extern inline int16_t val_data2pair_a(Val);
+extern inline int32_t val_data2pair_b(Val);
+extern inline Val val_data4upair(uint16_t, uint32_t);
+extern inline Val val_data4pair(int16_t, int32_t);
+extern inline Symbol val_data2symbol(Val);

@@ -5,38 +5,39 @@
 #include <stddef.h> // size_t
 #include <stdint.h> // SIZE_MAX
 
-#define ALLOCATE(type) (type *)reallocate(0, 0, sizeof(type))
-#define FREE(pointer, type) reallocate(pointer, sizeof(type), 0)
+void *mem_reallocate(void *, size_t old_size, size_t new_size);
+inline void *mem_allocate(size_t item_size) {
+  return mem_reallocate(0, 0, item_size);
+}
+inline void mem_free(void *p, size_t item_size) {
+  mem_reallocate(p, item_size, 0);
+}
 
-#define GROW_ARRAY(pointer, type, old_len, new_len)                            \
-  ((((old_len) < SIZE_MAX / sizeof(type)) &&                                   \
-    ((new_len) < SIZE_MAX / sizeof(type)))                                     \
-       ? reallocate((pointer), sizeof(type) * (old_len),                       \
-                    sizeof(type) * (new_len))                                  \
-       : 0)
-#define FREE_ARRAY(pointer, type, old_len)                                     \
-  do {                                                                         \
-    if ((old_len) < SIZE_MAX / sizeof(type))                                   \
-      reallocate((pointer), sizeof(type) * (old_len), 0);                      \
-    else                                                                       \
-      assert(0);                                                               \
-  } while (0)
+inline void *mem_resize_array(void *p, size_t item_size, size_t old_len,
+                              size_t new_len) {
+  assert(old_len < SIZE_MAX / item_size);
+  return (new_len < SIZE_MAX / item_size)
+             ? mem_reallocate(p, item_size * old_len, item_size * new_len)
+             : 0;
+}
 
-#define ALLOCATE_FLEX(type, array_type, len)                                   \
-  ((len) < ((SIZE_MAX - sizeof(type)) / sizeof(array_type))                    \
-       ? reallocate(0, 0, sizeof(type) + sizeof(array_type) * (len))           \
-       : 0)
-#define FREE_FLEX(pointer, type, array_type, len)                              \
-  do {                                                                         \
-    if ((len) < (SIZE_MAX - sizeof(type)) / sizeof(array_type))                \
-      reallocate((pointer), sizeof(type) + sizeof(array_type) * (len), 0);     \
-    else                                                                       \
-      assert(0);                                                               \
-  } while (0)
+inline void mem_free_array(void *p, size_t item_size, size_t old_len) {
+  assert(old_len < SIZE_MAX / item_size);
+  mem_reallocate(p, item_size * old_len, 0);
+}
 
-// allocated_memory keeps track of how much memory is currently allocated.
-extern size_t allocated_memory;
+inline void *mem_allocate_flex(size_t type_size, size_t item_size, size_t len) {
+  return (len < (SIZE_MAX - type_size) / item_size)
+             ? mem_reallocate(0, 0, type_size + item_size * len)
+             : 0;
+}
 
-void *reallocate(void *, size_t old_size, size_t new_size);
+inline void mem_free_flex(void *p, size_t type_size, size_t item_size,
+                          size_t len) {
+  assert(len < (SIZE_MAX - type_size) / item_size);
+  mem_reallocate(p, type_size + item_size * len, 0);
+}
+
+void mem_allocation_summary(void);
 
 #endif

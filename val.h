@@ -3,16 +3,23 @@
 
 #include <assert.h>  // static_assert, assert
 #include <stdbool.h> // bool
-#include <stddef.h>  // max_align_t
-#include <stdint.h>  // *int16_t, *int32_t, *int64_t, UINT64_C
+#include <stddef.h>  // max_align_t, size_t
+#include <stdint.h>  // *int16_t, *int32_t, *int64_t, UINT64_C, uintptr_t
 
-// Val is a tagged union. It stores all value types exposed by the language and
-// can be used with all collections. Because Vals are so versatile (i.e.,
-// polymorphic), they are also often used internally by the compiler and VM for
-// bookkeeping. All Vals, except doubles, have the following invariant: two Vals
-// are equal if their bit strings are equal. The reverse in not necessarily
-// true. For example, two String pointer values can point to different, but
-// equal, strings.
+// Val is a tagged union of all known pointer and value types. Vals are
+// polymorphic and can be used with all collections. Because Vals are
+// so versatile, they are also often used internally by the compiler and VM for
+// bookkeeping.
+//
+// The Val type defined in this file uses a few tricks, including bit-packing
+// technique named NaN tagging, which keeps the data compact. The methods
+// defined are meant to hide all that away, and should make it easy to replace
+// the Val implementation with something easier to debug.
+//
+// The Vals, except doubles, have the following invariant: two Vals are equal if
+// they are equal bitwise. The reverse in not necessarily true--eg., two String
+// pointer values can point to different, but equal, strings.
+// The doubles are special because a NaN is not equal to anything.
 typedef struct {
   union {
     double d;
@@ -20,23 +27,19 @@ typedef struct {
   };
 } Val;
 
+inline double val_data2double(Val v) { return v.d; }
+inline Val val_data4double(double d) { return (Val){.d = d}; }
+
+// Forward declarations of pointer types that Val is polymorphic to.
+struct String;
+struct Table;
+struct List;
+struct Slice;
+
 // Vals are 64 bits long and use a bit-packing technique called NaN tagging.
 static_assert(sizeof(uint64_t) == sizeof(Val), "Val size mismatch");
 
-#define val_u_(x) ((x).u)
-static inline uint64_t val_u(Val v) { return val_u_(v); }
-
-#define val_d_(x) ((x).d)
-static inline double val_d(Val v) { return val_d_(v); }
-
-#define u_val_(x) ((Val){.u = (x)})
-static inline Val u_val(uint64_t u) { return u_val_(u); }
-
-#define d_val_(x) ((Val){.d = (x)})
-static inline Val d_val(double d) { return d_val_(d); }
-
-#define val_biteq_(a, b) (val_u_(a) == val_u_(b))
-static inline bool val_biteq(Val a, Val b) { return val_biteq_(a, b); }
+inline bool val_biteq(Val a, Val b) { return a.u == b.u; }
 
 // BYTES is a visual aid for defining 64 bit patterns.
 #define BYTES(a, b, c, d, e, f, g, h) (UINT64_C(0x##a##b##c##d##e##f##g##h))
@@ -64,24 +67,16 @@ static inline bool val_biteq(Val a, Val b) { return val_biteq_(a, b); }
 
 #define TAGGED_MASK BYTES(7f, f4, 00, 00, 00, 00, 00, 00)
 
-#define is_tagged_(v) ((val_u_(v) & TAGGED_MASK) == TAGGED_MASK)
-static inline bool is_tagged(Val v) { return is_tagged_(v); }
-
-#define is_double_(v) (!is_tagged_(v))
-static inline bool is_double(Val v) { return is_double_(v); }
-
-// We define two categories of values: pointers and data. Pointer values have
+// We split the values in two categories: pointers and data. Pointer values have
 // the most significant discriminant bit (the sign bit) unset, while data values
 // have it set.
 
 #define SIGN_FLAG BYTES(80, 00, 00, 00, 00, 00, 00, 00)
 
-#define is_ptr_(v) ((val_u_(v) & (TAGGED_MASK | SIGN_FLAG)) == TAGGED_MASK)
-static inline bool is_ptr(Val v) { return is_ptr_(v); }
-
-#define is_data_(v)                                                            \
-  ((val_u_(v) & (TAGGED_MASK | SIGN_FLAG)) == (TAGGED_MASK | SIGN_FLAG))
-static inline bool is_data(Val v) { return is_data_(v); }
+inline bool val_is_ptr(Val v) {
+  return (v.u & (TAGGED_MASK | SIGN_FLAG)) == TAGGED_MASK;
+}
+inline bool val_is_data(Val v) { return !val_is_ptr(v); }
 
 // Pointer values have additional tagging applied to their least significant
 // bit. This is possible because pointers allocated with malloc are usually
@@ -94,166 +89,130 @@ static_assert(sizeof(max_align_t) >= 2, "pointer alginment >= 2");
 
 #define REF_FLAG BYTES(00, 00, 00, 00, 00, 00, 00, 01)
 
-#define is_ptr_own_(v)                                                         \
-  ((val_u_(v) & (SIGN_FLAG | TAGGED_MASK | REF_FLAG)) == TAGGED_MASK)
-static inline bool is_ptr_own(Val v) { return is_ptr_own_(v); }
+inline bool val_is_ptr_own(Val v) {
+  return (v.u & (SIGN_FLAG | TAGGED_MASK | REF_FLAG)) == TAGGED_MASK;
+}
+inline bool val_is_ptr_ref(Val v) {
+  return ((v.u & (SIGN_FLAG | TAGGED_MASK | REF_FLAG)) ==
+          (TAGGED_MASK | REF_FLAG));
+}
 
-#define is_ptr_ref_(v)                                                         \
-  ((val_u_(v) & (SIGN_FLAG | TAGGED_MASK | REF_FLAG)) ==                       \
-   (TAGGED_MASK | REF_FLAG))
-static inline bool is_ptr_ref(Val v) { return is_ptr_ref_(v); }
-
-#define ref_(v) (u_val_(val_u_(v) | REF_FLAG))
-static inline Val ref(Val v) { return is_ptr_own(v) ? ref_(v) : v; }
+inline Val val_ptr2ref(Val v) {
+  assert(val_is_ptr(v));
+  return (Val){.u = (v.u | REF_FLAG)};
+}
 
 // PTR_MASK isolates the pointer value, ignoring the ownership flag.
 #define PTR_MASK BYTES(00, 00, FF, FF, FF, FF, FF, FE)
 
-#define ptr_(v) ((void *)(uintptr_t)(val_u_(v) & PTR_MASK))
-static inline void *ptr(Val v) { return ptr_(v); }
+inline void *val_ptr2ptr(Val v) {
+  assert(val_is_ptr(v));
+  return (void *)(uintptr_t)(v.u & PTR_MASK);
+}
 
 // TYPE_MASK isolates the type discriminant from the stored value.
 #define TYPE_MASK BYTES(ff, ff, 00, 00, 00, 00, 00, 00)
 
-#define same_type_(a, b) ((val_u_(a) & TYPE_MASK) == (val_u_(b) && TYPE_MASK))
-static inline bool same_type(Val a, Val b) {
-  return (!is_tagged(a) && !is_tagged(b)) || same_type_(a, b);
+typedef enum {
+  VAL_DOUBLE,
+  VAL_STRING = 0x7ff4,
+  VAL_TABLE,
+  VAL_LIST,
+  VAL_I64,
+  VAL_ERR = 0x7ffc,
+  VAL_SLICE,
+  VAL_PAIR = 0xfff4,
+  VAL_SYMBOL,
+} ValType;
+
+// val_type() returns the type discriminant of the Val.
+inline ValType val_type(Val v) {
+  return (v.u & TAGGED_MASK) == TAGGED_MASK
+             ? (uint16_t)((v.u & TYPE_MASK) >> 48)
+             : VAL_DOUBLE;
 }
 
-// Function templates for pointer types:
-
-#define is_type_(discriminant, v) ((val_u_(v) & TYPE_MASK) == (discriminant))
-
-#define IS_PTR_FUNC(name, discriminant)                                        \
-  static inline bool name(Val v) { return is_type_((discriminant), v); }
-
-#define IS_PTR_OWN_FUNC(name, discriminant)                                    \
-  static inline bool name(Val v) {                                             \
-    return ((val_u_(v) & (TYPE_MASK | REF_FLAG)) == (discriminant));           \
-  }
-
-#define IS_PTR_REF_FUNC(name, discriminant)                                    \
-  static inline bool name(Val v) {                                             \
-    return ((val_u_(v) & (TYPE_MASK | REF_FLAG)) ==                            \
-            ((discriminant) | REF_FLAG));                                      \
-  }
-
-#define PTR_FUNC(name, type)                                                   \
-  static inline type *name(Val v) { return (type *)ptr(v); }
-
-#define ptr_own_(discriminant, ptr) (u_val_((uintptr_t)ptr | (discriminant)))
-
-#define PTR_OWN_FUNC(name, type, discriminant)                                 \
-  static inline Val name(type *t) { return ptr_own_((discriminant), t); }
-
-#define ptr_ref_(discriminant, ptr)                                            \
-  (u_val_((uintptr_t)ptr | (discriminant) | REF_FLAG))
-
-#define PTR_REF_FUNC(name, type, discriminant)                                 \
-  static inline Val name(type *t) { return ptr_ref_((discriminant), t); }
-
-// String is the first pointer type. It points to a struct with a flexible
-// characters array member and has the following bit pattern:
+// The String pointer type points to a struct with a flexible characters array
+// member and has the following bit pattern:
 // 01111111|11110100|........|........|........|........|........|.......o
 #define STRING_PTR_TYPE BYTES(7f, f4, 00, 00, 00, 00, 00, 00)
 
-typedef struct {
-  size_t len;
-  uint64_t hash;
-  char c[]; // flexible array member
-} String;
+inline Val val_ptr4string(struct String *s) {
+  return (Val){.u = ((uintptr_t)s | STRING_PTR_TYPE)};
+}
+inline struct String *val_ptr2string(Val v) {
+  assert((v.u & TYPE_MASK) == STRING_PTR_TYPE);
+  return (struct String *)val_ptr2ptr(v);
+}
 
-IS_PTR_FUNC(is_string_ptr, STRING_PTR_TYPE)
-IS_PTR_OWN_FUNC(is_string_own, STRING_PTR_TYPE)
-IS_PTR_REF_FUNC(is_string_ref, STRING_PTR_TYPE)
-PTR_FUNC(string_ptr, String)
-PTR_OWN_FUNC(string_own, String, STRING_PTR_TYPE)
-PTR_REF_FUNC(string_ref, String, STRING_PTR_TYPE)
-
-// Next, we define the Table pointer which has the following bit pattern:
+// The Table pointer type points to a hash-map of Vals to Vals.
 // 01111111|11110101|........|........|........|........|........|.......o
 #define TABLE_PTR_TYPE BYTES(7f, f5, 00, 00, 00, 00, 00, 00)
 
-typedef struct {
-  size_t len;
-  size_t cap;
-  struct {
-    Val key;
-    Val val;
-  } * entries;
-} Table;
+inline Val val_ptr4table(struct Table *t) {
+  return (Val){.u = ((uintptr_t)t | TABLE_PTR_TYPE)};
+}
+inline struct Table *val_ptr2table(Val v) {
+  assert((v.u & TYPE_MASK) == TABLE_PTR_TYPE);
+  return (struct Table *)val_ptr2ptr(v);
+}
 
-IS_PTR_FUNC(is_trable_ptr, TABLE_PTR_TYPE)
-IS_PTR_OWN_FUNC(is_table_own, TABLE_PTR_TYPE)
-IS_PTR_REF_FUNC(is_table_ref, TABLE_PTR_TYPE)
-PTR_FUNC(table_ptr, Table)
-PTR_OWN_FUNC(table_own, Table, TABLE_PTR_TYPE)
-PTR_REF_FUNC(table_ref, Table, TABLE_PTR_TYPE)
-
-// The List pointer has the following bit pattern:
+// The List pointer type pots to a list of Vals.
 // 01111111|11110110|........|........|........|........|........|.......o
 #define LIST_PTR_TYPE BYTES(7f, f6, 00, 00, 00, 00, 00, 00)
 
-typedef struct {
-  size_t cap;
-  size_t len;
-  Val *vals;
-} List;
+inline Val val_ptr4list(struct List *l) {
+  return (Val){.u = ((uintptr_t)l | LIST_PTR_TYPE)};
+}
+inline struct List *val_ptr2list(Val v) {
+  assert((v.u & TYPE_MASK) == LIST_PTR_TYPE);
+  return (struct List *)val_ptr2ptr(v);
+}
 
-IS_PTR_FUNC(is_list_ptr, LIST_PTR_TYPE)
-IS_PTR_OWN_FUNC(is_list_own, LIST_PTR_TYPE)
-IS_PTR_REF_FUNC(is_list_ref, LIST_PTR_TYPE)
-PTR_FUNC(list_ptr, List)
-PTR_OWN_FUNC(list_own, List, LIST_PTR_TYPE)
-PTR_REF_FUNC(list_ref, List, LIST_PTR_TYPE)
-
-// We also define a "big" 64-bit signed integer pointer (i.e., int64_t):
-// 01111111|11110111|........|........|........|........|........|.......*
+// A "big" 64-bit signed integer pointer (i.e., int64_t):
+// 01111111|11110111|........|........|........|........|........|.......o
 #define INT_PTR_TYPE BYTES(7f, f7, 00, 00, 00, 00, 00, 00)
 
-IS_PTR_FUNC(is_int_ptr, INT_PTR_TYPE)
-IS_PTR_OWN_FUNC(is_int_own, INT_PTR_TYPE)
-IS_PTR_REF_FUNC(is_int_ref, INT_PTR_TYPE)
-PTR_FUNC(int_ptr, int64_t)
-PTR_OWN_FUNC(int_own, int64_t, INT_PTR_TYPE)
-PTR_REF_FUNC(int_ref, int64_t, INT_PTR_TYPE)
+inline Val val_ptr4int64(int64_t *i) {
+  return (Val){.u = ((uintptr_t)i | INT_PTR_TYPE)};
+}
+inline int64_t *val_ptr2int64(Val v) {
+  assert((v.u & TYPE_MASK) == INT_PTR_TYPE);
+  return (int64_t *)val_ptr2ptr(v);
+}
 
-// The next pointer value type represents an error and points to another Val
-// which contains the error context (usually a String or Slice).
-// NB: The ownership flag applies to the Val.
-// 01111111|11111100|........|........|........|........|........|.......*
+// The error pointer type points to another Val which contains the error
+// context (usually a String or Slice).
+// 01111111|11111100|........|........|........|........|........|.......o
 #define ERR_PTR_TYPE BYTES(7f, fc, 00, 00, 00, 00, 00, 00)
 
-IS_PTR_FUNC(is_err_ptr, ERR_PTR_TYPE)
-IS_PTR_OWN_FUNC(is_err_own, ERR_PTR_TYPE)
-IS_PTR_REF_FUNC(is_err_ref, ERR_PTR_TYPE)
-PTR_FUNC(err_ptr, Val)
-PTR_OWN_FUNC(err_own, Val, ERR_PTR_TYPE)
-PTR_REF_FUNC(err_ref, Val, ERR_PTR_TYPE)
+inline bool val_is_err(Val v) { return val_type(v) == ERR_PTR_TYPE; }
 
-// Next, we define a Slice pointer value type, which can point to a string
-// located in an arbitrary location:
+inline Val val_ptr4err(Val *v) {
+  return (Val){.u = ((uintptr_t)v | ERR_PTR_TYPE)};
+}
+
+inline Val *val_ptr2err(Val v) {
+  assert((v.u & TYPE_MASK) == ERR_PTR_TYPE);
+  return (Val *)val_ptr2ptr(v);
+}
+
+// The Slice pointer value type is similar to the String pointer type, but it
+// can point to strings located in an arbitrary location:
 // 01111111|11111101|........|........|........|........|........|.......o
 #define SLICE_PTR_TYPE BYTES(7f, fd, 00, 00, 00, 00, 00, 00)
 
-typedef struct Slice {
-  size_t len;
-  size_t hash;
-  char const *c;
-} Slice;
-
-IS_PTR_FUNC(is_slice_ptr, SLICE_PTR_TYPE)
-IS_PTR_OWN_FUNC(is_slice_own, SLICE_PTR_TYPE)
-IS_PTR_REF_FUNC(is_slice_ref, SLICE_PTR_TYPE)
-PTR_FUNC(slice_ptr, Slice)
-PTR_OWN_FUNC(slice_own, Slice, SLICE_PTR_TYPE)
-PTR_REF_FUNC(slice_ref, Slice, SLICE_PTR_TYPE)
-
-// TODO: finish reviewing from here
+inline Val val_ptr4slice(struct Slice *s) {
+  return (Val){.u = ((uintptr_t)s | SLICE_PTR_TYPE)};
+}
+inline struct Slice *val_ptr2slice(Val v) {
+  assert((v.u & TYPE_MASK) == SLICE_PTR_TYPE);
+  return (struct Slice *)val_ptr2ptr(v);
+}
 
 // The remaining two pointer value types are reserved for later use:
-// 01111111|11111110|........|........|........|........|........|.......*
-// 01111111|11111111|........|........|........|........|........|.......*
+// 01111111|11111110|........|........|........|........|........|.......o
+// 01111111|11111111|........|........|........|........|........|.......o
 
 // Other than the pointer value types, we define a few data value types. All
 // data value types contain their values directly in the storage area and have
@@ -261,22 +220,11 @@ PTR_REF_FUNC(slice_ref, Slice, SLICE_PTR_TYPE)
 // A double is also a data value type, but it's special because it acts as the
 // "hosting" type for all other value types through NaN tagging.
 
-// The first data value type is the Pair. It stores a pair of two integers a
-// and b. a's size is two bytes and b's size is four bytes:
+// The Pair value type stores a pair of two integers A and B. A's size is two
+// bytes and B's size is four bytes. One can choose to interpret A and B as
+// signed or unsigned.
 // 11111111|11110100|aaaaaaaa|aaaaaaaa|bbbbbbbb|bbbbbbbb|bbbbbbbb|bbbbbbbb
 #define PAIR_DATA_TYPE BYTES(ff, f4, 00, 00, 00, 00, 00, 00)
-
-#define IS_DATA_F(name, discriminant)                                          \
-  static inline bool is_##name##_data(Val v) {                                 \
-    return is_type_((discriminant), v);                                        \
-  }
-IS_DATA_F(pair, PAIR_DATA_TYPE) // is_pair_data()
-
-#define pair_ua_(v) ((uint16_t)(val_u_(v) >> 32))
-static inline uint16_t pair_ua(Val v) { return pair_ua_(v); }
-
-#define pair_ub_(v) ((uint32_t)(val_u_(v)))
-static inline uint32_t pair_ub(Val v) { return pair_ub_(v); }
 
 union i16 {
   uint16_t as_uint16_t;
@@ -287,77 +235,54 @@ union i32 {
   int32_t as_int32_t;
 };
 
-#define pair_a_(v) ((union i16){.as_uint16_t = pair_ua_(v)}.as_int16_t)
-static inline int16_t pair_a(Val v) { return pair_a_(v); }
+inline uint16_t val_data2pair_ua(Val v) {
+  assert((v.u & TYPE_MASK) == PAIR_DATA_TYPE);
+  return (uint16_t)(v.u >> 32);
+}
+inline uint32_t val_data2pair_ub(Val v) {
+  assert((v.u & TYPE_MASK) == PAIR_DATA_TYPE);
+  return (uint32_t)v.u;
+}
 
-#define pair_b_(v) ((union i32){.as_uint32_t = pair_ub_(v)}.as_int32_t)
-static inline int32_t pair_b(Val v) { return pair_b_(v); }
+inline int16_t val_data2pair_a(Val v) {
+  return (union i16){.as_uint16_t = val_data2pair_ua(v)}.as_int16_t;
+}
+inline int32_t val_data2pair_b(Val v) {
+  return (union i32){.as_uint32_t = val_data2pair_ub(v)}.as_int32_t;
+}
 
-#define upair_(a, b)                                                           \
-  (u_val_(PAIR_DATA_TYPE | ((uint64_t)(uint16_t)(a) << 32) |                   \
-          (uint64_t)(uint32_t)(b)))
-static inline Val upair(uint16_t a, uint32_t b) { return upair_(a, b); }
+inline Val val_data4upair(uint16_t a, uint32_t b) {
+  uint64_t aa = ((uint64_t)a) << 32;
+  uint64_t bb = (uint64_t)b;
+  return (Val){.u = (PAIR_DATA_TYPE | aa | bb)};
+}
+inline Val val_data4pair(int16_t a, int32_t b) {
+  uint16_t aa = (union i16){.as_int16_t = a}.as_uint16_t;
+  uint32_t bb = (union i32){.as_int32_t = b}.as_uint32_t;
+  return val_data4upair(aa, bb);
+}
 
-#define pair_(a, b)                                                            \
-  (upair_((union i16){.as_int16_t = (a)}.as_uint16_t,                          \
-          (union i32){.as_int32_t = (b)}.as_uint32_t))
-static inline Val pair(int16_t a, int32_t b) { return pair_(a, b); }
-
-// Next is the Symbol value which defines the following symbols:
+// The Symbol value type defines the following symbols:
 // FALSE, TRUE, OK and NIL. These symbols and all others that fit
 // in the least significant two bytes are reserved. The remaining
 // values are available for user-defined symbols and flags.
 // 11111111|11110101|........|........|........|........|........|........
 #define SYMB_DATA_TYPE BYTES(ff, f5, 00, 00, 00, 00, 00, 00)
-IS_DATA_F(symb, SYMB_DATA_TYPE) // is_symb_data()
 
-#define FALSEu (SYMB_DATA_TYPE)
-#define FALSE u_val_(SYMB_DATA_TYPE)
+typedef enum { SYM_FALSE, SYM_TRUE, SYM_NIL, SYM_OK } Symbol;
 
-#define TRUEu (SYMB_DATA_TYPE + 1)
-#define TRUE u_val_(TRUEu)
-
-#define OKu (SYMB_DATA_TYPE + 2)
-#define OK u_val_(OKu)
-
-#define NILu (SYMB_DATA_TYPE + 3)
-#define NIL u_val_(NILu)
-
-#define is_false_(v) (val_biteq_((v), FALSE))
-static bool is_false(Val v) { return is_false_(v); }
-
-#define is_true_(v) (val_biteq_((v), TRUE))
-static bool is_true(Val v) { return is_true_(v); }
-
-#define is_ok_(v) (val_biteq_((v), OK))
-static bool is_ok(Val v) { return is_ok_(v); }
-
-#define is_nil_(v) (val_biteq_((v), NIL))
-static bool is_nil(Val v) { return is_nil_(v); }
-
-#define USR_START (SYMB_DATA_TYPE | BYTES(00, 00, 00, 00, 00, 01, 00, 00))
-#define USR_END (SYMB_DATA_TYPE | BYTES(00, 00, ff, ff, ff, ff, ff, ff))
-
-static inline bool is_res_symbol(Val v) {
-  return val_u(v) >= SYMB_DATA_TYPE && val_u(v) < USR_START;
+inline Symbol val_data2symbol(Val v) {
+  assert((v.u & TYPE_MASK) == (SYMB_DATA_TYPE));
+  assert(v.u < 0x7F);
+  return v.u & 0x7F;
 }
 
-static inline bool is_usr_symbol(Val v) {
-  return val_u(v) >= USR_START && val_u(v) <= USR_END;
-}
+#define VAL_FALSE ((Val){.u = (SYMB_DATA_TYPE) | SYM_FALSE})
+#define VAL_TRUE ((Val){.u = (SYMB_DATA_TYPE) | SYM_TRUE})
+#define VAL_NIL ((Val){.u = (SYMB_DATA_TYPE) | SYM_NIL})
+#define VAL_OK ((Val){.u = (SYMB_DATA_TYPE) | SYM_OK})
 
-#define val_usr_(v) ((val_u_(v) | ~TYPE_MASK) - USR_START)
-static inline uint64_t val_usr(Val v) {
-  assert(is_usr_symbol(v));
-  return val_usr_(v);
-}
-
-#define usr_val_(v) (u_val_(SYMB_DATA_TYPE | (v + USR_START)))
-static inline Val usr_val(uint64_t sym) {
-  Val res = usr_val_(sym);
-  assert(is_usr_symbol(res));
-  return res;
-}
+#define USR_SYMBOL(x) ((Val){.u = ((SYMB_DATA_TYPE) | ((x) + SYM_OK + 1))})
 
 // The remaining data value types are reserved for later use:
 // 11111111|11110110|........|........|........|........|........|........
@@ -367,12 +292,14 @@ static inline Val usr_val(uint64_t sym) {
 // 11111111|11111110|........|........|........|........|........|........
 // 11111111|11111111|........|........|........|........|........|........
 
-void val_destroy(Val);
+void val_free(Val);
 void val_print(Val);
-void val_print_repr(Val);
-uint32_t val_hash(Val);
-bool val_truthy(Val);
-bool val_cmp(Val, Val);
+// void val_print_repr(Val) <- this is different for strings!
+size_t val_hash(Val);
+bool val_is_true(Val);
+bool val_eq(Val, Val);
+// int val_cmp(Val, Val); // maybe return Val for errors?
 Val val_add(Val, Val);
+Val val_sub(Val, Val);
 
 #endif

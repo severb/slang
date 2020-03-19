@@ -1,37 +1,47 @@
 #include "mem.h"
 
-#ifdef MEMDEBUG
-#include <stdio.h> // printf
-#endif
-
 #include <assert.h> //assert
+#include <stdio.h>  // printf
 #include <stdlib.h> // free, realloc
 
-// Assuming a bug-free implemenation, allocated_memory can't wrap-around.
-size_t allocated_memory;
+static size_t allocated_memory;
 
-static void *r(void *prev_ptr, size_t old_size, size_t new_size) {
+void mem_allocation_summary(void) {
+  printf("allocated memory: %zu\n", allocated_memory);
+}
+
+void *mem_reallocate(void *p, size_t old_size, size_t new_size) {
   if (new_size == 0) {
     assert(old_size <= allocated_memory);
     allocated_memory -= old_size;
-    free(prev_ptr);
+    free(p);
     return 0;
   }
   if (new_size == old_size)
-    return prev_ptr;
+    return p;
   if (new_size > old_size) {
-    allocated_memory += new_size - old_size;
+    size_t diff = new_size - old_size;
+    assert(allocated_memory < SIZE_MAX - diff);
+    allocated_memory += diff;
   } else {
-    assert(old_size - new_size <= allocated_memory);
-    allocated_memory -= old_size - new_size;
+    size_t diff = old_size - new_size;
+    assert(allocated_memory >= diff);
+    allocated_memory -= diff;
   }
-  return realloc(prev_ptr, new_size);
-}
-
-void *reallocate(void *prev_ptr, size_t old_size, size_t new_size) {
-  void *res = r(prev_ptr, old_size, new_size);
+  void *res = realloc(p, new_size);
 #ifdef MEMDEBUG
-  printf("used memory: %zu\n", allocated_memory);
+  mem_allocation_summary();
 #endif
   return res;
 }
+
+extern inline void *mem_allocate(size_t);
+extern inline void mem_free(void *, size_t);
+extern inline void *mem_resize_array(void *, size_t item_size, size_t old_len,
+                                     size_t new_len);
+extern inline void mem_free_array(void *, size_t item_size, size_t old_len);
+
+extern inline void *mem_allocate_flex(size_t type_size, size_t item_size,
+                                      size_t len);
+extern inline void mem_free_flex(void *, size_t type_size, size_t item_size,
+                                 size_t len);
