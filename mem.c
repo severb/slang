@@ -1,24 +1,27 @@
 #include "mem.h"
 
-#include <assert.h> //assert
-#include <stdio.h>  // printf
 #include <stdlib.h> // free, realloc
 
-static size_t allocated_memory;
+#ifdef CLOX_DEBUG
+#include <assert.h> //assert
+#include <stdio.h>  // printf
 
-void mem_allocation_summary(void) {
-  printf("allocated memory: %zu\n", allocated_memory);
-}
+static size_t allocated_memory;
+#endif
 
 void *mem_reallocate(void *p, size_t old_size, size_t new_size) {
   if (new_size == 0) {
+#ifdef CLOX_DEBUG
     assert(old_size <= allocated_memory);
     allocated_memory -= old_size;
+#endif
     free(p);
     return 0;
   }
-  if (new_size == old_size)
+  if (new_size == old_size) {
     return p;
+  }
+#ifdef CLOX_DEBUG
   if (new_size > old_size) {
     size_t diff = new_size - old_size;
     assert(allocated_memory < SIZE_MAX - diff);
@@ -28,10 +31,8 @@ void *mem_reallocate(void *p, size_t old_size, size_t new_size) {
     assert(allocated_memory >= diff);
     allocated_memory -= diff;
   }
-  void *res = realloc(p, new_size);
-#ifdef MEMDEBUG
-  mem_allocation_summary();
 #endif
+  void *res = realloc(p, new_size);
   return res;
 }
 
@@ -45,3 +46,9 @@ extern inline void *mem_allocate_flex(size_t type_size, size_t item_size,
                                       size_t len);
 extern inline void mem_free_flex(void *, size_t type_size, size_t item_size,
                                  size_t len);
+
+#ifdef CLOX_DEBUG
+void mem_allocation_summary(void) {
+  printf("allocated memory: %zu\n", allocated_memory);
+}
+#endif

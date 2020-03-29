@@ -38,6 +38,7 @@ inline void mem_free_flex(void *p, size_t type_size, size_t item_size,
   mem_reallocate(p, type_size + item_size * len, 0);
 }
 
+// CLOX_DEBUG stuff
 void mem_allocation_summary(void);
 
 #endif

@@ -8,11 +8,11 @@
 #include "mem.h" // mem_free, mem_free_flex
 
 #include <inttypes.h> // PRId*
+#include <stdbool.h>  // bool
 #include <stddef.h>   // max_align_t
-#include <stdint.h>   // uint*_t, int*_t, uintptr_t
+#include <stdint.h>   // uint*_t, int*_t, uintptr_t, UINT64_C
 #include <stdio.h>    // printf
 #include <string.h>   // memcmp
-#include <stdbool.h>  // bool
 
 void val_free(Val v) {
   if (!val_is_ptr_own(v))
@@ -51,10 +51,9 @@ void val_free(Val v) {
 
 void val_print(Val v) {
   switch (val_type(v)) {
-  case VAL_STRING: {
+  case VAL_STRING:
     string_print(val_ptr2string(v));
     break;
-  }
   case VAL_TABLE:
     table_print(val_ptr2table(v));
     break;
@@ -68,10 +67,9 @@ void val_print(Val v) {
     printf("error: ");
     val_print(*val_ptr2err(v));
     break;
-  case VAL_SLICE: {
+  case VAL_SLICE:
     slice_print(val_ptr2slice(v));
     break;
-  }
   case VAL_PAIR:
     printf("(%" PRId16 ", %" PRId32 ")", val_data2pair_a(v),
            val_data2pair_b(v));
@@ -100,32 +98,39 @@ void val_print(Val v) {
   }
 }
 
-union d {
+union conv {
   double d;
   uint64_t u;
+  int64_t i;
 };
 
+#define INT_HASH(x) (size_t)((uint64_t)(x) * UINT64_C(13) + UINT64_C(37))
 size_t val_hash(Val v) {
   switch (val_type(v)) {
   case VAL_STRING:
     return string_hash(val_ptr2string(v));
   case VAL_TABLE:
   case VAL_LIST:
-    return (size_t)0xDEADBEEF ^
-           (size_t)((uintptr_t)val_ptr2ptr(v) >> sizeof(max_align_t));
+    return 0xDEADBEEF ^ ((uintptr_t)val_ptr2ptr(v) >> sizeof(max_align_t));
   case VAL_I64:
-    return (size_t)*val_ptr2int64(v);
+    return INT_HASH((union conv){.i = *val_ptr2int64(v)}.u);
   case VAL_ERR:
     return (size_t)0xC0FFEE ^ val_hash(*val_ptr2err(v));
   case VAL_SLICE:
     return slice_hash(val_ptr2slice(v));
-  case VAL_DOUBLE:
-    return (size_t)((union d){.d = val_data2double(v)}.u);
-  case VAL_PAIR:
-    return ((uint64_t)val_data2pair_ua(v) << 32 |
-            (uint64_t)val_data2pair_ub(v));
+  case VAL_DOUBLE: {
+    double d = val_data2double(v);
+    if (d == (int64_t)d) { // match double and int hashes
+      return INT_HASH((union conv){.i = (int64_t)d}.u);
+    }
+    return (union conv){.d = d}.u;
+  }
+  case VAL_PAIR: {
+    return INT_HASH(((uint64_t)val_data2pair_ua(v) << 32) |
+                    (uint64_t)val_data2pair_ub(v));
+  }
   case VAL_SYMBOL:
-    return (size_t)0xCACA0 ^ (size_t)val_data2symbol(v);
+    return (size_t)0xCACA0 ^ (size_t)val_data2symbol(v) * 31 + 73;
   default:
     assert(0);
   }
@@ -168,7 +173,7 @@ bool val_eq(Val a, Val b) {
   if (val_biteq(a, b)) {
     return true;
   }
-  if (val_is_ptr(a) && (val_ptr2ptr(a) == val_ptr2ptr(b))) {
+  if (val_is_ptr(a) && val_is_ptr(b) && (val_ptr2ptr(a) == val_ptr2ptr(b))) {
     return true;
   }
   switch (val_type(a)) {
@@ -191,8 +196,8 @@ bool val_eq(Val a, Val b) {
     case VAL_I64:
       return *val_ptr2int64(a) = *val_ptr2int64(b);
     case VAL_PAIR:
-      return ((val_data2pair_ua(b) == 0) &&
-              (*val_ptr2int64(a) == val_data2pair_b(b)));
+      return (val_data2pair_ua(b) == 0) &&
+             (*val_ptr2int64(a) == val_data2pair_b(b));
     case VAL_DOUBLE:
       return *val_ptr2int64(a) == val_data2double(b);
     default:
@@ -203,10 +208,23 @@ bool val_eq(Val a, Val b) {
     case VAL_I64:
       return val_data2double(a) == *val_ptr2int64(b);
     case VAL_PAIR:
-      return ((val_data2pair_ua(b) == 0) &&
-              (val_data2double(a) == val_data2pair_b(b)));
+      return (val_data2pair_ua(b) == 0) &&
+             (val_data2double(a) == val_data2pair_b(b));
     case VAL_DOUBLE:
       return val_data2double(a) == val_data2double(b);
+    default:
+      return false;
+    }
+  case VAL_PAIR:
+    switch (val_type(b)) {
+    case VAL_I64:
+      return (val_data2pair_ua(a) == 0) &&
+             (val_data2pair_ub(a) == *val_ptr2int64(b));
+    case VAL_PAIR:
+      return false; // should be bit_eq() which was checked in the beginning
+    case VAL_DOUBLE:
+      return (val_data2pair_ua(a) == 0) &&
+             (val_data2pair_ub(a) == val_data2double(b));
     default:
       return false;
     }
@@ -230,12 +248,14 @@ compare_strings:
     b_hash = bs->hash;
     b_len = bs->len;
     b_c = bs->c;
+    break;
   }
   case VAL_SLICE: {
     Slice *bs = val_ptr2slice(b);
     b_hash = bs->hash;
     b_len = bs->len;
     b_c = bs->c;
+    break;
   }
   default:
     return false;

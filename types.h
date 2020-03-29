@@ -54,6 +54,11 @@ void list_print(const List *);
 inline Val list_get(const List *l, size_t idx, Val def) {
   return idx < l->len ? l->items[idx] : def;
 }
+inline void list_set(List *l, size_t idx, Val val) {
+  assert(idx < l->len);
+  val_free(l->items[idx]);
+  l->items[idx] = val;
+}
 inline Val list_pop(List *l, Val def) {
   return l->len > 0 ? l->items[l->len--] : def;
 }
@@ -65,13 +70,22 @@ typedef struct Entry {
 } Entry;
 
 typedef struct Table {
-  size_t len;
   size_t cap;
-  Entry * items;
+  size_t len;
+  Entry *items;
+  size_t real_len;
 } Table;
 
 bool table_eq(const Table *, const Table *);
 void table_free(Table *);
 void table_print(const Table *);
+bool table_set(Table *, Val key, Val val);
+Val table_get(const Table *, Val key, Val def);
+bool table_del(Table *, Val);
+
+// CLOX_DEBUG stuff
+void table_summary(const Table *);
+void collision_summary(void);
+void collision_reset(void);
 
 #endif
