@@ -2,6 +2,7 @@
 #define clox_val_h
 
 #include <assert.h>  // static_assert, assert
+#include <limits.h>  // INT_MAX
 #include <stdbool.h> // bool
 #include <stddef.h>  // max_align_t, size_t
 #include <stdint.h>  // *int16_t, *int32_t, *int64_t, UINT64_C, uintptr_t
@@ -273,7 +274,7 @@ typedef enum { SYM_FALSE, SYM_TRUE, SYM_NIL, SYM_OK } Symbol;
 
 inline Symbol val_data2symbol(Val v) {
   assert((v.u & TYPE_MASK) == (SYMB_DATA_TYPE));
-  assert(v.u < 0x7F);
+  assert((v.u & ~TYPE_MASK) < (uint64_t)INT_MAX);
   return v.u & 0x7F;
 }
 

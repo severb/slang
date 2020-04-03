@@ -7,6 +7,7 @@
 
 #include "mem.h" // mem_free, mem_free_flex
 
+#include <assert.h>   // assert
 #include <inttypes.h> // PRId*
 #include <stdbool.h>  // bool
 #include <stddef.h>   // max_align_t
@@ -77,19 +78,19 @@ void val_print(Val v) {
   case VAL_SYMBOL:
     switch (val_data2symbol(v)) {
     case SYM_FALSE:
-      printf("false");
+      printf("<false>");
       break;
     case SYM_TRUE:
-      printf("true");
+      printf("<true>");
       break;
     case SYM_NIL:
-      printf("nil");
+      printf("<nil>");
       break;
     case SYM_OK:
-      printf("ok");
+      printf("<ok>");
       break;
     default:
-      printf("<symbol: %u>", val_data2symbol(v));
+      printf("<symbol: %u>", val_data2symbol(v) - SYM_OK - 1);
       break;
     }
     break;
