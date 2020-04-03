@@ -5,6 +5,7 @@
 #include <assert.h> // assert
 #include <stdint.h> // int64_t
 #include <stdio.h>  // printf
+#include <stdlib.h> // EXIT_SUCCESS
 
 #define MYSYMBOL USR_SYMBOL(0)
 
@@ -54,7 +55,8 @@ int main(int argc, char *argv[]) {
   printf("VAL_OK is %i\n", val_is_true(VAL_OK));
   printf("double 0.0 is %i\n", val_is_true(val_data4double(0.0)));
   printf("double 0.01 is %i\n", val_is_true(val_data4double(0.01)));
-  printf("non empty slice is %i\n", val_is_true(val_ptr4slice(&SLICE(non empty))));
+  printf("non empty slice is %i\n",
+         val_is_true(val_ptr4slice(&SLICE(non empty))));
   printf("empty slice is %i\n", val_is_true(val_ptr4slice(&SLICE())));
   printf("pair 0, 0 is %i\n", val_is_true(val_data4upair(0, 0)));
   v = VAL_FALSE;
@@ -65,5 +67,9 @@ int main(int argc, char *argv[]) {
   printf("pair 0,0 hash is %zu\n", val_hash(val_data4pair(0, 0)));
   printf("slice hash is %zu\n", val_hash(val_ptr4slice(&SLICE(hash))));
 
+#ifdef CLOX_DEBUG
   mem_allocation_summary();
+#endif
+
+  return EXIT_SUCCESS;
 }

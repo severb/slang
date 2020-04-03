@@ -1,4 +1,4 @@
-#include "test/util.c" // randint, randstr, sentinel
+#include "test/util.h" // randint, randstr, SENTINEL
 
 #include "mem.h"   // mem_resize_array
 #include "types.h" // List, list_append, list_free, list_get
@@ -46,7 +46,7 @@ int main(int argc, const char *argv[]) {
   start = clock();
   for (unsigned int i = 0; i < CYCLES; i++) {
     int n = randint(KEYSPACE);
-    Val kv = val_ptr2ref(list_get(&strings, n, sentinel));
+    Val kv = val_ptr2ref(list_get(&strings, n, SENTINEL));
     table_set(&tbench, kv, kv);
   }
   duration = clock() - start;

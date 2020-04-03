@@ -283,7 +283,7 @@ inline Symbol val_data2symbol(Val v) {
 #define VAL_NIL ((Val){.u = (SYMB_DATA_TYPE) | SYM_NIL})
 #define VAL_OK ((Val){.u = (SYMB_DATA_TYPE) | SYM_OK})
 
-#define USR_SYMBOL(x) ((Val){.u = ((SYMB_DATA_TYPE) | ((x) + SYM_OK + 1))})
+#define USR_SYMBOL(x) ((Val){.u = (SYMB_DATA_TYPE | ((x) + SYM_OK + 1))})
 
 // The remaining data value types are reserved for later use:
 // 11111111|11110110|........|........|........|........|........|........

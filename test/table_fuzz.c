@@ -1,8 +1,4 @@
-#ifndef CLOX_DEBUG
-#define CLOX_DEBUG
-#endif
-
-#include "test/util.h" // randint, randstr, sentinel
+#include "test/util.h" // randint, randstr, SENTINEL
 
 #include "mem.h"   // mem_allocation_summary
 
@@ -34,8 +30,8 @@ void testone(bool summary) {
 
   for (size_t i = 0; i < ITER; i++) {
     size_t idx = randint(ELEMS);
-    Val key = val_ptr2ref(list_get(&keys, idx, sentinel));
-    assert(!val_eq(key, sentinel));
+    Val key = val_ptr2ref(list_get(&keys, idx, SENTINEL));
+    assert(!val_eq(key, SENTINEL));
     if (randint(DEL) == 0) {
       table_del(&table, key);
       list_set(&vals, idx, VAL_NIL);
@@ -47,24 +43,26 @@ void testone(bool summary) {
   }
 
   for (size_t i = 0; i < ELEMS; i++) {
-    Val key = list_get(&keys, i, sentinel);
-    assert(!val_eq(key, sentinel));
-    Val expected_val = list_get(&vals, i, sentinel);
-    assert(!val_eq(expected_val, sentinel));
+    Val key = list_get(&keys, i, SENTINEL);
+    assert(!val_eq(key, SENTINEL));
+    Val expected_val = list_get(&vals, i, SENTINEL);
+    assert(!val_eq(expected_val, SENTINEL));
     Val val = table_get(&table, key, VAL_NIL);
     assert(val_eq(expected_val, val));
   }
 
   size_t expected_len = 0;
   for (size_t i = 0; i < ELEMS; i++) {
-    Val val = list_get(&vals, i, sentinel);
-    assert(!val_eq(val, sentinel));
+    Val val = list_get(&vals, i, SENTINEL);
+    assert(!val_eq(val, SENTINEL));
     expected_len += val_type(val) == VAL_PAIR;
   }
   assert(table.real_len == expected_len);
 
   if (summary) {
+#ifdef CLOX_DEBUG
     table_summary(&table);
+#endif
   }
 
   table_free(&table);
@@ -80,7 +78,9 @@ int main(int arcg, char const *argv[]) {
     testone(i % 1000 == 0);
     if (i % 1000 == 0) {
       printf("runs: %zu\n", i);
+#ifdef CLOX_DEBUG
       mem_allocation_summary();
+#endif
     }
   }
   return EXIT_SUCCESS;

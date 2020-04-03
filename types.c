@@ -95,8 +95,8 @@ void list_append(List *l, Val v) {
 
 bool list_eq(const List *a, const List *b) { return a->len == b->len; }
 
-static const Val empty_item = USR_SYMBOL(0);
-static const Val tombstone_item = USR_SYMBOL(1);
+#define EMPTY_ITEM USR_SYMBOL(0)
+#define TOMBSTONE_ITEM USR_SYMBOL(1)
 
 static bool key_eq(Val a, Val b) {
   switch (val_type(a)) {
@@ -113,7 +113,7 @@ static bool key_eq(Val a, Val b) {
 }
 
 static bool is_unset(Val v) {
-  return val_biteq(v, empty_item) || val_biteq(v, tombstone_item);
+  return val_biteq(v, EMPTY_ITEM) || val_biteq(v, TOMBSTONE_ITEM);
 }
 
 #ifdef CLOX_DEBUG
@@ -127,9 +127,9 @@ void collision_summary(void) {
 
 void table_summary(const Table *t) {
   for (size_t i = 0; i < t->cap; i++) {
-    if (val_biteq(t->items[i].key, tombstone_item)) {
+    if (val_biteq(t->items[i].key, TOMBSTONE_ITEM)) {
       printf(".");
-    } else if (val_biteq(t->items[i].key, empty_item)) {
+    } else if (val_biteq(t->items[i].key, EMPTY_ITEM)) {
       printf(" ");
     } else {
       printf("#");
@@ -153,9 +153,9 @@ static Entry *table_find_entry(const Table *t, Val key) {
   Entry *first_tombstone = 0;
   for (;;) {
     Entry *entry = &t->items[idx];
-    if (val_biteq(entry->key, empty_item)) {
+    if (val_biteq(entry->key, EMPTY_ITEM)) {
       return first_tombstone != 0 ? first_tombstone : entry;
-    } else if (val_biteq(entry->key, tombstone_item)) {
+    } else if (val_biteq(entry->key, TOMBSTONE_ITEM)) {
       first_tombstone = first_tombstone == 0 ? entry : first_tombstone;
       goto skip;
     } else {
@@ -177,7 +177,7 @@ static void table_grow(Table *t) {
   seq_grow((struct Seq *)t, sizeof(t->items[0]));
   assert(t->cap > 0);
   for (size_t i = old_cap; i < t->cap; i++) {
-    t->items[i].key = empty_item;
+    t->items[i].key = EMPTY_ITEM;
   }
   if (old_cap == 0) {
     return;
@@ -189,15 +189,15 @@ static void table_grow(Table *t) {
   size_t start = 0;
   // find the start position
   for (start = 0; start < old_cap; start++) {
-    if (val_biteq(t->items[start].key, empty_item)) {
+    if (val_biteq(t->items[start].key, EMPTY_ITEM)) {
       break;
     }
   }
   assert(start < old_cap || old_cap == 0);
   // reset tombstones
   for (size_t i = 0; t->len > t->real_len; i++) {
-    if (val_biteq(t->items[i].key, tombstone_item)) {
-      t->items[i].key = empty_item;
+    if (val_biteq(t->items[i].key, TOMBSTONE_ITEM)) {
+      t->items[i].key = EMPTY_ITEM;
       t->len--;
     }
   }
@@ -206,18 +206,18 @@ static void table_grow(Table *t) {
   size_t remaining = t->real_len;
   for (size_t i = (start + 1) % old_cap; remaining; i = (i + 1) % old_cap) {
     Entry *e = &t->items[i];
-    if (val_biteq(e->key, empty_item)) {
+    if (val_biteq(e->key, EMPTY_ITEM)) {
       continue;
     }
     remaining--;
     Entry copy = *e;
-    e->key = empty_item;
+    e->key = EMPTY_ITEM;
     *table_find_entry(t, copy.key) = copy;
   }
 }
 
 static bool not_reserved(Val v) {
-  return !val_biteq(v, empty_item) && !val_biteq(v, tombstone_item);
+  return !val_biteq(v, EMPTY_ITEM) && !val_biteq(v, TOMBSTONE_ITEM);
 }
 
 bool table_set(Table *t, Val key, Val val) {
@@ -230,10 +230,10 @@ bool table_set(Table *t, Val key, Val val) {
   }
   Entry *entry = table_find_entry(t, key);
   bool is_new = false;
-  if (val_biteq(entry->key, tombstone_item)) {
+  if (val_biteq(entry->key, TOMBSTONE_ITEM)) {
     is_new = true;
     entry->key = key;
-  } else if (val_biteq(entry->key, empty_item)) {
+  } else if (val_biteq(entry->key, EMPTY_ITEM)) {
     is_new = true;
     entry->key = key;
     t->len++;
@@ -269,7 +269,7 @@ bool table_del(Table *t, Val key) {
   }
   val_free(entry->key);
   val_free(entry->val);
-  entry->key = tombstone_item;
+  entry->key = TOMBSTONE_ITEM;
   t->real_len--;
   return true;
 }

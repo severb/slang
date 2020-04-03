@@ -131,7 +131,7 @@ size_t val_hash(Val v) {
                     (uint64_t)val_data2pair_ub(v));
   }
   case VAL_SYMBOL:
-    return (size_t)0xCACA0 ^ (size_t)val_data2symbol(v) * 31 + 73;
+    return (size_t)0xCACA0 ^ ((size_t)val_data2symbol(v) * 31 + 73);
   default:
     assert(0);
   }
@@ -195,7 +195,7 @@ bool val_eq(Val a, Val b) {
   case VAL_I64:
     switch (val_type(b)) {
     case VAL_I64:
-      return *val_ptr2int64(a) = *val_ptr2int64(b);
+      return *val_ptr2int64(a) == *val_ptr2int64(b);
     case VAL_PAIR:
       return (val_data2pair_ua(b) == 0) &&
              (*val_ptr2int64(a) == val_data2pair_b(b));

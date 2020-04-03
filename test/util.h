@@ -7,6 +7,6 @@
 
 int randint(int);
 Val randstr(size_t);
-static const Val sentinel = USR_SYMBOL(77);
+#define SENTINEL USR_SYMBOL(77)
 
 #endif
