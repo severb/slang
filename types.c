@@ -3,10 +3,10 @@
 #include "mem.h" // mem_allocate_flex, mem_free_array, mem_resize_array
 #include "val.h" // val_free, val_print
 
+#include <stdint.h> // uint64_t, UINT64_C
 #include <stdio.h>  // printf
 #include <stdlib.h> // abort
 #include <string.h> // memcpy, size_t
-#include <stdint.h> // uint64_t, UINT64_C
 
 String *string_new_empty(size_t len) {
   String *res = mem_allocate_flex(sizeof(String), sizeof(char), len);
@@ -149,7 +149,9 @@ static Entry *table_find_entry(const Table *t, Val key) {
   finds++;
 #endif
   size_t hash = val_hash(key);
-  size_t idx = hash % t->cap;
+  assert((t->cap & (t->cap - 1)) == 0); // only powers of 2
+  size_t mask = t->cap - 1;
+  size_t idx = hash & mask;
   Entry *first_tombstone = 0;
   for (;;) {
     Entry *entry = &t->items[idx];
@@ -168,7 +170,7 @@ static Entry *table_find_entry(const Table *t, Val key) {
       }
     }
   skip:
-    idx = (idx + 1) % t->cap;
+    idx = (idx + 1) & mask; // idx = (idx + 1) % t->cap;
   }
 }
 
