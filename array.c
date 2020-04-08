@@ -28,3 +28,8 @@ void al_free(AL *a, size_t item_size) {
   mem_free_array(a->items, item_size, a->cap);
   *a = (AL){0};
 }
+
+void al_seal(AL *a, size_t item_size) {
+  a->cap = a->len;
+  mem_resize_array(a->items, item_size, a->cap, a->len);
+}

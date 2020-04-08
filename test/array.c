@@ -16,6 +16,7 @@ int main(void) {
   arraylist_append(int)(&l, 30);
   printf("%d %d %d\n", arraylist_get(int)(&l, 0), arraylist_get(int)(&l, 1),
          arraylist_get(int)(&l, 2));
+  printf("len: %zu\n", arraylist_len(int)(&l));
   arraylist_free(int)(&l);
 
 #ifdef CLOX_DEBUG

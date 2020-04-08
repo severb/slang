@@ -11,6 +11,7 @@ typedef struct {
 
 void al_free(AL *a, size_t item_size);
 void al_grow(AL *a, size_t item_size);
+void al_seal(AL *a, size_t item_size);
 
 #define ArrayList(T) ArrayList_##T
 
@@ -19,6 +20,10 @@ void al_grow(AL *a, size_t item_size);
 #define arraylist_get(T) arraylist_get_##T
 #define arraylist_set(T) arraylist_set_##T
 #define arraylist_free(T) arraylist_free_##T
+#define arraylist_len(T) arraylist_len_##T
+#define arraylist_cap(T) arraylist_cap_##T
+#define arraylist_trunc(T) arraylist_trunc_##T
+#define arraylist_seal(T) arraylist_seal_##T
 
 #define arraylist_declare(T)                                                   \
   struct ArrayList(T) {                                                        \
@@ -57,12 +62,33 @@ void al_grow(AL *a, size_t item_size);
     *a = (AL){0};                                                              \
   }                                                                            \
                                                                                \
+  inline size_t arraylist_len(T)(const struct ArrayList(T) * l) {              \
+    return l->a.len;                                                           \
+  }                                                                            \
+                                                                               \
+  inline size_t arraylist_cap(T)(const struct ArrayList(T) * l) {              \
+    return l->a.cap;                                                           \
+  }                                                                            \
+                                                                               \
+  inline void arraylist_trunc(T)(struct ArrayList(T) * l, size_t len) {        \
+    l->a.len = len;                                                            \
+  }                                                                            \
+                                                                               \
+  inline void arraylist_seal(T)(struct ArrayList(T) * l) {                     \
+    AL *a = &l->a;                                                             \
+    al_seal(a, sizeof(T));                                                     \
+  }                                                                            \
+                                                                               \
   typedef struct ArrayList(T) ArrayList(T)
 
 #define arraylist_define(T)                                                    \
   extern inline void arraylist_append(T)(ArrayList(T) *, T);                   \
   extern inline T arraylist_get(T)(const ArrayList(T) *, size_t);              \
   extern inline void arraylist_set(T)(ArrayList(T) *, size_t, T);              \
-  extern inline void arraylist_free(T)(ArrayList(T) *)
+  extern inline void arraylist_free(T)(ArrayList(T) *);                        \
+  extern inline size_t arraylist_len(T)(const ArrayList(T) *);                 \
+  extern inline size_t arraylist_cap(T)(const ArrayList(T) *);                 \
+  extern inline void arraylist_trunc(T)(ArrayList(T) *, size_t);               \
+  extern inline void arraylist_seal(T)(ArrayList(T) *)
 
 #endif
