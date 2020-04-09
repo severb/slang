@@ -11,11 +11,14 @@ arraylist_define(int);
 int main(void) {
 
   ArrayList(int) l = {0};
-  arraylist_append(int)(&l, 10);
-  arraylist_append(int)(&l, 20);
-  arraylist_append(int)(&l, 30);
-  printf("%d %d %d\n", arraylist_get(int)(&l, 0), arraylist_get(int)(&l, 1),
-         arraylist_get(int)(&l, 2));
+  int x = 10;
+  arraylist_append(int)(&l, &x);
+  x = 20;
+  arraylist_append(int)(&l, &x);
+  x = 30;
+  arraylist_append(int)(&l, &x);
+  printf("%d %d %d\n", *arraylist_get(int)(&l, 0), *arraylist_get(int)(&l, 1),
+         *arraylist_get(int)(&l, 2));
   printf("len: %zu\n", arraylist_len(int)(&l));
   arraylist_free(int)(&l);
 

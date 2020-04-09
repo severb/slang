@@ -1,7 +1,8 @@
 #ifndef clox_types_h
 #define clox_types_h
 
-#include "val.h" // Val
+#include "array.h" // arraylist_*
+#include "val.h"   // Val
 
 #include <stdio.h> // printf, size_t
 
@@ -42,37 +43,46 @@ inline size_t slice_hash(Slice *s) {
 }
 #define SLICE(s) ((Slice){.c = #s, .len = sizeof(#s) - 1})
 
+arraylist_declare(Val);
+
+
+
+// typedef ArrayList(Val) List;
 typedef struct List {
-  size_t cap;
-  size_t len;
-  Val *items;
+  ArrayList(Val) al;
 } List;
 
 bool list_eq(const List *, const List *);
 void list_free(List *);
 void list_print(const List *);
 inline Val list_get(const List *l, size_t idx, Val def) {
-  return idx < l->len ? l->items[idx] : def;
+  size_t len = arraylist_len(Val)(&l->al);
+  return idx < len ? *arraylist_get(Val)(&l->al, idx) : def;
 }
 inline void list_set(List *l, size_t idx, Val val) {
-  assert(idx < l->len);
-  val_free(l->items[idx]);
-  l->items[idx] = val;
+  assert(arraylist_len(Val)(&l->al) > idx);
+  val_free(*arraylist_get(Val)(&l->al, idx));
+  *arraylist_get(Val)(&l->al, idx) = val;
 }
 inline Val list_pop(List *l, Val def) {
-  return l->len > 0 ? l->items[l->len--] : def;
+  size_t len = arraylist_len(Val)(&l->al);
+  if (len > 0) {
+    def = *arraylist_get(Val)(&l->al, len - 1);
+    arraylist_trunc(Val)(&l->al, len - 1);
+  }
+  return def;
 }
-void list_append(List *, Val);
+inline void list_append(List *l, Val v) { arraylist_append(Val)(&l->al, &v); }
+inline size_t list_len(const List *l) { return arraylist_len(Val)(&l->al); }
 
 typedef struct Entry {
   Val key;
   Val val;
 } Entry;
 
+arraylist_declare(Entry);
 typedef struct Table {
-  size_t cap;
-  size_t len;
-  Entry *items;
+  ArrayList(Entry) al;
   size_t real_len;
 } Table;
 
@@ -82,6 +92,7 @@ void table_print(const Table *);
 bool table_set(Table *, Val key, Val val);
 Val table_get(const Table *, Val key, Val def);
 bool table_del(Table *, Val);
+inline size_t table_len(const Table *t) { return arraylist_len(Entry)(&t->al); }
 
 // CLOX_DEBUG stuff
 void table_summary(const Table *);

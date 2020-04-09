@@ -27,7 +27,7 @@ int main(int argc, const char *argv[]) {
   clock_t duration = clock() - start;
 
   fprintf(stderr, "pairs\n");
-  fprintf(stderr, "cap:%8lu real_len:%8lu duration:%8lu\n", tbench.cap,
+  fprintf(stderr, "cap:%8lu real_len:%8lu duration:%8lu\n", tbench.al.a.cap,
           tbench.real_len, duration);
 #ifdef CLOX_DEBUG
   collision_summary();
@@ -52,7 +52,7 @@ int main(int argc, const char *argv[]) {
   duration = clock() - start;
 
   fprintf(stderr, "slices\n");
-  fprintf(stderr, "cap:%8lu real_len:%8lu duration:%8lu\n", tbench.cap,
+  fprintf(stderr, "cap:%8lu real_len:%8lu duration:%8lu\n", tbench.al.a.cap,
           tbench.real_len, duration);
 #ifdef CLOX_DEBUG
   collision_summary();

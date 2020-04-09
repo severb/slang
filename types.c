@@ -8,6 +8,9 @@
 #include <stdlib.h> // abort
 #include <string.h> // memcpy, size_t
 
+arraylist_define(Val);   // List
+arraylist_define(Entry); // Table
+
 String *string_new_empty(size_t len) {
   String *res = mem_allocate_flex(sizeof(String), sizeof(char), len);
   if (res == 0) {
@@ -40,60 +43,26 @@ size_t chars_hash(const char *c, size_t len) {
 }
 
 void list_free(List *l) {
-  for (size_t i = 0; i < l->len; i++) {
-    val_free(l->items[i]);
+  size_t len = arraylist_len(Val)(&l->al);
+  for (size_t i = 0; i < len; i++) {
+    val_free(*arraylist_get(Val)(&l->al, i));
   }
-  mem_free_array(l->items, sizeof(l->items[0]), l->cap);
-  *l = (List){0};
+  arraylist_free(Val)(&l->al);
 }
 
 void list_print(const List *l) {
   printf("[");
-  for (size_t i = 0; i < l->len; i++) {
-    val_print(l->items[i]);
-    if (i + 1 < l->len) {
+  size_t len = arraylist_len(Val)(&l->al);
+  for (size_t i = 0; i < len; i++) {
+    val_print(*arraylist_get(Val)(&l->al, i));
+    if (i + 1 < len) {
       printf(", ");
     }
   }
   printf("]");
 }
 
-struct Seq {
-  size_t cap;
-  size_t len;
-  void *items;
-};
-
-static void seq_grow(struct Seq *s, size_t item_size) {
-  size_t old_cap = s->cap;
-  if (s->cap < 8) {
-    s->cap = 8;
-  } else if (s->cap < (SIZE_MAX / 2 / item_size)) {
-    s->cap *= 2;
-  } else {
-    goto out_of_memory;
-  }
-  s->items = mem_resize_array(s->items, item_size, old_cap, s->cap);
-  if (s->items == 0) {
-    goto out_of_memory;
-  }
-  return;
-out_of_memory:
-  fputs("out of memory when growing sequence", stderr);
-  abort();
-}
-
-void list_append(List *l, Val v) {
-  assert(l->cap >= l->len);
-  if (l->cap == l->len) {
-    seq_grow((struct Seq *)l, sizeof(l->items[0]));
-  }
-  assert(l->cap > l->len);
-  l->items[l->len] = v;
-  l->len++;
-}
-
-bool list_eq(const List *a, const List *b) { return a->len == b->len; }
+bool list_eq(const List *a, const List *b) { return true; }
 
 #define EMPTY_ITEM USR_SYMBOL(0)
 #define TOMBSTONE_ITEM USR_SYMBOL(1)
@@ -126,10 +95,12 @@ void collision_summary(void) {
 }
 
 void table_summary(const Table *t) {
-  for (size_t i = 0; i < t->cap; i++) {
-    if (val_biteq(t->items[i].key, TOMBSTONE_ITEM)) {
+  size_t cap = arraylist_cap(Entry)(&t->al);
+  for (size_t i = 0; i < cap; i++) {
+    Entry *entry = arraylist_get(Entry)(&t->al, i);
+    if (val_biteq(entry->key, TOMBSTONE_ITEM)) {
       printf(".");
-    } else if (val_biteq(t->items[i].key, EMPTY_ITEM)) {
+    } else if (val_biteq(entry->key, EMPTY_ITEM)) {
       printf(" ");
     } else {
       printf("#");
@@ -149,12 +120,13 @@ static Entry *table_find_entry(const Table *t, Val key) {
   finds++;
 #endif
   size_t hash = val_hash(key);
-  assert((t->cap & (t->cap - 1)) == 0); // only powers of 2
-  size_t mask = t->cap - 1;
+  size_t cap = arraylist_cap(Entry)(&t->al);
+  assert((cap & (cap - 1)) == 0); // only powers of 2
+  size_t mask = cap - 1;
   size_t idx = hash & mask;
   Entry *first_tombstone = 0;
   for (;;) {
-    Entry *entry = &t->items[idx];
+    Entry *entry = arraylist_get(Entry)(&t->al, idx);
     if (val_biteq(entry->key, EMPTY_ITEM)) {
       return first_tombstone != 0 ? first_tombstone : entry;
     } else if (val_biteq(entry->key, TOMBSTONE_ITEM)) {
@@ -175,11 +147,12 @@ static Entry *table_find_entry(const Table *t, Val key) {
 }
 
 static void table_grow(Table *t) {
-  size_t old_cap = t->cap;
-  seq_grow((struct Seq *)t, sizeof(t->items[0]));
-  assert(t->cap > 0);
-  for (size_t i = old_cap; i < t->cap; i++) {
-    t->items[i].key = EMPTY_ITEM;
+  size_t old_cap = arraylist_cap(Entry)(&t->al);
+  arraylist_grow(Entry)(&t->al);
+  size_t new_cap = arraylist_cap(Entry)(&t->al);
+  assert(new_cap > 0);
+  for (size_t i = old_cap; i < new_cap; i++) {
+    arraylist_get(Entry)(&t->al, i)->key = EMPTY_ITEM;
   }
   if (old_cap == 0) {
     return;
@@ -191,29 +164,32 @@ static void table_grow(Table *t) {
   size_t start = 0;
   // find the start position
   for (start = 0; start < old_cap; start++) {
-    if (val_biteq(t->items[start].key, EMPTY_ITEM)) {
+    if (val_biteq(arraylist_get(Entry)(&t->al, start)->key, EMPTY_ITEM)) {
       break;
     }
   }
   assert(start < old_cap || old_cap == 0);
   // reset tombstones
-  for (size_t i = 0; t->len > t->real_len; i++) {
-    if (val_biteq(t->items[i].key, TOMBSTONE_ITEM)) {
-      t->items[i].key = EMPTY_ITEM;
-      t->len--;
+  for (size_t i = 0; arraylist_len(Entry)(&t->al) > t->real_len; i++) {
+    Entry *entry = arraylist_get(Entry)(&t->al, i);
+    if (val_biteq(entry->key, TOMBSTONE_ITEM)) {
+      entry->key = EMPTY_ITEM;
+      arraylist_trunc(Entry)(&t->al, arraylist_len(Entry)(&t->al) - 1);
     }
   }
-  assert(t->len == t->real_len);
+  assert(arraylist_len(Entry)(&t->al) == t->real_len);
   // rehash
   size_t remaining = t->real_len;
+  assert((old_cap & (old_cap - 1)) == 0); // only powers of 2
+  // TODO: use size_t mask = old_cap - 1;
   for (size_t i = (start + 1) % old_cap; remaining; i = (i + 1) % old_cap) {
-    Entry *e = &t->items[i];
-    if (val_biteq(e->key, EMPTY_ITEM)) {
+    Entry *entry = arraylist_get(Entry)(&t->al, i);
+    if (val_biteq(entry->key, EMPTY_ITEM)) {
       continue;
     }
     remaining--;
-    Entry copy = *e;
-    e->key = EMPTY_ITEM;
+    Entry copy = *entry;
+    entry->key = EMPTY_ITEM;
     *table_find_entry(t, copy.key) = copy;
   }
 }
@@ -225,10 +201,13 @@ static bool not_reserved(Val v) {
 bool table_set(Table *t, Val key, Val val) {
   assert(not_reserved(key));
   assert(not_reserved(val));
-  assert(t->len == 0 || t->len < t->cap);
-  assert(t->len >= t->real_len);
-  if (t->len + 1 > (t->cap / 7) * 5) {
+  size_t len = arraylist_len(Entry)(&t->al);
+  size_t cap = arraylist_cap(Entry)(&t->al);
+  assert(len == 0 || len < cap);
+  assert(len >= t->real_len);
+  if (len + 1 > (cap / 7) * 5) {
     table_grow(t);
+    len = arraylist_len(Entry)(&t->al); // len changes when tombsones clear
   }
   Entry *entry = table_find_entry(t, key);
   bool is_new = false;
@@ -238,12 +217,14 @@ bool table_set(Table *t, Val key, Val val) {
   } else if (val_biteq(entry->key, EMPTY_ITEM)) {
     is_new = true;
     entry->key = key;
-    t->len++;
+    arraylist_trunc(Entry)(&t->al, len + 1);
   } else {
     val_free(entry->val);
     val_free(key);
   }
-  t->real_len += is_new;
+  if (is_new) {
+    t->real_len++;
+  }
   entry->val = val;
   return is_new;
 }
@@ -277,34 +258,34 @@ bool table_del(Table *t, Val key) {
 }
 
 void table_free(Table *t) {
-  assert(t->real_len < t->cap || t->real_len == 0);
+  assert(t->real_len < arraylist_cap(Entry)(&t->al) || t->real_len == 0);
   size_t remaining = t->real_len;
   for (size_t i = 0; remaining; i++) {
-    Val key = t->items[i].key;
-    if (is_unset(key)) {
+    Entry *entry = arraylist_get(Entry)(&t->al, i);
+    if (is_unset(entry->key)) {
       continue;
     }
     remaining--;
-    val_free(key);
-    val_free(t->items[i].val);
+    val_free(entry->key);
+    val_free(entry->val);
   }
-  mem_free_array(t->items, sizeof(t->items[0]), t->cap);
-  *t = (Table){0};
+  arraylist_free(Entry)(&t->al);
+  t->real_len = 0;
 }
 
 void table_print(const Table *t) {
-  assert(t->real_len < t->cap || t->real_len == 0);
+  assert(t->real_len < arraylist_cap(Entry)(&t->al) || t->real_len == 0);
   printf("{");
   size_t remaining = t->real_len;
   for (size_t i = 0; remaining; i++) {
-    Val key = t->items[i].key;
-    if (is_unset(key)) {
+    Entry *entry = arraylist_get(Entry)(&t->al, i);
+    if (is_unset(entry->key)) {
       continue;
     }
     remaining--;
-    val_print(key);
+    val_print(entry->key);
     printf(": ");
-    val_print(t->items[i].val);
+    val_print(entry->val);
     if (remaining > 1) {
       printf(", ");
     }
@@ -312,13 +293,19 @@ void table_print(const Table *t) {
   printf("}");
 }
 
-bool table_eq(const Table *a, const Table *b) { return a->len == b->len; }
+bool table_eq(const Table *a, const Table *b) { return true; }
 
 extern inline void string_print(const String *);
 extern inline size_t string_hash(String *);
+
 extern inline void slice_print(const Slice *);
 extern inline Slice slice(const char *, size_t len);
 extern inline size_t slice_hash(Slice *);
+
 extern inline Val list_get(const List *, size_t idx, Val def);
 extern inline void list_set(List *l, size_t idx, Val val);
 extern inline Val list_pop(List *, Val def);
+extern inline void list_append(List *, Val);
+extern inline size_t list_len(const List *);
+
+extern inline size_t table_len(const Table *);

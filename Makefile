@@ -14,10 +14,10 @@ $(BINS): | $(BUILDDIR)
 
 all: $(BINS)
 
-$(BUILDDIR)/clox: $(patsubst %,$(OBJDIR)/%.o,main mem types val)
-$(BUILDDIR)/tfuzz: $(patsubst %,$(OBJDIR)/%.o,test/table_fuzz test/util mem types val)
-$(BUILDDIR)/tbench: $(patsubst %,$(OBJDIR)/%.o,test/table_bench test/util mem types val)
-$(BUILDDIR)/vtest: $(patsubst %,$(OBJDIR)/%.o,test/val_test mem types val)
+$(BUILDDIR)/clox: $(patsubst %,$(OBJDIR)/%.o,main mem types val array)
+$(BUILDDIR)/tfuzz: $(patsubst %,$(OBJDIR)/%.o,test/table_fuzz test/util mem types val array)
+$(BUILDDIR)/tbench: $(patsubst %,$(OBJDIR)/%.o,test/table_bench test/util mem types val array)
+$(BUILDDIR)/vtest: $(patsubst %,$(OBJDIR)/%.o,test/val_test mem types val array)
 $(BUILDDIR)/lex: $(patsubst %,$(OBJDIR)/%.o,test/lex lex)
 $(BUILDDIR)/array: $(patsubst %,$(OBJDIR)/%.o,test/array array mem)
 

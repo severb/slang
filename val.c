@@ -142,9 +142,9 @@ bool val_is_true(Val v) {
   case VAL_STRING:
     return val_ptr2string(v)->len != 0;
   case VAL_TABLE:
-    return val_ptr2table(v)->len != 0;
+    return table_len(val_ptr2table(v)) != 0;
   case VAL_LIST:
-    return val_ptr2list(v)->len != 0;
+    return list_len(val_ptr2list(v)) != 0;
   case VAL_I64:
     return *val_ptr2int64(v) != 0;
   case VAL_ERR:
