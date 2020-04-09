@@ -181,8 +181,8 @@ static void table_grow(Table *t) {
   // rehash
   size_t remaining = t->real_len;
   assert((old_cap & (old_cap - 1)) == 0); // only powers of 2
-  // TODO: use size_t mask = old_cap - 1;
-  for (size_t i = (start + 1) % old_cap; remaining; i = (i + 1) % old_cap) {
+  size_t mask = old_cap - 1;
+  for (size_t i = (start + 1) & mask; remaining; i = (i + 1) & mask) {
     Entry *entry = arraylist_get(Entry)(&t->al, i);
     if (val_biteq(entry->key, EMPTY_ITEM)) {
       continue;
