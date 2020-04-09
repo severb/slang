@@ -15,11 +15,16 @@
 #define CYCLES 10000000
 
 int main(int argc, const char *argv[]) {
+  unsigned long long keyspace = KEYSPACE;
+  if (argc > 1) {
+    keyspace = strtoull(argv[1], NULL, 10);
+    keyspace = keyspace ? keyspace : KEYSPACE;
+  }
   srand(1337);
   Table tbench = (Table){{0}, 0};
   clock_t start = clock();
   for (unsigned int i = 0; i < CYCLES; i++) {
-    int n = randint(KEYSPACE);
+    int n = randint(keyspace);
     Val key = val_data4pair(0, n);
     Val val = val_data4upair(1, i);
     table_set(&tbench, key, val);
@@ -32,12 +37,12 @@ int main(int argc, const char *argv[]) {
 #ifdef CLOX_DEBUG
   collision_summary();
   collision_reset();
-  table_summary(&tbench);
+  // table_summary(&tbench);
 #endif
   table_free(&tbench);
 
   List strings = {0};
-  for (size_t i = 0; i < KEYSPACE; i++) {
+  for (size_t i = 0; i < keyspace; i++) {
     list_append(&strings, randstr(STRSIZE));
   }
 
@@ -45,7 +50,7 @@ int main(int argc, const char *argv[]) {
   srand(1337);
   start = clock();
   for (unsigned int i = 0; i < CYCLES; i++) {
-    int n = randint(KEYSPACE);
+    int n = randint(keyspace);
     Val kv = val_ptr2ref(list_get(&strings, n, SENTINEL));
     table_set(&tbench, kv, kv);
   }
@@ -57,7 +62,7 @@ int main(int argc, const char *argv[]) {
 #ifdef CLOX_DEBUG
   collision_summary();
   collision_reset();
-  table_summary(&tbench);
+  // table_summary(&tbench);
 #endif
   table_free(&tbench);
   list_free(&strings);
