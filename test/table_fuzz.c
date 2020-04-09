@@ -1,17 +1,18 @@
 #include "test/util.h" // randint, randstr, SENTINEL
 
-#include "mem.h"   // mem_allocation_summary
+#include "mem.h" // mem_allocation_summary
 
 #include "types.h" // string_new, table_summary
                    // List, list_append, list_get, list_free
                    // Table, table_set, table_get, table_del, table_free
 
-#include "val.h"   // Val, val_ptr4string, USR_SYMBOL, val_ptr2ref, val_eq
-                   // VAL_NIL, val_data4upair, val_type, VAL_PAIR
+#include "val.h" // Val, val_ptr4string, USR_SYMBOL, val_ptr2ref, val_eq
+                 // VAL_NIL, val_data4upair, val_type, VAL_PAIR
 
-#include <stdbool.h> // bool
-#include <stdint.h>  // uint64_t
-#include <stdlib.h>  // EXIT_SUCCESS, rand, RAND_MAX, size_t
+#include <inttypes.h> // PRId*
+#include <stdbool.h>  // bool
+#include <stdint.h>   // uint64_t
+#include <stdlib.h>   // EXIT_SUCCESS, rand, RAND_MAX, size_t
 
 #define STRSIZE 16
 #define ELEMS 100
@@ -21,7 +22,7 @@
 void testone(bool summary) {
   List keys = {0};
   List vals = {0};
-  Table table = {0};
+  Table table = {{0}, 0};
 
   for (size_t i = 0; i < ELEMS; i++) {
     list_append(&keys, randstr(STRSIZE));
@@ -77,7 +78,7 @@ int main(int arcg, char const *argv[]) {
     i++;
     testone(i % 1000 == 0);
     if (i % 1000 == 0) {
-      printf("runs: %zu\n", i);
+      printf("runs: %" PRIu64 "\n", i);
 #ifdef CLOX_DEBUG
       mem_allocation_summary();
 #endif

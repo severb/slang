@@ -3,10 +3,11 @@
 #include "mem.h" // mem_allocate_flex, mem_free_array, mem_resize_array
 #include "val.h" // val_free, val_print
 
-#include <stdint.h> // uint64_t, UINT64_C
-#include <stdio.h>  // printf
-#include <stdlib.h> // abort
-#include <string.h> // memcpy, size_t
+#include <inttypes.h> // PRId*
+#include <stdint.h>   // uint64_t, UINT64_C
+#include <stdio.h>    // printf
+#include <stdlib.h>   // abort
+#include <string.h>   // memcpy, size_t
 
 arraylist_define(Val);   // List
 arraylist_define(Entry); // Table
@@ -90,8 +91,8 @@ static uint64_t finds = 0;
 static uint64_t collisions = 0;
 
 void collision_summary(void) {
-  fprintf(stderr, "finds: %lu, collisions: %lu, ratio: %f\n", finds, collisions,
-          (double)finds / (double)collisions);
+  fprintf(stderr, "finds: %" PRIu64 ", collisions: %" PRIu64 ", ratio: %f\n",
+          finds, collisions, (double)finds / (double)collisions);
 }
 
 void table_summary(const Table *t) {

@@ -16,7 +16,7 @@
 
 int main(int argc, const char *argv[]) {
   srand(1337);
-  Table tbench = (Table){0};
+  Table tbench = (Table){{0}, 0};
   clock_t start = clock();
   for (unsigned int i = 0; i < CYCLES; i++) {
     int n = randint(KEYSPACE);
@@ -41,7 +41,7 @@ int main(int argc, const char *argv[]) {
     list_append(&strings, randstr(STRSIZE));
   }
 
-  tbench = (Table){0};
+  tbench = (Table){{0}, 0};
   srand(1337);
   start = clock();
   for (unsigned int i = 0; i < CYCLES; i++) {

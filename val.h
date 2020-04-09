@@ -187,7 +187,7 @@ inline int64_t *val_ptr2int64(Val v) {
 // 01111111|11111100|........|........|........|........|........|.......o
 #define ERR_PTR_TYPE BYTES(7f, fc, 00, 00, 00, 00, 00, 00)
 
-inline bool val_is_err(Val v) { return val_type(v) == ERR_PTR_TYPE; }
+inline bool val_is_err(Val v) { return val_type(v) == VAL_ERR; }
 
 inline Val val_ptr4err(Val *v) {
   return (Val){.u = ((uintptr_t)v | ERR_PTR_TYPE)};
