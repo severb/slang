@@ -115,22 +115,27 @@ inline void *val_ptr2ptr(Val v) {
 #define TYPE_MASK BYTES(ff, ff, 00, 00, 00, 00, 00, 00)
 
 typedef enum {
-  VAL_DOUBLE,
-  VAL_STRING = 0x7ff4,
+  VAL_STRING = 0,
   VAL_TABLE,
   VAL_LIST,
   VAL_I64,
-  VAL_ERR = 0x7ffc,
-  VAL_SLICE,
-  VAL_PAIR = 0xfff4,
+  VAL_PAIR,
   VAL_SYMBOL,
+  VAL_ERR = 8,
+  VAL_SLICE,
+  VAL_DOUBLE,
 } ValType;
 
 // val_type() returns the type discriminant of the Val.
 inline ValType val_type(Val v) {
-  return (v.u & TAGGED_MASK) == TAGGED_MASK
-             ? (uint16_t)((v.u & TYPE_MASK) >> 48)
-             : VAL_DOUBLE;
+  if ((v.u & TAGGED_MASK) != TAGGED_MASK) {
+    return VAL_DOUBLE;
+  }
+  // convert the type discriminant to a low (<=16) value to help compilers
+  // generate efficient jump tables when type switching
+  uint64_t a = (v.u & 0x000b000000000000) >> 48;
+  uint64_t b = (v.u & 0x8000000000000000) >> 61;
+  return (ValType)(a | b);
 }
 
 // The String pointer type points to a struct with a flexible characters array
