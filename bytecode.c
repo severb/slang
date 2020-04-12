@@ -15,8 +15,9 @@ arraylist_define(Line);
 static void write_byte(Chunk *c, uint8_t b, Line l) {
   arraylist_append(Opcode)(&c->bytecode, &b);
   while (l >= arraylist_len(Line)(&c->lines)) {
-    Line zero = 0;
-    arraylist_append(Line)(&c->lines, &zero);
+    size_t len = arraylist_len(Line)(&c->lines);
+    Line prev = len > 0 ? *arraylist_get(Line)(&c->lines, len - 1) : 0;
+    arraylist_append(Line)(&c->lines, &prev);
   }
   *arraylist_get(Line)(&c->lines, arraylist_len(Line)(&c->lines) - 1) += 1;
 }
@@ -109,7 +110,7 @@ static char const *opcodes[] = {
 static size_t disassamble_op(const Chunk *chunk, size_t offset, Line l) {
   assert(offset < chunk_len(chunk));
   printf("%6zu ", offset);
-  if (l) { // line zero keeps the previous line number
+  if (!l) { // line zero keeps the previous line number
     printf("     | ");
   } else {
     printf("%6zu ", l);
@@ -150,9 +151,14 @@ static size_t disassamble_op(const Chunk *chunk, size_t offset, Line l) {
 }
 
 void chunk_disassamble(const Chunk *c) {
+  size_t last_line = SIZE_MAX;
+  size_t line = 0;
   size_t offset = 0;
   while (offset < chunk_len(c)) {
-    offset = disassamble_op(c, offset, 0);
+    for (; offset >= *arraylist_get(Line)(&c->lines, line); line++) {
+    }
+    offset = disassamble_op(c, offset, last_line != line ? line: 0);
+    last_line = line;
   }
 }
 
