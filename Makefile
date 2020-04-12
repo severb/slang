@@ -7,7 +7,7 @@ BUILDDIR  = build
 OBJDIR	  = $(BUILDDIR)/obj
 DEPDIR    = $(BUILDDIR)/dep
 DEPFLAGS  = -MT $@ -MMD -MP -MF $(patsubst %.c,$(DEPDIR)/%.d,$<)
-BINS = $(patsubst %,$(BUILDDIR)/%,clox tfuzz tbench vtest lex array tbyte)
+BINS = $(patsubst %,$(BUILDDIR)/%,clox tfuzz tbench vtest lex array tdis)
 
 $(BINS): | $(BUILDDIR)
 	$(CC) $(CFLAGS) -o $@ $^
@@ -20,7 +20,7 @@ $(BUILDDIR)/tbench: $(patsubst %,$(OBJDIR)/%.o,test/table_bench array mem test/u
 $(BUILDDIR)/vtest: $(patsubst %,$(OBJDIR)/%.o,test/val_test array mem types val)
 $(BUILDDIR)/lex: $(patsubst %,$(OBJDIR)/%.o,test/lex lex)
 $(BUILDDIR)/array: $(patsubst %,$(OBJDIR)/%.o,test/array array mem)
-$(BUILDDIR)/tbyte: $(patsubst %,$(OBJDIR)/%.o,test/bytecode_test array bytecode mem types val)
+$(BUILDDIR)/tdis: $(patsubst %,$(OBJDIR)/%.o,test/disassamble_test array bytecode mem types val)
 
 %.o: %.c # reset the default rule
 
