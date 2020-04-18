@@ -12,6 +12,7 @@
 -Wmissing-include-dirs
 -Wlogical-op
 -Wjump-misses-init
+-Wstrict-aliasing
 -O2
 -std=c11
 -I.

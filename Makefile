@@ -4,7 +4,7 @@
 CFLAGS += -Wall -Wextra -Wpedantic -Wformat=2 -Wno-unused-parameter -Wshadow
 CFLAGS += -Wwrite-strings -Wstrict-prototypes -Wold-style-definition
 CFLAGS += -Wredundant-decls -Wnested-externs -Wmissing-include-dirs
-CFLAGS += -Wlogical-op -Wjump-misses-init -O2 -std=c11 -I.
+CFLAGS += -Wlogical-op -Wjump-misses-init -Wstrict-aliasing -O2 -std=c11 -I.
 
 BUILDDIR  = build
 OBJDIR	  = $(BUILDDIR)/obj
