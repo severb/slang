@@ -56,6 +56,6 @@ void al_free(AL *a, size_t item_size) {
 }
 
 void al_seal(AL *a, size_t item_size) {
-  a->cap = a->len;
   mem_resize_array(a->items, item_size, a->cap, a->len);
+  a->cap = a->len;
 }
