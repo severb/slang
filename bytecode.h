@@ -29,11 +29,14 @@ typedef struct {
 
 typedef size_t Bookmark;
 
-void chunk_write(Chunk *, Opcode, Line);
-void chunk_write_unary(Chunk *, Opcode, Line, uint64_t);
-Bookmark chunk_reserve(Chunk *, Line l);
+void chunk_write_opration(Chunk *, Line, Opcode);
+void chunk_write_operand(Chunk *, Line, uint64_t);
+void chunk_write_unary(Chunk *, Line, Opcode, uint64_t);
+Bookmark chunk_reserve_operation(Chunk *, Line l);
+Bookmark chunk_reserve_operand(Chunk *, Line l);
 Bookmark chunk_reserve_unary(Chunk *, Line l);
-void chunk_patch(Chunk *, Bookmark, Opcode);
+void chunk_patch_operation(Chunk *, Bookmark, Opcode);
+void chunk_patch_operand(Chunk *, Bookmark, uint64_t);
 void chunk_patch_unary(Chunk *, Bookmark, Opcode, uint64_t);
 size_t chunk_record_const(Chunk *, Val);
 void chunk_seal(Chunk *);

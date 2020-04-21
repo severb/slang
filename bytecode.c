@@ -12,7 +12,7 @@
 arraylist_define(Opcode);
 arraylist_define(Line);
 
-static void write_byte(Chunk *c, uint8_t b, Line l) {
+static void write_byte(Chunk *c, Line l, uint8_t b) {
   arraylist_append(Opcode)(&c->bytecode, &b);
   while (l >= arraylist_len(Line)(&c->lines)) {
     size_t len = arraylist_len(Line)(&c->lines);
@@ -22,37 +22,45 @@ static void write_byte(Chunk *c, uint8_t b, Line l) {
   *arraylist_get(Line)(&c->lines, arraylist_len(Line)(&c->lines) - 1) += 1;
 }
 
+void chunk_write_operation(Chunk *c, Line l, Opcode op) {
+  write_byte(c, l, op);
+}
+
 // least significant byte 1st, max 9 bytes, 9th byte not tagged
-static void write_operand(Chunk *c, uint64_t operand, Line l) {
+void chunk_write_operand(Chunk *c, Line l, uint64_t operand) {
   for (int i = 0; i < 8; i++) {
     if (operand < 0x80) {
-      write_byte(c, operand, l);
+      write_byte(c, l, operand);
       return;
     }
-    write_byte(c, 0x80 | (operand & 0x7f), l);
+    write_byte(c, l, 0x80 | (operand & 0x7f));
     operand >>= 7;
   }
-  write_byte(c, operand, l); // last full byte
+  write_byte(c, l, operand); // last full byte
 }
 
-void chunk_write(Chunk *c, Opcode op, Line l) { write_byte(c, op, l); }
-
-void chunk_write_unary(Chunk *c, Opcode op, Line l, uint64_t operand) {
-  write_byte(c, op, l);
-  write_operand(c, operand, l);
+void chunk_write_unary(Chunk *c, Line l, Opcode op, uint64_t operand) {
+  chunk_write_operation(c, l, op);
+  chunk_write_operand(c, l, operand);
 }
 
-size_t chunk_reserve(Chunk *c, Line l) {
+size_t chunk_reserve_operation(Chunk *c, Line l) {
   size_t idx = arraylist_len(Opcode)(&c->bytecode);
-  chunk_write(c, OP_NOOP, l);
+  chunk_write_operation(c, l, OP_NOOP);
+  return idx;
+}
+
+size_t chunk_reserve_operand(Chunk *c, Line l) {
+  size_t idx = arraylist_len(Opcode)(&c->bytecode);
+  for (int i = 0; i < 9; i++) { // 8 + 1 bytes max operand size
+    chunk_write_operation(c, l, OP_NOOP);
+  }
   return idx;
 }
 
 size_t chunk_reserve_unary(Chunk *c, Line l) {
-  size_t idx = arraylist_len(Opcode)(&c->bytecode);
-  for (int i = 0; i < 10; i++) { // 1 byte opcode, 8 + 1 bytes max oper
-    chunk_write(c, OP_NOOP, l);
-  }
+  size_t idx = chunk_reserve_operation(c, l);
+  chunk_reserve_operand(c, l);
   return idx;
 }
 
@@ -61,7 +69,11 @@ static void patch_byte(Chunk *c, size_t idx, uint8_t b) {
   *arraylist_get(Opcode)(&c->bytecode, idx) = b;
 }
 
-static void patch_operand(Chunk *c, size_t idx, uint64_t operand) {
+void chunk_patch_operation(Chunk *c, Bookmark idx, Opcode op) {
+  patch_byte(c, idx, op);
+}
+
+void chunk_patch_operand(Chunk *c, Bookmark idx, uint64_t operand) {
   assert(idx < SIZE_MAX - 9);
   for (int i = 0; i < 8; i++) {
     patch_byte(c, idx + i, 0x80 | (0x7F & operand));
@@ -70,20 +82,15 @@ static void patch_operand(Chunk *c, size_t idx, uint64_t operand) {
   patch_byte(c, idx + 8, operand);
 }
 
-void chunk_patch(Chunk *c, size_t idx, Opcode op) { patch_byte(c, idx, op); }
-
-void chunk_patch_unary(Chunk *c, size_t idx, Opcode op, uint64_t operand) {
-  patch_byte(c, idx, op);
-  patch_operand(c, idx + 1, operand);
+void chunk_patch_unary(Chunk *c, Bookmark idx, Opcode op, uint64_t operand) {
+  chunk_patch_operation(c, idx, op);
+  chunk_patch_operand(c, idx + 1, operand);
 }
 
-#define SENTINEL USR_SYMBOL(0)
-
 size_t chunk_record_const(Chunk *c, Val v) {
-  for (size_t i = 0; i < list_len(&c->consts); i++) {
-    if (val_eq(list_get(&c->consts, i, SENTINEL), v)) {
-      return i;
-    }
+  size_t idx = 0;
+  if (list_find(&c->consts, v, &idx)) {
+    return idx;
   }
   list_append(&c->consts, v);
   return list_len(&c->consts);
@@ -157,7 +164,7 @@ void chunk_disassamble(const Chunk *c) {
   while (offset < chunk_len(c)) {
     for (; offset >= *arraylist_get(Line)(&c->lines, line); line++) {
     }
-    offset = disassamble_op(c, offset, last_line != line ? line: 0);
+    offset = disassamble_op(c, offset, last_line != line ? line : 0);
     last_line = line;
   }
 }
