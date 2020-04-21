@@ -45,9 +45,6 @@ inline size_t slice_hash(Slice *s) {
 
 arraylist_declare(Val);
 
-
-
-// typedef ArrayList(Val) List;
 typedef struct List {
   ArrayList(Val) al;
 } List;
@@ -74,6 +71,18 @@ inline Val list_pop(List *l, Val def) {
 }
 inline void list_append(List *l, Val v) { arraylist_append(Val)(&l->al, &v); }
 inline size_t list_len(const List *l) { return arraylist_len(Val)(&l->al); }
+inline bool list_find(const List *l, Val v, size_t *idx) {
+  for (size_t i = 0; i < list_len(l); i++) {
+    Val array_val = *arraylist_get(Val)(&l->al, i);
+    if (val_eq(array_val, v)) {
+      if (idx) {
+        *idx = i;
+      }
+      return true;
+    }
+  }
+  return false;
+}
 
 typedef struct Entry {
   Val key;
