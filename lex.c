@@ -114,8 +114,10 @@ static void number(Lexer *lex, Token *t) {
     while (is_digit(peek(lex))) {
       advance(lex);
     }
+    token(lex, TOKEN_FLOAT, t);
+    return;
   }
-  token(lex, TOKEN_NUMBER, t);
+  token(lex, TOKEN_INT, t);
 }
 
 static TokenType check_keyword(const Lexer *lex, short start, short len,
