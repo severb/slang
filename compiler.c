@@ -80,11 +80,11 @@ static void err_at_token(Compiler *c, const Token *t, const char *msg) {
 }
 
 static void err_at_current(Compiler *c, const char *msg) {
-  error_at_token(c, &c->current, msg);
+  err_at_token(c, &c->current, msg);
 }
 
 static void err_at_prev(Compiler *c, const char *msg) {
-  error_at_token(c, &c->prev, msg);
+  err_at_token(c, &c->prev, msg);
 }
 
 static void advance(Compiler *c) {
@@ -94,7 +94,7 @@ static void advance(Compiler *c) {
     if (c->current.type != TOKEN_ERROR) {
       break;
     }
-    error_at_current(c, 0);
+    err_at_current(c, 0);
   }
 }
 
@@ -125,7 +125,7 @@ static void consume(Compiler *c, TokenType type, const char *msg) {
     advance(c);
     return;
   }
-  error_at_current(c, msg);
+  err_at_current(c, msg);
 }
 
 static bool match(Compiler *c, TokenType type) {
