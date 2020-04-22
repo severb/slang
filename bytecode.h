@@ -29,7 +29,7 @@ typedef struct {
 
 typedef size_t Bookmark;
 
-void chunk_write_opration(Chunk *, Line, Opcode);
+void chunk_write_operation(Chunk *, Line, Opcode);
 void chunk_write_operand(Chunk *, Line, uint64_t);
 void chunk_write_unary(Chunk *, Line, Opcode, uint64_t);
 Bookmark chunk_reserve_operation(Chunk *, Line l);

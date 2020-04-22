@@ -21,8 +21,6 @@ typedef struct {
   List uninitialized;
 } Compiler;
 
-typedef void (*CompileFn)(Compiler *, bool can_assign);
-
 typedef enum {
   PREC_NONE,
   PREC_ASSIGNMENT, // =
@@ -37,7 +35,7 @@ typedef enum {
   PREC_PRIMARY,
 } Precedence;
 
-bool compile(const char *src, Chunk *chunk) { return true; }
+typedef void (*CompileFn)(Compiler *, bool can_assign);
 
 typedef struct {
   CompileFn prefix;
@@ -45,7 +43,7 @@ typedef struct {
   Precedence precedence;
 } CompileRule;
 
-static CompileRule rules[TOKEN_EOF + 1];
+static CompileRule rules[TOKEN__COUNT];
 
 static void compiler_free(Compiler *c) {
   list_free(&c->scopes);
@@ -99,6 +97,9 @@ static void advance(Compiler *c) {
 }
 
 static void synchronize(Compiler *c) {
+  if (!c->panic_mode) {
+    return;
+  }
   c->panic_mode = false;
   while (c->current.type != TOKEN_EOF) {
     if (c->prev.type == TOKEN_SEMICOLON) {
@@ -180,3 +181,103 @@ static void compile_string(Compiler *c, bool _) {
   size_t idx = chunk_record_const(c->chunk, val_ptr4slice(s));
   chunk_write_operand(c->chunk, idx, c->prev.line);
 }
+
+static void compile_literal(Compiler *c, bool _) {
+  TokenType lit = c->prev.type;
+  switch (lit) {
+  case TOKEN_FALSE:
+    chunk_write_operation(c->chunk, c->prev.line, OP_FALSE);
+    break;
+  case TOKEN_NIL:
+    chunk_write_operation(c->chunk, c->prev.line, OP_NIL);
+    break;
+  case TOKEN_TRUE:
+    chunk_write_operation(c->chunk, c->prev.line, OP_TRUE);
+  default:
+    assert(0);
+  }
+}
+
+static void enter_scope(Compiler *c) {}
+static void exit_scope(Compiler *c) {}
+
+static void compile_print_statement(Compiler *c) {}
+static void compile_if_statement(Compiler *c) {}
+static void compile_while_statement(Compiler *c) {}
+static void compile_for_statement(Compiler *c) {}
+static void compile_expression_statement(Compiler *c) {}
+static void compile_block(Compiler *c) {}
+static void compile_var_declaration(Compiler *c) {}
+
+static void compile_statement(Compiler *c) {
+  if (match(c, TOKEN_PRINT)) {
+    compile_print_statement(c);
+  } else if (match(c, TOKEN_IF)) {
+    compile_if_statement(c);
+  } else if (match(c, TOKEN_WHILE)) {
+    compile_while_statement(c);
+  } else if (match(c, TOKEN_FOR)) {
+    compile_for_statement(c);
+  } else if (match(c, TOKEN_LEFT_BRACE)) {
+    enter_scope(c);
+    compile_block(c);
+    exit_scope(c);
+  } else {
+    compile_expression_statement(c);
+  }
+}
+
+static void compile_declaration(Compiler *c) {
+  if (match(c, TOKEN_VAR)) {
+    compile_var_declaration(c);
+  } else {
+    compile_statement(c);
+  }
+  synchronize(c);
+}
+
+bool compile(const char *src, Chunk *chunk) { return true; }
+
+static CompileRule rules[] = {
+    {NULL, NULL, PREC_NONE},            // TOKEN_LEFT_PAREN
+    {NULL, NULL, PREC_NONE},            // TOKEN_RIGHT_PAREN
+    {NULL, NULL, PREC_NONE},            // TOKEN_LEFT_BRACE
+    {NULL, NULL, PREC_NONE},            // TOKEN_RIGHT_BRACE
+    {NULL, NULL, PREC_NONE},            // TOKEN_COMMA
+    {NULL, NULL, PREC_NONE},            // TOKEN_DOT
+    {NULL, NULL, PREC_TERM},            // TOKEN_MINUS
+    {NULL, NULL, PREC_TERM},            // TOKEN_PLUS
+    {NULL, NULL, PREC_NONE},            // TOKEN_SEMICOLON
+    {NULL, NULL, PREC_FACTOR},          // TOKEN_SLASH
+    {NULL, NULL, PREC_FACTOR},          // TOKEN_STAR
+    {NULL, NULL, PREC_NONE},            // TOKEN_BANG
+    {NULL, NULL, PREC_EQUALITY},        // TOKEN_BANG_EQUAL
+    {NULL, NULL, PREC_NONE},            // TOKEN_EQUAL
+    {NULL, NULL, PREC_EQUALITY},        // TOKEN_EQUAL_EQUAL
+    {NULL, NULL, PREC_COMPARISON},      // TOKEN_GREATER
+    {NULL, NULL, PREC_COMPARISON},      // TOKEN_GREATER_EQUAL
+    {NULL, NULL, PREC_COMPARISON},      // TOKEN_LESS
+    {NULL, NULL, PREC_COMPARISON},      // TOKEN_LESS_EQUAL
+    {NULL, NULL, PREC_NONE},            // TOKEN_IDENTIFIER
+    {compile_string, NULL, PREC_NONE},  // TOKEN_STRING
+    {compile_int, NULL, PREC_NONE},     // TOKEN_INT
+    {compile_float, NULL, PREC_NONE},   // TOKEN_FLOAT
+    {NULL, NULL, PREC_AND},             // TOKEN_AND
+    {NULL, NULL, PREC_NONE},            // TOKEN_CLASS
+    {NULL, NULL, PREC_NONE},            // TOKEN_ELSE
+    {compile_literal, NULL, PREC_NONE}, // TOKEN_FALSE
+    {NULL, NULL, PREC_NONE},            // TOKEN_FOR
+    {NULL, NULL, PREC_NONE},            // TOKEN_FUN
+    {NULL, NULL, PREC_NONE},            // TOKEN_IF
+    {compile_literal, NULL, PREC_NONE}, // TOKEN_NIL
+    {NULL, NULL, PREC_OR},              // TOKEN_OR
+    {NULL, NULL, PREC_NONE},            // TOKEN_PRINT
+    {NULL, NULL, PREC_NONE},            // TOKEN_RETURN
+    {NULL, NULL, PREC_NONE},            // TOKEN_SUPER
+    {NULL, NULL, PREC_NONE},            // TOKEN_THIS
+    {compile_literal, NULL, PREC_NONE}, // TOKEN_TRUE
+    {NULL, NULL, PREC_NONE},            // TOKEN_VAR
+    {NULL, NULL, PREC_NONE},            // TOKEN_WHILE
+    {NULL, NULL, PREC_NONE},            // TOKEN_ERROR
+    {NULL, NULL, PREC_NONE},            // TOKEN_EOF
+};
