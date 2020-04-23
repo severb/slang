@@ -198,16 +198,52 @@ static void compile_literal(Compiler *c, bool _) {
   }
 }
 
-static void enter_scope(Compiler *c) {}
-static void exit_scope(Compiler *c) {}
+static void enter_scope(Compiler *c) {
+  List *l = mem_allocate(sizeof(List));
+  *l = (List){0};
+  list_append(&c->scopes, val_ptr4list(l));
+}
 
+static bool in_scope(const Compiler *c) { return list_len(&c->scopes) > 0; }
+
+static void exit_scope(Compiler *c) {
+  assert(in_scope(c));
+  val_free(list_pop(&c->scopes, VAL_NIL));
+}
+
+static void declare_local(Compiler *c, Val var) {
+  assert(in_scope(c));
+  Val top_scope = list_get(&c->scopes, list_len(&c->scopes) - 1, VAL_NIL);
+  assert(val_type(top_scope) == VAL_LIST);
+  List *top_scope_list = val_ptr2list(top_scope);
+  if (list_find(top_scope_list, var, 0)) {
+    err_at_prev(c, "variable already defined");
+    return;
+  }
+  list_append(top_scope_list, var);
+  list_append(&c->uninitialized, var);
+}
+
+static void initialize_local(Compiler *c, Val var) {
+  size_t idx;
+  bool found = list_find(&c->uninitialized, var, &idx);
+  assert(found);
+  // replace the initialized var with the last uninitialized
+  Val last = list_pop(&c->uninitialized, VAL_NIL);
+  if (idx < list_len(&c->uninitialized)) {
+    list_set(&c->uninitialized, idx, last);
+  } else {
+    val_free(last);
+  }
+}
+
+static void compile_expression(Compiler *c) {}
 static void compile_print_statement(Compiler *c) {}
 static void compile_if_statement(Compiler *c) {}
 static void compile_while_statement(Compiler *c) {}
 static void compile_for_statement(Compiler *c) {}
 static void compile_expression_statement(Compiler *c) {}
 static void compile_block(Compiler *c) {}
-static void compile_var_declaration(Compiler *c) {}
 
 static void compile_statement(Compiler *c) {
   if (match(c, TOKEN_PRINT)) {
@@ -225,6 +261,31 @@ static void compile_statement(Compiler *c) {
   } else {
     compile_expression_statement(c);
   }
+}
+
+static void compile_var_declaration(Compiler *c) {
+start:
+  consume(c, TOKEN_IDENTIFIER, "variable name is missing");
+  Slice *s = mem_allocate(sizeof(Slice));
+  *s = slice(c->prev.start, c->prev.stop - c->prev.start);
+  Val var = val_ptr4slice(s);
+  if (in_scope(c)) {
+    declare_local(c, var);
+  }
+  if (match(c, TOKEN_EQUAL)) {
+    compile_expression(c);
+  } else {
+    chunk_write_operation(c->chunk, c->prev.line, OP_NIL);
+  }
+  if (in_scope(c)) {
+    initialize_local(c, var);
+  } else {
+    chunk_write_operation(c->chunk, c->prev.line, OP_DEF_GLOBAL);
+  }
+  if (match(c, TOKEN_COMMA)) {
+    goto start;
+  }
+  consume(c, TOKEN_SEMICOLON, "semicolon missing after variable declaration");
 }
 
 static void compile_declaration(Compiler *c) {
