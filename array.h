@@ -7,12 +7,12 @@ typedef struct {
   size_t len;
   size_t cap;
   void *items;
-} AL;
+} GenericArrayList;
 
-void al_reserve(AL *, size_t item_size, size_t cap);
-void al_grow(AL *, size_t item_size);
-void al_free(AL *, size_t item_size);
-void al_seal(AL *, size_t item_size);
+void gal_reserve(GenericArrayList *, size_t item_size, size_t cap);
+void gal_grow(GenericArrayList *, size_t item_size);
+void gal_free(GenericArrayList *, size_t item_size);
+void gal_seal(GenericArrayList *, size_t item_size);
 
 #define ArrayList(T) ArrayList_##T
 
@@ -28,33 +28,33 @@ void al_seal(AL *, size_t item_size);
 
 #define arraylist_declare(T)                                                   \
   struct ArrayList(T) {                                                        \
-    AL a;                                                                      \
+    GenericArrayList gal;                                                      \
   };                                                                           \
                                                                                \
   inline void arraylist_reserve(T)(struct ArrayList(T) * l, size_t cap) {      \
-    al_reserve(&l->a, sizeof(T), cap);                                         \
+    gal_reserve(&l->gal, sizeof(T), cap);                                      \
   }                                                                            \
                                                                                \
   inline void arraylist_grow(T)(struct ArrayList(T) * l) {                     \
-    al_grow(&l->a, sizeof(T));                                                 \
+    gal_grow(&l->gal, sizeof(T));                                              \
   }                                                                            \
                                                                                \
   inline size_t arraylist_len(T)(const struct ArrayList(T) * l) {              \
-    return l->a.len;                                                           \
+    return l->gal.len;                                                         \
   }                                                                            \
                                                                                \
   inline size_t arraylist_cap(T)(const struct ArrayList(T) * l) {              \
-    return l->a.cap;                                                           \
+    return l->gal.cap;                                                         \
   }                                                                            \
                                                                                \
   inline T *arraylist_get(T)(const struct ArrayList(T) * l, size_t idx) {      \
     assert(idx < arraylist_cap(T)(l));                                         \
-    return &((T *)(l->a.items))[idx];                                          \
+    return &((T *)(l->gal.items))[idx];                                        \
   }                                                                            \
                                                                                \
   inline void arraylist_trunc(T)(struct ArrayList(T) * l, size_t len) {        \
     assert(len <= arraylist_cap(T)(l));                                        \
-    l->a.len = len < l->a.cap ? len : l->a.cap;                                \
+    l->gal.len = len;                                                          \
   }                                                                            \
                                                                                \
   inline void arraylist_append(T)(struct ArrayList(T) * l, const T *i) {       \
@@ -64,16 +64,16 @@ void al_seal(AL *, size_t item_size);
     }                                                                          \
     assert(arraylist_cap(T)(l) > arraylist_len(T)(l));                         \
     *arraylist_get(T)(l, arraylist_len(T)(l)) = *i;                            \
-    arraylist_trunc(T)(l, arraylist_len(T)(l) + 1);                           \
+    arraylist_trunc(T)(l, arraylist_len(T)(l) + 1);                            \
   }                                                                            \
                                                                                \
   inline void arraylist_free(T)(struct ArrayList(T) * l) {                     \
-    al_free(&l->a, sizeof(T));                                                 \
+    gal_free(&l->gal, sizeof(T));                                              \
     *l = (struct ArrayList(T)){0};                                             \
   }                                                                            \
                                                                                \
   inline void arraylist_seal(T)(struct ArrayList(T) * l) {                     \
-    al_seal(&l->a, sizeof(T));                                                 \
+    gal_seal(&l->gal, sizeof(T));                                              \
   }                                                                            \
                                                                                \
   typedef struct ArrayList(T) ArrayList(T)

@@ -196,6 +196,7 @@ static void compile_literal(Compiler *c, bool _) {
     break;
   case TOKEN_TRUE:
     chunk_write_operation(c->chunk, c->prev.line, OP_TRUE);
+    break;
   default:
     assert(0);
   }
