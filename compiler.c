@@ -55,17 +55,17 @@ static void compiler_free(Compiler *c) {
 }
 
 static void error_print(const Token *t, const char *msg) {
-  fprintf(stderr, "[line %zu] Error ", t->line);
+  fprintf(stderr, "[line %zu] Error", t->line);
   switch (t->type) {
   case TOKEN_EOF:
-    fprintf(stderr, "at end of file: ");
+    fprintf(stderr, " at end of file: ");
     break;
   case TOKEN_ERROR:
     fprintf(stderr, ": ");
     break;
   default:
     // TODO: avoid int cast
-    fprintf(stderr, "at '%.*s': ", (int)(t->stop - t->start), t->start);
+    fprintf(stderr, " at '%.*s': ", (int)(t->stop - t->start), t->start);
     break;
   }
   fprintf(stderr, "%s\n", (t->type == TOKEN_ERROR) ? t->start : msg);
@@ -162,7 +162,7 @@ static void compile_int(Compiler *c, bool _) {
   return;
 emit : {
   size_t idx = chunk_record_const(c->chunk, v);
-  chunk_write_operand(c->chunk, idx, c->prev.line);
+  chunk_write_unary(c->chunk, c->prev.line, OP_CONSTANT, idx);
 }
 }
 
@@ -174,7 +174,7 @@ static void compile_float(Compiler *c, bool _) {
   }
   assert(d >= 0); // only positive values
   size_t idx = chunk_record_const(c->chunk, val_data4double(d));
-  chunk_write_operand(c->chunk, idx, c->prev.line);
+  chunk_write_unary(c->chunk, c->prev.line, OP_CONSTANT, idx);
 }
 
 static void compile_string(Compiler *c, bool _) {
@@ -182,7 +182,7 @@ static void compile_string(Compiler *c, bool _) {
   *s = slice(c->prev.start + 1 /*skip 1st quote */,
              c->prev.stop - c->prev.start - 2 /* skip both quotes */);
   size_t idx = chunk_record_const(c->chunk, val_ptr4slice(s));
-  chunk_write_operand(c->chunk, idx, c->prev.line);
+  chunk_write_unary(c->chunk, c->prev.line, OP_CONSTANT, idx);
 }
 
 static void compile_literal(Compiler *c, bool _) {
@@ -202,9 +202,12 @@ static void compile_literal(Compiler *c, bool _) {
 }
 
 static void enter_scope(Compiler *c) {
-  List *l = mem_allocate(sizeof(List));
-  *l = (List){0};
-  list_append(&c->scopes, val_ptr4list(l));
+  List *scopes = mem_allocate(sizeof(List));
+  *scopes = (List){0};
+  list_append(&c->scopes, val_ptr4list(scopes));
+  List *uninitialized = mem_allocate(sizeof(List));
+  *uninitialized = (List){0};
+  list_append(&c->uninitialized, val_ptr4list(uninitialized));
 }
 
 static bool in_scope(const Compiler *c) { return list_len(&c->scopes) > 0; }
@@ -212,32 +215,74 @@ static bool in_scope(const Compiler *c) { return list_len(&c->scopes) > 0; }
 static void exit_scope(Compiler *c) {
   assert(in_scope(c));
   val_free(list_pop(&c->scopes, VAL_NIL));
+  val_free(list_pop(&c->uninitialized, VAL_NIL));
+}
+
+static List *top_scope_list(Compiler *c) {
+  assert(in_scope(c));
+  Val scope = list_get(&c->scopes, list_len(&c->scopes) - 1, VAL_NIL);
+  assert(val_type(scope) == VAL_LIST);
+  return val_ptr2list(scope);
+}
+
+static List *top_uninitialized_list(Compiler *c) {
+  assert(in_scope(c));
+  Val uninitialized =
+      list_get(&c->uninitialized, list_len(&c->uninitialized) - 1, VAL_NIL);
+  assert(val_type(uninitialized) == VAL_LIST);
+  return val_ptr2list(uninitialized);
 }
 
 static void declare_local(Compiler *c, Val var) {
-  assert(in_scope(c));
-  Val top_scope = list_get(&c->scopes, list_len(&c->scopes) - 1, VAL_NIL);
-  assert(val_type(top_scope) == VAL_LIST);
-  List *top_scope_list = val_ptr2list(top_scope);
-  if (list_find(top_scope_list, var, 0)) {
+  List *top_scope = top_scope_list(c);
+  if (list_find(top_scope, var, 0)) {
     err_at_prev(c, "variable already defined");
     return;
   }
-  list_append(top_scope_list, var);
-  list_append(&c->uninitialized, var);
+  List *top_uninitialized = top_uninitialized_list(c);
+  list_append(top_scope, var);
+  list_append(top_uninitialized, val_ptr2ref(var)); // just a ref
 }
 
 static void initialize_local(Compiler *c, Val var) {
+  List *top_uninitialized = top_uninitialized_list(c);
   size_t idx;
-  bool found = list_find(&c->uninitialized, var, &idx);
+  bool found = list_find(top_uninitialized, var, &idx);
   assert(found);
   // replace the initialized var with the last uninitialized
-  Val last = list_pop(&c->uninitialized, VAL_NIL);
-  if (idx < list_len(&c->uninitialized)) {
-    list_set(&c->uninitialized, idx, last);
+  Val last = list_pop(top_uninitialized, VAL_NIL);
+  if (idx < list_len(top_uninitialized)) {
+    list_set(top_uninitialized, idx, last);
   } else {
     val_free(last);
   }
+}
+
+static bool resolve_local(Compiler *c, Val var, size_t *idx) {
+  List *top_uninitialized = top_uninitialized_list(c);
+  if (list_find(top_uninitialized, var, 0)) {
+    err_at_prev(c, "local variable used in its own initializer");
+    return false;
+  }
+  // traverse the scopes in reverse order and look for var
+  // if found, sum its index with the size of all remaining bottom scopes
+  for (size_t i = list_len(&c->scopes); i > 0; i--) {
+    size_t ii = i - 1;
+    Val scope_val = list_get(&c->scopes, ii, VAL_NIL);
+    assert(val_type(scope_val) == VAL_LIST);
+    List *scope_list = val_ptr2list(scope_val);
+    if (list_find(scope_list, var, idx)) {
+      for (size_t j = ii; j > 0; j--) {
+        size_t jj = j - 1;
+        Val parent_scope_val = list_get(&c->scopes, jj, VAL_NIL);
+        assert(val_type(parent_scope_val) == VAL_LIST);
+        List *parent_scope_list = val_ptr2list(parent_scope_val);
+        *idx += list_len(parent_scope_list);
+      }
+      return true;
+    }
+  }
+  return false;
 }
 
 static void compile_precedence(Compiler *c, Precedence p) {
@@ -349,12 +394,16 @@ static void compile_statement(Compiler *c) {
   }
 }
 
+Val sliceval_from_token(Token t) {
+  Slice *s = mem_allocate(sizeof(Slice));
+  *s = slice(t.start, t.stop - t.start);
+  return val_ptr4slice(s);
+}
+
 static void compile_var_declaration(Compiler *c) {
 start:
   consume(c, TOKEN_IDENTIFIER, "variable name is missing");
-  Slice *s = mem_allocate(sizeof(Slice));
-  *s = slice(c->prev.start, c->prev.stop - c->prev.start);
-  Val var = val_ptr4slice(s);
+  Val var = sliceval_from_token(c->prev);
   if (in_scope(c)) {
     declare_local(c, var);
   }
@@ -365,8 +414,13 @@ start:
   }
   if (in_scope(c)) {
     initialize_local(c, var);
+    size_t idx;
+    bool found = resolve_local(c, var, &idx);
+    assert(found);
+    chunk_write_unary(c->chunk, c->prev.line, OP_SET_LOCAL, idx);
   } else {
-    chunk_write_operation(c->chunk, c->prev.line, OP_DEF_GLOBAL);
+    size_t idx = chunk_record_const(c->chunk, var);
+    chunk_write_unary(c->chunk, c->prev.line, OP_DEF_GLOBAL, idx);
   }
   if (match(c, TOKEN_COMMA)) {
     goto start;
@@ -382,8 +436,6 @@ static void compile_declaration(Compiler *c) {
   }
   synchronize(c);
 }
-
-bool compile(const char *src, Chunk *chunk) { return true; }
 
 static void compile_unary(Compiler *c, bool _) {
   Token t = c->prev;
@@ -442,13 +494,71 @@ static void compile_binary(Compiler *c, bool _) {
   }
 }
 
-static void compile_variable(Compiler *c, bool can_assign) {}
-static void compile_and(Compiler *c, bool _) {}
-static void compile_or(Compiler *c, bool _) {}
+static void compile_variable(Compiler *c, bool can_assign) {
+  Val var = sliceval_from_token(c->prev);
+  if (can_assign && match(c, TOKEN_EQUAL)) { // an assignment
+    compile_expression(c);
+    if (in_scope(c)) { // in local scope
+      size_t idx;
+      if (resolve_local(c, var, &idx)) {
+        chunk_write_unary(c->chunk, c->prev.line, OP_SET_LOCAL, idx);
+        return;
+      }
+    }
+    // in global scope or no local variable found in local and parent scopes
+    size_t idx = chunk_record_const(c->chunk, var);
+    chunk_write_unary(c->chunk, c->prev.line, OP_SET_GLOBAL, idx);
+  } else {             // not an assignment
+    if (in_scope(c)) { // in local scope
+      size_t idx;
+      if (resolve_local(c, var, &idx)) {
+        chunk_write_unary(c->chunk, c->prev.line, OP_GET_LOCAL, idx);
+        return;
+      }
+    }
+    // in global scope or no local variable found in local and parent scopes
+    size_t idx = chunk_record_const(c->chunk, var);
+    chunk_write_unary(c->chunk, c->prev.line, OP_GET_GLOBAL, idx);
+  }
+}
+
+static void compile_and(Compiler *c, bool _) {
+  Bookmark jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
+  size_t begin_label = chunk_len(c->chunk);
+  chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+  compile_precedence(c, PREC_AND);
+  assert(chunk_len(c->chunk) >= begin_label);
+  chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE,
+                    chunk_len(c->chunk) - begin_label);
+}
+
+static void compile_or(Compiler *c, bool _) {
+  Bookmark jump_if_true = chunk_reserve_unary(c->chunk, c->prev.line);
+  size_t begin_label = chunk_len(c->chunk);
+  chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+  compile_precedence(c, PREC_OR);
+  assert(chunk_len(c->chunk) >= begin_label);
+  chunk_patch_unary(c->chunk, jump_if_true, OP_JUMP_IF_TRUE,
+                    chunk_len(c->chunk) - begin_label);
+}
 
 static void compile_grouping(Compiler *c, bool _) {
   compile_expression(c);
   consume(c, TOKEN_RIGHT_PAREN, "missing paren after expression");
+}
+
+bool compile(const char *src, Chunk *chunk) {
+  Compiler c = {0};
+  c.chunk = chunk;
+  c.lex = lex(src);
+  advance(&c);
+  while (!match(&c, TOKEN_EOF)) {
+    compile_declaration(&c);
+  }
+  chunk_write_operation(chunk, c.current.line, OP_RETURN);
+  bool had_error = c.had_error;
+  compiler_free(&c);
+  return !had_error;
 }
 
 static CompileRule rules[] = {

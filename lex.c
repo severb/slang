@@ -88,18 +88,18 @@ static void skip_whitespace(Lexer *lex) {
   }
 }
 
-static void string(Lexer *lex, Token *t) {
-  while (peek(lex) != '\'' && !is_at_eol(lex) && !is_at_eof(lex)) {
+static void string(Lexer *lex, Token *t, char type) {
+  while (peek(lex) != type && !is_at_eol(lex) && !is_at_eof(lex)) {
     advance(lex);
   }
   if (is_at_eol(lex)) {
-    error(lex, "Unterminated string at end of line.", t);
+    error(lex, "unterminated string at end of line", t);
     return;
   }
   if (is_at_eof(lex)) {
-    error(lex, "Unterminated string at end of file.", t);
+    error(lex, "unterminated string at end of file", t);
   }
-  advance(lex); // closing quote
+  advance(lex); // closing char
   token(lex, TOKEN_STRING, t);
 }
 
@@ -210,7 +210,10 @@ void lex_consume(Lexer *lex, Token *t) {
   }
   switch (c) {
   case '\'':
-    string(lex, t);
+    string(lex, t, '\'');
+    return;
+  case '\"':
+    string(lex, t, '\"');
     return;
   case '(':
     token(lex, TOKEN_LEFT_PAREN, t);
@@ -258,7 +261,7 @@ void lex_consume(Lexer *lex, Token *t) {
     token(lex, match(lex, '=') ? TOKEN_EQUAL_EQUAL : TOKEN_EQUAL, t);
     return;
   }
-  error(lex, "Unexpected character.", t);
+  error(lex, "unexpected character", t);
 }
 
 #define TOKEN(STRING) #STRING,

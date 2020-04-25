@@ -17,7 +17,7 @@ $(BINS): | $(BUILDDIR)
 
 all: $(BINS)
 
-$(BUILDDIR)/clox: $(patsubst %,$(OBJDIR)/%.o,main array mem types val)
+$(BUILDDIR)/clox: $(patsubst %,$(OBJDIR)/%.o,main mem array bytecode compiler lex types val)
 $(BUILDDIR)/tfuzz: $(patsubst %,$(OBJDIR)/%.o,test/table_fuzz array mem test/util types val)
 $(BUILDDIR)/tbench: $(patsubst %,$(OBJDIR)/%.o,test/table_bench array mem test/util types val)
 $(BUILDDIR)/vtest: $(patsubst %,$(OBJDIR)/%.o,test/val_test array mem types val)

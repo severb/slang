@@ -75,6 +75,9 @@ void val_print(Val v) {
     printf("(%" PRId16 ", %" PRId32 ")", val_data2pair_a(v),
            val_data2pair_b(v));
     break;
+  case VAL_DOUBLE:
+    printf("%f", val_data2double(v));
+    break;
   case VAL_SYMBOL:
     switch (val_data2symbol(v)) {
     case SYM_FALSE:

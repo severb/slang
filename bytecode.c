@@ -8,6 +8,7 @@
 #include <inttypes.h> // PRI*
 #include <stddef.h>   // size_t
 #include <stdint.h>   // uint*_t, SIZE_MAX
+#include <stdio.h>    // printf, putchar
 
 arraylist_define(Opcode);
 arraylist_define(Line);
@@ -93,7 +94,7 @@ size_t chunk_record_const(Chunk *c, Val v) {
     return idx;
   }
   list_append(&c->consts, v);
-  return list_len(&c->consts);
+  return list_len(&c->consts) - 1;
 }
 
 void chunk_seal(Chunk *c) {
@@ -157,15 +158,56 @@ static size_t disassamble_op(const Chunk *chunk, size_t offset, Line l) {
   return offset;
 }
 
+static size_t lines_delta(const Chunk *c, Line l, size_t new_offset) {
+  size_t offset = *arraylist_get(Line)(&c->lines, l);
+  if (offset > new_offset) {
+    return 0;
+  }
+  size_t delta = 0;
+  while (offset >= *arraylist_get(Line)(&c->lines, l + delta)) {
+    delta++;
+  }
+  return delta;
+}
+
 void chunk_disassamble(const Chunk *c) {
   size_t last_line = SIZE_MAX;
-  size_t line = 0;
+  size_t line = 1;
   size_t offset = 0;
   while (offset < chunk_len(c)) {
-    for (; offset >= *arraylist_get(Line)(&c->lines, line); line++) {
-    }
+    line += lines_delta(c, line - 1, offset);
     offset = disassamble_op(c, offset, last_line != line ? line : 0);
     last_line = line;
+  }
+}
+
+void chunk_disassamble_src(const char *src, const Chunk *c) {
+  printf("constants: ");
+  list_print(&c->consts);
+  printf("\n");
+  size_t printed_lines = 0;
+  size_t line = 1;
+  size_t offset = 0;
+  while (offset < chunk_len(c)) {
+    line += lines_delta(c, line - 1, offset);
+    while (printed_lines < line) {
+      printf("\n");
+      printf("%13zu ", printed_lines + 1);
+      if (*src != '\0') {
+        while (*src != '\n' && *src != '\0') {
+          putchar(*src);
+          src++;
+        }
+        if (*src != '\0') {
+          putchar(*src);
+          src++;
+        }
+      } else {
+        printf("at end of file\n");
+      }
+      printed_lines++;
+    }
+    offset = disassamble_op(c, offset, 0);
   }
 }
 
