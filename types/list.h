@@ -9,16 +9,20 @@
 #include <stddef.h>  // size_t
 
 dynarray_declare(Tag);
-typedef DynamicArray(Tag) List;
+
+struct List {
+  DynamicArray(Tag) array;
+};
+typedef struct List List;
 
 bool list_eq(const List *, const List *);
 void list_free(List *);
 void list_print(const List *);
 
-inline size_t list_len(const List *l) { return dynarray_len(Tag)(l); }
+inline size_t list_len(const List *l) { return dynarray_len(Tag)(&l->array); }
 
 inline Tag *list_get(const List *l, size_t idx) {
-  return dynarray_get(Tag)(l, idx);
+  return dynarray_get(Tag)(&l->array, idx);
 }
 
 inline bool list_getbool(const List *l, size_t idx, Tag *t) {
@@ -33,7 +37,7 @@ inline Tag list_pop(List *l) {
   size_t len = list_len(l);
   assert((len > 0) && "pop from empty list");
   Tag result = *list_get(l, len - 1);
-  dynarray_trunc(Tag)(l, len - 1);
+  dynarray_trunc(Tag)(&l->array, len - 1);
   return result;
 }
 
@@ -63,7 +67,7 @@ inline bool list_lastbool(const List *l, Tag *t) {
 }
 
 inline size_t list_append(List *l, Tag t) {
-  return dynarray_append(Tag)(l, &t);
+  return dynarray_append(Tag)(&l->array, &t);
 }
 
 inline bool list_find(const List *l, Tag needle, size_t *idx) {

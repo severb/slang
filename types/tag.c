@@ -8,31 +8,31 @@
 #include <stdint.h>   // uint*_t, int*_t, uintptr_t, UINT64_C
 #include <stdio.h>    // printf
 
-void string_free(struct String *);
-void table_free(struct Table *);
-void list_free(struct List *);
-void slice_free(struct Slice *);
+void string_free(String *);
+void table_free(Table *);
+void list_free(List *);
+void slice_free(Slice *);
 
-void string_print(const struct String *);
-void string_repr(const struct String *);
-void table_print(const struct Table *);
-void list_print(const struct List *);
-void slice_print(const struct Slice *);
-void slice_repr(const struct Slice *);
+void string_print(const String *);
+void string_repr(const String *);
+void table_print(const Table *);
+void list_print(const List *);
+void slice_print(const Slice *);
+void slice_repr(const Slice *);
 
-size_t string_len(const struct String *);
-size_t table_len(const struct Table *);
-size_t list_len(const struct List *);
-size_t slice_len(const struct Slice *);
+size_t string_len(const String *);
+size_t table_len(const Table *);
+size_t list_len(const List *);
+size_t slice_len(const Slice *);
 
-size_t string_hash(struct String *);
-size_t slice_hash(struct Slice *);
+size_t string_hash(String *);
+size_t slice_hash(Slice *);
 
-bool string_eq_string(const struct String *, const struct String *);
-bool string_eq_slice(const struct String *, const struct Slice *);
-bool slice_eq_slice(const struct Slice *, const struct Slice *);
-bool table_eq(const struct Table *, const struct Table *);
-bool list_eq(const struct List *, const struct List *);
+bool string_eq_string(const String *, const String *);
+bool string_eq_slice(const String *, const Slice *);
+bool slice_eq_slice(const Slice *, const Slice *);
+bool table_eq(const Table *, const Table *);
+bool list_eq(const List *, const List *);
 
 void tag_free(Tag t) {
   if (!tag_is_own(t)) {
@@ -253,16 +253,16 @@ extern inline Tag tag_to_ref(Tag);
 extern inline void *tag_to_ptr(Tag);
 
 extern inline bool tag_is_string(Tag);
-extern inline Tag string_to_tag(const struct String *);
-extern inline struct String *tag_to_string(Tag);
+extern inline Tag string_to_tag(const String *);
+extern inline String *tag_to_string(Tag);
 
 extern inline bool tag_is_table(Tag);
-extern inline Tag table_to_tag(const struct Table *);
-extern inline struct Table *tag_to_table(Tag);
+extern inline Tag table_to_tag(const Table *);
+extern inline Table *tag_to_table(Tag);
 
 extern inline bool tag_is_list(Tag);
-extern inline Tag list_to_tag(const struct List *);
-extern inline struct List *tag_to_list(Tag);
+extern inline Tag list_to_tag(const List *);
+extern inline List *tag_to_list(Tag);
 
 extern inline bool tag_is_i64(Tag);
 extern inline Tag i64_to_tag(const int64_t *);
@@ -273,8 +273,8 @@ extern inline Tag error_to_tag(const Tag *);
 extern inline Tag *tag_to_error(Tag);
 
 extern inline bool tag_is_slice(Tag);
-extern inline Tag slice_to_tag(const struct Slice *);
-extern inline struct Slice *tag_to_slice(Tag);
+extern inline Tag slice_to_tag(const Slice *);
+extern inline Slice *tag_to_slice(Tag);
 
 extern inline bool tag_is_pair(Tag);
 extern inline Tag upair_to_tag(uint16_t, uint32_t);

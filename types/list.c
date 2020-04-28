@@ -20,7 +20,7 @@ void list_free(List *l) {
   for (size_t i = 0; i < list_len(l); i++) {
     tag_free(*list_get(l, i));
   }
-  dynarray_free(Tag)(l);
+  dynarray_free(Tag)(&l->array);
 }
 
 void list_print(const List *l) {

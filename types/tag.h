@@ -33,6 +33,11 @@ struct Table;
 struct List;
 struct Slice;
 
+typedef struct String String;
+typedef struct Table Table;
+typedef struct List List;
+typedef struct Slice Slice;
+
 inline bool tag_biteq(Tag a, Tag b) { return a.u == b.u; }
 
 // An aid to define 64 bit patterns:
@@ -113,42 +118,42 @@ inline void *tag_to_ptr(Tag t) {
 inline bool tag_is_string(Tag t) {
   return ((t.u & DISCRIMINANT_MASK) == STRING_DISCRIMINANT);
 }
-inline Tag string_to_tag(const struct String *s) {
+inline Tag string_to_tag(const String *s) {
   uintptr_t p = (uintptr_t)s;
   assert((p & DISCRIMINANT_MASK) == 0);
   return (Tag){.u = p | STRING_DISCRIMINANT};
 }
-inline struct String *tag_to_string(Tag t) {
+inline String *tag_to_string(Tag t) {
   assert(tag_is_string(t));
-  return (struct String *)tag_to_ptr(t);
+  return (String *)tag_to_ptr(t);
 }
 
 #define TABLE_DISCRIMINANT BYTES(7f, f5, 00, 00, 00, 00, 00, 00)
 inline bool tag_is_table(Tag t) {
   return ((t.u & DISCRIMINANT_MASK) == TABLE_DISCRIMINANT);
 }
-inline Tag table_to_tag(const struct Table *t) {
+inline Tag table_to_tag(const Table *t) {
   uintptr_t p = (uintptr_t)t;
   assert((p & DISCRIMINANT_MASK) == 0);
   return (Tag){.u = p | TABLE_DISCRIMINANT};
 }
-inline struct Table *tag_to_table(Tag t) {
+inline Table *tag_to_table(Tag t) {
   assert(tag_is_table(t));
-  return (struct Table *)tag_to_ptr(t);
+  return (Table *)tag_to_ptr(t);
 }
 
 #define LIST_DISCRIMINANT BYTES(7f, f6, 00, 00, 00, 00, 00, 00)
 inline bool tag_is_list(Tag t) {
   return ((t.u & DISCRIMINANT_MASK) == LIST_DISCRIMINANT);
 }
-inline Tag list_to_tag(const struct List *l) {
+inline Tag list_to_tag(const List *l) {
   uintptr_t p = (uintptr_t)l;
   assert((p & DISCRIMINANT_MASK) == 0);
   return (Tag){.u = p | LIST_DISCRIMINANT};
 }
-inline struct List *tag_to_list(Tag t) {
+inline List *tag_to_list(Tag t) {
   assert(tag_is_list(t));
-  return (struct List *)tag_to_ptr(t);
+  return (List *)tag_to_ptr(t);
 }
 
 #define I64_DISCRIMINANT BYTES(7f, f7, 00, 00, 00, 00, 00, 00)
@@ -183,14 +188,14 @@ inline Tag *tag_to_error(Tag t) {
 inline bool tag_is_slice(Tag t) {
   return ((t.u & DISCRIMINANT_MASK) == SLICE_DISCRIMINANT);
 }
-inline Tag slice_to_tag(const struct Slice *s) {
+inline Tag slice_to_tag(const Slice *s) {
   uintptr_t p = (uintptr_t)s;
   assert((p & DISCRIMINANT_MASK) == 0);
   return (Tag){.u = p | SLICE_DISCRIMINANT};
 }
-inline struct Slice *tag_to_slice(Tag t) {
+inline Slice *tag_to_slice(Tag t) {
   assert(tag_is_slice(t));
-  return (struct Slice *)tag_to_ptr(t);
+  return (Slice *)tag_to_ptr(t);
 }
 
 // There are two pointer tags left:
