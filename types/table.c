@@ -225,11 +225,11 @@ void table_print(const Table *t) {
 }
 
 bool table_eq(const Table *a, const Table *b) {
+  assert(a->real_len < dynarray_cap(Entry)(&a->array) || a->real_len == 0);
+  assert(b->real_len < dynarray_cap(Entry)(&b->array) || b->real_len == 0);
   if (a->real_len != b->real_len) {
     return false;
   }
-  assert(a->real_len < dynarray_cap(Entry)(&a->array) || a->real_len == 0);
-  assert(b->real_len < dynarray_cap(Entry)(&b->array) || b->real_len == 0);
   size_t remaining = a->real_len;
   for (size_t i = 0; remaining; i++) {
     Entry *entry = dynarray_get(Entry)(&a->array, i);
