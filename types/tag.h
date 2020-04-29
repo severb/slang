@@ -88,7 +88,7 @@ inline bool tag_is_data(Tag t) { return !tag_is_ptr(t); }
 // significant bit as a flag. If the flag is unset, the pointer value "owns"
 // the data and is responsible for freeing it; otherwise, it's just a
 // reference.
-static_assert(sizeof(max_align_t) >= 2, "pointer alginment >= 2");
+static_assert(sizeof(max_align_t) >= 2, "pointer alginment is too small");
 
 inline bool tag_is_own(Tag t) {
   return (t.u & (SIGN_FLAG | TAGGED_MASK | 1)) == TAGGED_MASK;

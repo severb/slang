@@ -50,21 +50,23 @@ void dynarray_free_T(DynamicArrayT *, size_t item_size);
   }                                                                            \
                                                                                \
   inline T *dynarray_get(T)(const struct DynamicArray(T) * l, size_t idx) {    \
-    assert(idx < dynarray_cap(T)(l));                                          \
+    assert(idx < dynarray_cap(T)(l) && "dynarray get index out of range");     \
     return &((T *)(l->array.items))[idx];                                      \
   }                                                                            \
                                                                                \
   inline size_t dynarray_trunc(T)(struct DynamicArray(T) * l, size_t len) {    \
-    assert(len <= dynarray_cap(T)(l));                                         \
+    assert(len <= dynarray_cap(T)(l) && "dynarray trunc index out of range");  \
     return l->array.len = len;                                                 \
   }                                                                            \
                                                                                \
   inline size_t dynarray_append(T)(struct DynamicArray(T) * l, const T *i) {   \
-    assert(dynarray_cap(T)(l) >= dynarray_len(T)(l));                          \
+    assert(dynarray_cap(T)(l) >= dynarray_len(T)(l) && "dynarray invariant");  \
     if (dynarray_cap(T)(l) == dynarray_len(T)(l)) {                            \
-      dynarray_grow(T)(l);                                                     \
+      if (!dynarray_grow(T)(l)) {                                              \
+        return 0;                                                              \
+      };                                                                       \
     }                                                                          \
-    assert(dynarray_cap(T)(l) > dynarray_len(T)(l));                           \
+    assert(dynarray_cap(T)(l) > dynarray_len(T)(l) && "dynarray invariant");   \
     *dynarray_get(T)(l, dynarray_len(T)(l)) = *i;                              \
     return dynarray_trunc(T)(l, dynarray_len(T)(l) + 1);                       \
   }                                                                            \
@@ -90,8 +92,8 @@ void dynarray_free_T(DynamicArrayT *, size_t item_size);
   extern inline void dynarray_free(T)(DynamicArray(T) *);                      \
   extern inline size_t dynarray_seal(T)(DynamicArray(T) *)
 
-#endif
-
 // predefined dynamic lists
 dynarray_declare(size_t);
 dynarray_declare(uint8_t);
+
+#endif

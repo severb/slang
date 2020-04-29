@@ -37,7 +37,7 @@ size_t dynarray_reserve_T(DynamicArrayT *array, size_t cap, size_t item_size) {
 }
 
 size_t dynarray_grow_T(DynamicArrayT *array, size_t item_size) {
-  if (array->cap < SIZE_MAX) {
+  if (array->cap < SIZE_MAX / 2) {
     return dynarray_reserve_T(array, 2 * array->cap, item_size);
   }
   return 0;
@@ -49,8 +49,12 @@ void dynarray_free_T(DynamicArrayT *array, size_t item_size) {
 }
 
 size_t dynarray_seal_T(DynamicArrayT *array, size_t item_size) {
-  mem_resize_array(array->items, item_size, array->cap, array->len);
-  return array->cap = array->len;
+  array->items =
+      mem_resize_array(array->items, item_size, array->cap, array->len);
+  if (array->items) {
+    return array->cap = array->len;
+  }
+  return array->cap = 0;
 }
 
 // predefined dynamic lists

@@ -10,10 +10,9 @@
 
 dynarray_declare(Tag);
 
-struct List {
+typedef struct List {
   DynamicArray(Tag) array;
-};
-typedef struct List List;
+} List;
 
 bool list_eq(const List *, const List *);
 void list_free(List *);
@@ -35,7 +34,7 @@ inline bool list_getbool(const List *l, size_t idx, Tag *t) {
 
 inline Tag list_pop(List *l) {
   size_t len = list_len(l);
-  assert((len > 0) && "pop from empty list");
+  assert((len > 0) && "pop on empty list");
   Tag result = *list_get(l, len - 1);
   dynarray_trunc(Tag)(&l->array, len - 1);
   return result;
@@ -53,7 +52,7 @@ inline bool list_popbool(List *l, Tag *t) {
 
 inline Tag *list_last(const List *l) {
   size_t len = list_len(l);
-  assert(len > 0);
+  assert(len > 0 && "last on empty list");
   return list_get(l, len - 1);
 }
 
