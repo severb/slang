@@ -1,38 +1,15 @@
 #include "types/tag.h"
 
-#include "mem.h" // mem_free
+#include "mem.h"         // mem_free
+#include "types/list.h"  // list_*
+#include "types/str.h"   // string_*, slice_*
+#include "types/table.h" // table_*
 
 #include <inttypes.h> // PRId*
 #include <stdbool.h>  // bool
 #include <stddef.h>   // size_t, max_align_t
 #include <stdint.h>   // uint*_t, int*_t, uintptr_t, UINT64_C
 #include <stdio.h>    // printf
-
-void string_free(String *);
-void table_free(Table *);
-void list_free(List *);
-void slice_free(Slice *);
-
-void string_print(const String *);
-void string_repr(const String *);
-void table_print(const Table *);
-void list_print(const List *);
-void slice_print(const Slice *);
-void slice_repr(const Slice *);
-
-size_t string_len(const String *);
-size_t table_len(const Table *);
-size_t list_len(const List *);
-size_t slice_len(const Slice *);
-
-size_t string_hash(String *);
-size_t slice_hash(Slice *);
-
-bool string_eq_string(const String *, const String *);
-bool string_eq_slice(const String *, const Slice *);
-bool slice_eq_slice(const Slice *, const Slice *);
-bool table_eq(const Table *, const Table *);
-bool list_eq(const List *, const List *);
 
 void tag_free(Tag t) {
   if (!tag_is_own(t)) {
