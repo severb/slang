@@ -66,7 +66,11 @@
     return p;                                                                  \
   }                                                                            \
                                                                                \
-  void mempool_del(T)(MemPool(T) * p) { free(p); }                             \
+  void mempool_del(T)(MemPool(T) * p) {                                        \
+    size_t struct_size = sizeof(MemPool(T));                                   \
+    size_t cell_size = sizeof(union MemPool(T##_Cell));                        \
+    MemPool(T) *p = mem_free_flex(p, struct_size, cell_size, p->cap);          \
+  }                                                                            \
                                                                                \
   extern inline T *mempool_alloc(T)(MemPool(T) *);                             \
   extern inline void mempool_free(T)(MemPool(T) *, T *)

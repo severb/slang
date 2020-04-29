@@ -20,6 +20,70 @@ struct Slice {
   char _;
 };
 
+static String *string_freed = 0;
+void string_free(String *s) { string_freed = s; }
+static Table *table_freed = 0;
+void table_free(Table *t) { table_freed = t; }
+static List *list_freed = 0;
+void list_free(List *l) { list_freed = l; }
+static Slice *slice_freed = 0;
+void slice_free(Slice *s) { slice_freed = s; }
+
+static const String *string_printed;
+void string_print(const String *s) { string_printed = s; }
+static const String *string_repred = 0;
+void string_repr(const String *s) { string_repred = s; }
+static const Table *table_printed = 0;
+void table_print(const Table *t) { table_printed = t; }
+static const List *list_printed = 0;
+void list_print(const List *l) { list_printed = l; }
+static const Slice *slice_printed = 0;
+void slice_print(const Slice *s) { slice_printed = s; }
+static const Slice *slice_repred = 0;
+void slice_repr(const Slice *s) { slice_repred = s; }
+
+static size_t string_len_ret = 0;
+size_t string_len(const String *s) { return string_len_ret; }
+static size_t table_len_ret = 0;
+size_t table_len(const Table *t) { return table_len_ret; }
+static size_t list_len_ret = 0;
+size_t list_len(const List *l) { return list_len_ret; }
+static size_t slice_len_ret = 0;
+size_t slice_len(const Slice *s) { return slice_len_ret; }
+
+static size_t string_hash_ret = 0;
+size_t string_hash(String *s) { return string_hash_ret; }
+static size_t slice_hash_ret = 0;
+size_t slice_hash(Slice *s) { return slice_hash_ret; }
+
+static bool string_eq_string_ret = 0;
+bool string_eq_string(const String *a, const String *b) {
+  return string_eq_string_ret;
+}
+static bool string_eq_slice_ret = 0;
+bool string_eq_slice(const String *a, const Slice *b) {
+  return string_eq_slice_ret;
+}
+static bool slice_eq_slice_ret = 0;
+bool slice_eq_slice(const Slice *a, const Slice *b) {
+  return slice_eq_slice_ret;
+}
+static bool table_eq_ret = 0;
+bool table_eq(const Table *a, const Table *b) { return table_eq_ret; }
+static bool list_eq_ret = 0;
+bool list_eq(const List *a, const List *b) { return list_eq_ret; }
+
+static void *mem_reallocate_p = 0;
+static size_t mem_reallocate_old_size = 0;
+static size_t mem_reallocate_new_size = 0;
+static void *mem_reallocate_ret = 0;
+void *mem_reallocate(void *p, size_t old_size, size_t new_size) {
+  mem_reallocate_p = p;
+  mem_reallocate_old_size = old_size;
+  mem_reallocate_new_size = new_size;
+  return mem_reallocate_ret;
+}
+
 int main(void) {
 
   Tag t;
@@ -90,6 +154,12 @@ int main(void) {
   assert(tag_is_symbol(TAG_OK) && "ok symbol check");
   assert(tag_to_symbol(TAG_OK) == SYM_OK && "ok symbol equality");
 
+  tag_free(double_to_tag(10.0));
+  assert(mem_reallocate_p == 0 && "double free");
+  tag_free(TAG_TRUE);
+  assert(mem_reallocate_p == 0 && "symbol free");
+  tag_free(upair_to_tag(0, 0));
+  assert(mem_reallocate_p == 0 && "pair free");
 
 #ifdef CLOX_DEBUG
   mem_allocation_summary();
