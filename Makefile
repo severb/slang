@@ -23,7 +23,7 @@ $(BUILDDIR)/tbench: $(patsubst %,$(OBJDIR)/%.o,test/table_bench array mem test/u
 $(BUILDDIR)/vtest: $(patsubst %,$(OBJDIR)/%.o,test/val_test array mem types val)
 $(BUILDDIR)/lex: $(patsubst %,$(OBJDIR)/%.o,test/lex lex)
 $(BUILDDIR)/tdynarray: $(patsubst %,$(OBJDIR)/%.o,test/dynarray types/dynarray mem)
-$(BUILDDIR)/ttag: $(patsubst %,$(OBJDIR)/%.o,test/tag types/tag)
+$(BUILDDIR)/ttag: $(patsubst %,$(OBJDIR)/%.o,test/tag)
 $(BUILDDIR)/tdis: $(patsubst %,$(OBJDIR)/%.o,test/disassamble_test array bytecode mem types val)
 
 %.o: %.c # reset the default rule
