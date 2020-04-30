@@ -6,8 +6,6 @@
 
 #include <stdlib.h> // size_t, RAND_MAX
 
-#define SENTINEL USER_SYMBOL(77)
-
 static char const charset[] = "0123456789"
                               "abcdefghijklmnopqrstuvwxyz"
                               "ABCDEFGHIJKLMNOPQRSTUVWXYZ";

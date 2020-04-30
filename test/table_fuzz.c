@@ -15,7 +15,7 @@
 #define ITER 10000
 #define DEL 3
 
-void testone(void) {
+void testone(bool summary) {
   List keys = {0};
   List vals = {0};
   Table table = {0};
@@ -58,6 +58,12 @@ void testone(void) {
   }
   assert(table.real_len == expected_len && "length doesn't match");
 
+#ifdef SLANG_DEBUG
+  if (summary) {
+    table_print_summary(&table);
+  }
+#endif
+
   table_free(&table);
   list_free(&keys);
   list_free(&vals);
@@ -72,8 +78,9 @@ int main(int arcg, char const *argv[]) {
   uint64_t i = 0;
   while (1) {
     i++;
-    testone();
-    if (i % 1000 == 0) {
+    bool summary = i % 1000 == 0;
+    testone(summary);
+    if (summary) {
       printf("runs: %" PRIu64 "\n", i);
     }
   }

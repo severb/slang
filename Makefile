@@ -10,13 +10,14 @@ BUILDDIR  = build
 OBJDIR	  = $(BUILDDIR)/obj
 DEPDIR    = $(BUILDDIR)/dep
 DEPFLAGS  = -MT $@ -MMD -MP -MF $(patsubst %.c,$(DEPDIR)/%.d,$<)
-BINS = $(patsubst %,$(BUILDDIR)/%,clox tfuzz tbench lex tdynarray ttag tdis)
+BINS = $(patsubst %,$(BUILDDIR)/%,clox tfuzz tbench tdynarray ttag)
 
 $(BINS): | $(BUILDDIR)
 	$(CC) $(CFLAGS) -o $@ $^
 
 all: $(BINS)
 
+$(BUILDDIR)/tbench: $(patsubst %,$(OBJDIR)/%.o,test/table_bench mem types/dynarray types/list types/str types/table types/tag)
 $(BUILDDIR)/tfuzz: $(patsubst %,$(OBJDIR)/%.o,test/table_fuzz mem types/dynarray types/list types/str types/table types/tag)
 $(BUILDDIR)/tdynarray: $(patsubst %,$(OBJDIR)/%.o,test/dynarray types/dynarray mem)
 $(BUILDDIR)/ttag: $(patsubst %,$(OBJDIR)/%.o,test/tag)

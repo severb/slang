@@ -22,7 +22,7 @@ void table_print_summary(const Table *t) {
     Entry *entry = dynarray_get(Entry)(&t->array, i);
     if (tag_biteq(entry->key, TOMBSTONE_KEY)) {
       putchar('.');
-    } else if (tag_biteq(entry->key, TOMBSTONE_KEY)) {
+    } else if (tag_biteq(entry->key, EMPTY_KEY)) {
       putchar(' ');
     } else {
       putchar('#');
