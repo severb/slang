@@ -10,21 +10,19 @@ BUILDDIR  = build
 OBJDIR	  = $(BUILDDIR)/obj
 DEPDIR    = $(BUILDDIR)/dep
 DEPFLAGS  = -MT $@ -MMD -MP -MF $(patsubst %.c,$(DEPDIR)/%.d,$<)
-BINS = $(patsubst %,$(BUILDDIR)/%,clox tfuzz tbench vtest lex tdynarray ttag tdis)
+BINS = $(patsubst %,$(BUILDDIR)/%,clox tfuzz tbench lex tdynarray ttag tdis)
 
 $(BINS): | $(BUILDDIR)
 	$(CC) $(CFLAGS) -o $@ $^
 
 all: $(BINS)
 
-$(BUILDDIR)/clox: $(patsubst %,$(OBJDIR)/%.o,main mem array bytecode compiler lex types val)
-$(BUILDDIR)/tfuzz: $(patsubst %,$(OBJDIR)/%.o,test/table_fuzz array mem test/util types val)
-$(BUILDDIR)/tbench: $(patsubst %,$(OBJDIR)/%.o,test/table_bench array mem test/util types val)
-$(BUILDDIR)/vtest: $(patsubst %,$(OBJDIR)/%.o,test/val_test array mem types val)
-$(BUILDDIR)/lex: $(patsubst %,$(OBJDIR)/%.o,test/lex lex)
+$(BUILDDIR)/tfuzz: $(patsubst %,$(OBJDIR)/%.o,test/table_fuzz mem types/dynarray types/list types/str types/table types/tag)
 $(BUILDDIR)/tdynarray: $(patsubst %,$(OBJDIR)/%.o,test/dynarray types/dynarray mem)
 $(BUILDDIR)/ttag: $(patsubst %,$(OBJDIR)/%.o,test/tag)
-$(BUILDDIR)/tdis: $(patsubst %,$(OBJDIR)/%.o,test/disassamble_test array bytecode mem types val)
+
+# $(BUILDDIR)/clox: $(patsubst %,$(OBJDIR)/%.o,main mem array bytecode compiler lex types val)
+# $(BUILDDIR)/tbench: $(patsubst %,$(OBJDIR)/%.o,test/table_bench array mem test/util types val)
 
 %.o: %.c # reset the default rule
 

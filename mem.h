@@ -3,7 +3,7 @@
 
 #include <assert.h> // assert
 #include <stddef.h> // size_t
-#include <stdint.h> // SIZE_MAX
+#include <stdint.h> // SIZE_MAX, uint64_t
 
 void *mem_reallocate(void *, size_t old_size, size_t new_size);
 

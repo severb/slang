@@ -1,14 +1,10 @@
-#include "test/util.h" // randint, randstr, SENTINEL
+#include "mem.h"         // mem_stats
+#include "test/util.h"   // randint, randstr, SENTINEL
+#include "types/list.h"  // List, list_*
+#include "types/table.h" // Table, table_
+#include "types/tag.h"   // Tag, tag_eq, tag_type, TAG_NIL
 
-#include "mem.h" // mem_allocation_summary
-
-#include "types.h" // string_new, table_summary
-                   // List, list_append, list_get, list_free
-                   // Table, table_set, table_get, table_del, table_free
-
-#include "val.h" // Val, val_ptr4string, USR_SYMBOL, val_ptr2ref, val_eq
-                 // VAL_NIL, val_data4upair, val_type, VAL_PAIR
-
+#include <stdio.h>   // printf
 #include <inttypes.h> // PRId*
 #include <stdbool.h>  // bool
 #include <stdint.h>   // uint64_t
@@ -19,56 +15,56 @@
 #define ITER 10000
 #define DEL 3
 
-void testone(bool summary) {
+void testone(void) {
   List keys = {0};
   List vals = {0};
-  Table table = {{0}, 0};
+  Table table = {0};
 
   for (size_t i = 0; i < ELEMS; i++) {
     list_append(&keys, randstr(STRSIZE));
-    list_append(&vals, VAL_NIL);
+    list_append(&vals, TAG_NIL);
   }
 
   for (size_t i = 0; i < ITER; i++) {
     size_t idx = randint(ELEMS);
-    Val key = val_ptr2ref(list_get(&keys, idx, SENTINEL));
-    assert(!val_eq(key, SENTINEL));
+
+    Tag key = tag_to_ref(*list_get(&keys, idx));
     if (randint(DEL) == 0) {
       table_del(&table, key);
-      list_set(&vals, idx, VAL_NIL);
+      *list_get(&vals, idx) = TAG_NIL;
     } else {
-      Val val = val_data4upair(0, i);
+      Tag val = upair_to_tag(0, i);
       table_set(&table, key, val);
-      list_set(&vals, idx, val);
+      *list_get(&vals, idx) = val;
     }
   }
 
   for (size_t i = 0; i < ELEMS; i++) {
-    Val key = list_get(&keys, i, SENTINEL);
-    assert(!val_eq(key, SENTINEL));
-    Val expected_val = list_get(&vals, i, SENTINEL);
-    assert(!val_eq(expected_val, SENTINEL));
-    Val val = table_get(&table, key, VAL_NIL);
-    assert(val_eq(expected_val, val));
+    Tag key = *list_get(&keys, i);
+    Tag expected_val = *list_get(&vals, i);
+    if (tag_type(expected_val) == TYPE_PAIR) {
+      Tag val;
+      assert(table_get(&table, key, &val) && "key not found");
+      assert(tag_eq(expected_val, val) && "val doesn't match");
+    } else {
+      assert(!table_get(&table, key, 0) && "unexpected key found");
+    }
   }
 
   size_t expected_len = 0;
   for (size_t i = 0; i < ELEMS; i++) {
-    Val val = list_get(&vals, i, SENTINEL);
-    assert(!val_eq(val, SENTINEL));
-    expected_len += val_type(val) == VAL_PAIR;
+    Tag val = *list_get(&vals, i);
+    expected_len += tag_type(val) == TYPE_PAIR;
   }
-  assert(table.real_len == expected_len);
-
-  if (summary) {
-#ifdef CLOX_DEBUG
-    table_summary(&table);
-#endif
-  }
+  assert(table.real_len == expected_len && "length doesn't match");
 
   table_free(&table);
   list_free(&keys);
   list_free(&vals);
+
+#ifdef SLANG_DEBUG
+  assert(mem_stats().bytes == 0 && "unfreed memory");
+#endif
 }
 
 int main(int arcg, char const *argv[]) {
@@ -76,12 +72,9 @@ int main(int arcg, char const *argv[]) {
   uint64_t i = 0;
   while (1) {
     i++;
-    testone(i % 1000 == 0);
+    testone();
     if (i % 1000 == 0) {
       printf("runs: %" PRIu64 "\n", i);
-#ifdef CLOX_DEBUG
-      mem_allocation_summary();
-#endif
     }
   }
   return EXIT_SUCCESS;

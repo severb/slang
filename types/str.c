@@ -12,6 +12,7 @@ String *string_new(const char *c, size_t len) {
   if (s) {
     s->len = len;
     s->hash = 0;
+    memcpy(s->c, c, len);
   }
   return s;
 }

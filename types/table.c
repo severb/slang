@@ -5,7 +5,7 @@
 
 #include <stdbool.h> // bool, true, false
 #include <stddef.h>  // size_t
-#include <stdio.h>   // putchar, puts
+#include <stdio.h>   // putchar, printf
 
 #define TOMBSTONE_KEY USER_SYMBOL(0)
 #define EMPTY_KEY USER_SYMBOL(1)
@@ -215,10 +215,10 @@ void table_print(const Table *t) {
     }
     remaining--;
     tag_print(entry->key);
-    puts(": ");
+    printf(": ");
     tag_print(entry->val);
-    if (remaining > 1) {
-      puts(", ");
+    if (remaining > 0) {
+      printf(", ");
     }
   }
   putchar('}');

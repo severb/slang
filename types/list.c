@@ -2,7 +2,7 @@
 
 #include "types/tag.h" // tag_free
 
-#include <stdio.h> // putchar, puts
+#include <stdio.h> // putchar, printf
 
 bool list_eq(const List *a, const List *b) {
   if (list_len(a) != list_len(b)) {
@@ -29,7 +29,7 @@ void list_print(const List *l) {
   for (size_t i = 0; i < len; i++) {
     tag_repr(*list_get(l, i));
     if (i + 1 < len) {
-      puts(", ");
+      printf(", ");
     }
   }
   putchar(']');
