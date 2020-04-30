@@ -1,19 +1,21 @@
 #include "mem.h"
 
+#include <assert.h> // assert
 #include <stdlib.h> // free, realloc
 
-#ifdef CLOX_DEBUG
-#include <assert.h> //assert
-#include <stdio.h>  // printf
-
-static size_t allocated_memory;
+#ifdef SLANG_DEBUG
+static MemStats stats;
+MemStats mem_stats(void) { return stats; }
 #endif
 
 void *mem_reallocate(void *p, size_t old_size, size_t new_size) {
+#ifdef SLANG_DEBUG
+  stats.calls++;
+#endif
   if (new_size == 0) {
-#ifdef CLOX_DEBUG
-    assert(old_size <= allocated_memory);
-    allocated_memory -= old_size;
+#ifdef SLANG_DEBUG
+    assert(old_size <= stats.bytes && "freeing more than allocated");
+    stats.bytes -= old_size;
 #endif
     free(p);
     return 0;
@@ -21,15 +23,15 @@ void *mem_reallocate(void *p, size_t old_size, size_t new_size) {
   if (new_size == old_size) {
     return p;
   }
-#ifdef CLOX_DEBUG
+#ifdef SLANG_DEBUG
   if (new_size > old_size) {
     size_t diff = new_size - old_size;
-    assert(allocated_memory < SIZE_MAX - diff);
-    allocated_memory += diff;
+    assert(stats.bytes < SIZE_MAX - diff && "allocating more than SIZE_MAX");
+    stats.bytes += diff;
   } else {
     size_t diff = old_size - new_size;
-    assert(allocated_memory >= diff);
-    allocated_memory -= diff;
+    assert(stats.bytes >= diff && "freeing more than allocated");
+    stats.bytes -= diff;
   }
 #endif
   void *res = realloc(p, new_size);
@@ -46,9 +48,3 @@ extern inline void *mem_allocate_flex(size_t type_size, size_t item_size,
                                       size_t len);
 extern inline void mem_free_flex(void *, size_t type_size, size_t item_size,
                                  size_t len);
-
-#ifdef CLOX_DEBUG
-void mem_allocation_summary(void) {
-  printf("allocated memory: %zu\n", allocated_memory);
-}
-#endif

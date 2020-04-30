@@ -8,20 +8,22 @@
 
 int main(void) {
   DynamicArray(size_t) a = {0};
-  size_t x = 10;
-  assert(dynarray_append(size_t)(&a, &x) && "cannot add to dynarray");
-  x = 20;
-  assert(dynarray_append(size_t)(&a, &x) && "cannot add to dynarray");
-  x = 30;
-  assert(dynarray_append(size_t)(&a, &x) && "cannot add to dynarray");
-  printf("%zu %zu %zu\n", *dynarray_get(size_t)(&a, 0),
-         *dynarray_get(size_t)(&a, 1), *dynarray_get(size_t)(&a, 2));
-  printf("len: %zu\n", dynarray_len(size_t)(&a));
-  printf("cap: %zu\n", dynarray_cap(size_t)(&a));
+
+  size_t x;
+  for (size_t i = 0; i < 36; i++) {
+    x = i;
+    assert(dynarray_append(size_t)(&a, &x) && "cannot add to dynarray");
+  }
+  assert(*dynarray_get(size_t)(&a, 0) == 0 && "unexpected value");
+  assert(*dynarray_get(size_t)(&a, 1) == 1 && "unexpected value");
+  assert(*dynarray_get(size_t)(&a, 34) == 34 && "unexpected value");
+  assert(*dynarray_get(size_t)(&a, 35) == 35 && "unexpected value");
+  assert(dynarray_len(size_t)(&a) == 36 && "length doesn't match");
+  assert(dynarray_cap(size_t)(&a) == 64 && "cap doesn't match");
   dynarray_free(size_t)(&a);
 
-#ifdef CLOX_DEBUG
-  mem_allocation_summary();
+#ifdef SLANG_DEBUG
+  assert(mem_stats().bytes == 0 && "unfreed memory");
 #endif
   return EXIT_SUCCESS;
 }
