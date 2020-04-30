@@ -1,5 +1,5 @@
 #include "types/str.h"
-#include "mem.h"
+#include "mem.h" // mem_free_flex, mem_free_array, mem_free
 
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
@@ -7,13 +7,21 @@
 #include <stdio.h>   // printf
 #include <string.h>  // memcmp
 
+String *string_new(const char *c, size_t len) {
+  String *s = mem_allocate_flex(sizeof(String), sizeof(char), len);
+  if (s) {
+    s->len = len;
+    s->hash = 0;
+  }
+  return s;
+}
+
 void string_free(String *s) {
   mem_free_flex(s, sizeof(String), sizeof(char), s->len);
 }
 
 void slice_free(Slice *s) {
   mem_free_array(s, sizeof(char), sizeof(s->len));
-  mem_free(s, sizeof(Slice));
 }
 
 static void print(const char *c, size_t len) {

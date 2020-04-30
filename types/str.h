@@ -16,6 +16,7 @@ typedef struct Slice {
   char *c;
 } Slice;
 
+String *string_new(const char *, size_t);
 void string_free(String *);
 void slice_free(Slice *);
 

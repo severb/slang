@@ -258,7 +258,7 @@ typedef enum { SYM_FALSE, SYM_TRUE, SYM_NIL, SYM_OK, SYM__COUNT } Symbol;
 #define TAG_NIL ((Tag){.u = (0xfff5000000000000) | SYM_NIL})
 #define TAG_OK ((Tag){.u = (0xfff5000000000000) | SYM_OK})
 
-#define USER_SYMBOL(x) ((Tag){.u = (SYMBOL_DISCRIMINANT | ((x) + SYM__COUNT))})
+#define USER_SYMBOL(x) ((Tag){.u = (0xfff5000000000000 | ((x) + SYM__COUNT))})
 
 inline Symbol tag_to_symbol(Tag t) {
   assert(tag_is_symbol(t));

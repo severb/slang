@@ -21,9 +21,11 @@ void tag_free(Tag t) {
     break;
   case TYPE_TABLE:
     table_free(tag_to_table(t));
+    mem_free(tag_to_table(t), sizeof(Table));
     break;
   case TYPE_LIST:
     list_free(tag_to_list(t));
+    mem_free(tag_to_list(t), sizeof(List));
     break;
   case TYPE_I64:
     mem_free(tag_to_i64(t), sizeof(uint64_t));
@@ -36,6 +38,7 @@ void tag_free(Tag t) {
   }
   case TYPE_SLICE:
     slice_free(tag_to_slice(t));
+    mem_free(tag_to_slice(t), sizeof(Slice));
     break;
   default:
     assert(0 && "tag_free called on unknown tag type");
