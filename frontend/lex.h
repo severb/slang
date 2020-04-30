@@ -1,5 +1,5 @@
-#ifndef clox_lex_h
-#define clox_lex_h
+#ifndef slang_lex_h
+#define slang_lex_h
 
 #include <stddef.h> // size_t
 
