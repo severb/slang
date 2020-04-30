@@ -161,8 +161,5 @@ int main(void) {
   tag_free(upair_to_tag(0, 0));
   assert(mem_reallocate_p == 0 && "pair free");
 
-#ifdef CLOX_DEBUG
-  mem_allocation_summary();
-#endif
   return EXIT_SUCCESS;
 }

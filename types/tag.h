@@ -253,10 +253,10 @@ inline bool tag_is_symbol(Tag t) {
 
 typedef enum { SYM_FALSE, SYM_TRUE, SYM_NIL, SYM_OK, SYM__COUNT } Symbol;
 
-#define TAG_FALSE ((Tag){.u = (SYMBOL_DISCRIMINANT) | SYM_FALSE})
-#define TAG_TRUE ((Tag){.u = (SYMBOL_DISCRIMINANT) | SYM_TRUE})
-#define TAG_NIL ((Tag){.u = (SYMBOL_DISCRIMINANT) | SYM_NIL})
-#define TAG_OK ((Tag){.u = (SYMBOL_DISCRIMINANT) | SYM_OK})
+#define TAG_FALSE ((Tag){.u = 0xfff5000000000000 | SYM_FALSE})
+#define TAG_TRUE ((Tag){.u = (0xfff5000000000000) | SYM_TRUE})
+#define TAG_NIL ((Tag){.u = (0xfff5000000000000) | SYM_NIL})
+#define TAG_OK ((Tag){.u = (0xfff5000000000000) | SYM_OK})
 
 #define USER_SYMBOL(x) ((Tag){.u = (SYMBOL_DISCRIMINANT | ((x) + SYM__COUNT))})
 
@@ -322,7 +322,6 @@ Tag tag_add(Tag, Tag);
 #undef I64_DISCRIMINANT
 #undef ERROR_DISCRIMINANT
 #undef SLICE_DISCRIMINANT
-#undef SAFE_CAST
 #undef PAIR_DISCRIMINANT
 #undef SYMBOL_DISCRIMINANT
 
