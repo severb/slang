@@ -38,7 +38,8 @@ size_t dynarray_reserve_T(DynamicArrayT *array, size_t cap, size_t item_size) {
 
 size_t dynarray_grow_T(DynamicArrayT *array, size_t item_size) {
   if (array->cap < SIZE_MAX / 2) {
-    return dynarray_reserve_T(array, 2 * array->cap, item_size);
+    size_t new_cap = array->cap ? array->cap * 2 : 8;
+    return dynarray_reserve_T(array, new_cap, item_size);
   }
   return 0;
 }
