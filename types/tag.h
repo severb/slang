@@ -311,4 +311,19 @@ bool tag_eq(Tag, Tag);
 Tag tag_add(Tag, Tag);
 // Tag tag_cmp(Tag, Tag); // use symbols for lt, eq, gt--can also return err
 
+#undef BYTES
+#undef TAGGED_MASK
+#undef SIGN_FLAG
+#undef PTR_MASK
+#undef DISCRIMINANT_MASK
+#undef STRING_DISCRIMINANT
+#undef TABLE_DISCRIMINANT
+#undef LIST_DISCRIMINANT
+#undef I64_DISCRIMINANT
+#undef ERROR_DISCRIMINANT
+#undef SLICE_DISCRIMINANT
+#undef SAFE_CAST
+#undef PAIR_DISCRIMINANT
+#undef SYMBOL_DISCRIMINANT
+
 #endif

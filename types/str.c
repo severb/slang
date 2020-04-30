@@ -53,7 +53,7 @@ size_t slice_hash(Slice *s) {
   return s->hash ? s->hash : (s->hash = hash(s->c, s->len));
 }
 
-#define str_eq_str                                                             \
+#define STR_EQ_STR                                                             \
   if (a->len != b->len) {                                                      \
     return false;                                                              \
   }                                                                            \
@@ -62,9 +62,10 @@ size_t slice_hash(Slice *s) {
   }                                                                            \
   return memcmp(a->c, b->c, a->len)
 
-bool string_eq_string(const String *a, const String *b) { str_eq_str; }
-bool string_eq_slice(const String *a, const Slice *b) { str_eq_str; }
-bool slice_eq_slice(const Slice *a, const Slice *b) { str_eq_str; }
+bool string_eq_string(const String *a, const String *b) { STR_EQ_STR; }
+bool string_eq_slice(const String *a, const Slice *b) { STR_EQ_STR; }
+bool slice_eq_slice(const Slice *a, const Slice *b) { STR_EQ_STR; }
+#undef STR_EQ_STR
 
 extern inline size_t string_len(const String *);
 extern inline size_t slice_len(const Slice *);

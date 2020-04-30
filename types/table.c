@@ -249,3 +249,6 @@ bool table_eq(const Table *a, const Table *b) {
 }
 
 extern inline size_t table_len(const Table *);
+
+#undef TOMBSTONE_KEY
+#undef EMPTY_KEY
