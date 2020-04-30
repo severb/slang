@@ -5,7 +5,7 @@
 
 #define TOKEN(ENUM) ENUM,
 typedef enum {
-#include "lex_tokens.inc"
+#include "frontend/lex_tokens.inc"
 } TokenType;
 #undef TOKEN
 
@@ -17,7 +17,7 @@ typedef struct {
 
 typedef struct {
   char const *start;
-  char const *stop;
+  char const *end;
   size_t line;
   TokenType type;
 } Token;

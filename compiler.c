@@ -323,7 +323,6 @@ start:
 }
 
 static void compile_if_statement(Compiler *c) {
-  // TODO: add OP_POP_AND_JUMP_IF_TRUE?
   consume(c, TOKEN_LEFT_PAREN, "missing paren before if condition");
   compile_expression(c);
   consume(c, TOKEN_RIGHT_PAREN, "missing paren after if condition");

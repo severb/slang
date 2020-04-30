@@ -1,4 +1,4 @@
-#include "lex.h"
+#include "frontend/lex.h"
 
 #include <assert.h>  // assert
 #include <limits.h>  // INT_MAX
@@ -15,7 +15,7 @@ static void token(const Lexer *lex, TokenType type, Token *t) {
   *t = (Token){
       .type = type,
       .start = lex->start,
-      .stop = lex->current,
+      .end = lex->current,
       .line = lex->line,
   };
 }
@@ -24,7 +24,7 @@ static void error(const Lexer *lex, const char *msg, Token *t) {
   *t = (Token){
       .type = TOKEN_ERROR,
       .start = msg,
-      .stop = &msg[strlen(msg) - 1],
+      .end = &msg[strlen(msg) - 1],
       .line = lex->line,
   };
 }
@@ -282,9 +282,9 @@ void lex_print(const Lexer *lex) {
     } else {
       printf("   | ");
     }
-    if ((token.stop - token.start) < INT_MAX) {
+    if ((token.end - token.start) < INT_MAX) {
       printf("%17s %2d %.*s\n", TOKEN_TO_STRING[token.type], token.type,
-             (int)(token.stop - token.start), token.start);
+             (int)(token.end - token.start), token.start);
     } else {
       printf("%17s %2d %.*s...\n", TOKEN_TO_STRING[token.type], token.type,
              INT_MAX, token.start);
