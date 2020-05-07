@@ -1,8 +1,8 @@
 #include "bytecode.h"
 
-#include "array.h" // arraylist_*
-#include "types.h" // list_*
-#include "val.h"   // Val, val_*
+#include "types/dynarray.h" // dynarray_*
+#include "types/list.h"     // list_*
+#include "types/tag.h"      // Tag, tag_*
 
 #include <assert.h>   // assert
 #include <inttypes.h> // PRI*
@@ -10,102 +10,75 @@
 #include <stdint.h>   // uint*_t, SIZE_MAX
 #include <stdio.h>    // printf, putchar
 
-arraylist_define(Opcode);
-arraylist_define(Line);
-
-static void write_byte(Chunk *c, Line l, uint8_t b) {
-  arraylist_append(Opcode)(&c->bytecode, &b);
-  while (l >= arraylist_len(Line)(&c->lines)) {
-    size_t len = arraylist_len(Line)(&c->lines);
-    Line prev = len > 0 ? *arraylist_get(Line)(&c->lines, len - 1) : 0;
-    arraylist_append(Line)(&c->lines, &prev);
+static void write_byte(Chunk *c, size_t line, uint8_t op) {
+  // TODO: out of memory checks
+  dynarray_append(uint8_t)(&c->bytecode, &op);
+  size_t len = dynarray_len(size_t)(&c->lines);
+  size_t prev = len > 0 ? *dynarray_get(size_t)(&c->lines, len - 1) : 0;
+  while (line >= dynarray_len(size_t)(&c->lines)) {
+    dynarray_append(size_t)(&c->lines, &prev);
   }
-  *arraylist_get(Line)(&c->lines, arraylist_len(Line)(&c->lines) - 1) += 1;
+  *dynarray_get(size_t)(&c->lines, dynarray_len(size_t)(&c->lines) - 1) += 1;
 }
 
-void chunk_write_operation(Chunk *c, Line l, Opcode op) {
-  write_byte(c, l, op);
+void chunk_write_operation(Chunk *c, size_t line, uint8_t op) {
+  write_byte(c, line, op);
 }
 
 // least significant byte 1st, max 9 bytes, 9th byte not tagged
-void chunk_write_operand(Chunk *c, Line l, uint64_t operand) {
+static void chunk_write_operand(Chunk *c, size_t line, uint64_t operand) {
   for (int i = 0; i < 8; i++) {
     if (operand < 0x80) {
-      write_byte(c, l, operand);
+      write_byte(c, line, operand);
       return;
     }
-    write_byte(c, l, 0x80 | (operand & 0x7f));
+    write_byte(c, line, 0x80 | (operand & 0x7f));
     operand >>= 7;
   }
-  write_byte(c, l, operand); // last full byte
+  write_byte(c, line, operand); // last full byte
 }
 
-void chunk_write_unary(Chunk *c, Line l, Opcode op, uint64_t operand) {
-  chunk_write_operation(c, l, op);
-  chunk_write_operand(c, l, operand);
+void chunk_write_unary(Chunk *c, size_t line, uint8_t op, uint64_t operand) {
+  chunk_write_operation(c, line, op);
+  chunk_write_operand(c, line, operand);
 }
 
-size_t chunk_reserve_operation(Chunk *c, Line l) {
-  size_t idx = arraylist_len(Opcode)(&c->bytecode);
-  chunk_write_operation(c, l, OP_NOOP);
-  return idx;
-}
-
-size_t chunk_reserve_operand(Chunk *c, Line l) {
-  size_t idx = arraylist_len(Opcode)(&c->bytecode);
-  for (int i = 0; i < 9; i++) { // 8 + 1 bytes max operand size
-    chunk_write_operation(c, l, OP_NOOP);
+size_t chunk_reserve_unary(Chunk *c, size_t line) {
+  size_t idx = dynarray_len(uint8_t)(&c->bytecode);
+  for (int i = 0; i < 10; i++) { // 1 op + 8 + 1 bytes max operand size
+    chunk_write_operation(c, line, OP_NOOP);
   }
   return idx;
 }
 
-size_t chunk_reserve_unary(Chunk *c, Line l) {
-  size_t idx = chunk_reserve_operation(c, l);
-  chunk_reserve_operand(c, l);
-  return idx;
-}
-
-static void patch_byte(Chunk *c, size_t idx, uint8_t b) {
-  assert(idx < arraylist_len(Opcode)(&c->bytecode));
-  *arraylist_get(Opcode)(&c->bytecode, idx) = b;
-}
-
-void chunk_patch_operation(Chunk *c, Bookmark idx, Opcode op) {
-  patch_byte(c, idx, op);
-}
-
-void chunk_patch_operand(Chunk *c, Bookmark idx, uint64_t operand) {
-  assert(idx < SIZE_MAX - 9);
-  for (int i = 0; i < 8; i++) {
-    patch_byte(c, idx + i, 0x80 | (0x7F & operand));
+void chunk_patch_unary(Chunk *c, size_t bkmark, uint8_t op, uint64_t operand) {
+  assert(bkmark < SIZE_MAX - 10);
+  *dynarray_get(uint8_t)(&c->bytecode, bkmark) = op;
+  for (int i = 1; i < 9; i++) {
+    *dynarray_get(uint8_t)(&c->bytecode, bkmark + i) = 0x80 | (0x7f & operand);
     operand >>= 7;
   }
-  patch_byte(c, idx + 8, operand);
+  *dynarray_get(uint8_t)(&c->bytecode, bkmark + 10) = operand;
 }
 
-void chunk_patch_unary(Chunk *c, Bookmark idx, Opcode op, uint64_t operand) {
-  chunk_patch_operation(c, idx, op);
-  chunk_patch_operand(c, idx + 1, operand);
-}
-
-size_t chunk_record_const(Chunk *c, Val v) {
+size_t chunk_record_const(Chunk *c, Tag t) {
   size_t idx = 0;
-  if (list_find(&c->consts, v, &idx)) {
+  if (list_find(&c->consts, t, &idx)) {
     return idx;
   }
-  list_append(&c->consts, v);
-  return list_len(&c->consts) - 1;
+  // TODO: out of memory check
+  return list_append(&c->consts, t) - 1;
 }
 
 void chunk_seal(Chunk *c) {
-  arraylist_seal(Opcode)(&c->bytecode);
-  arraylist_seal(Line)(&c->lines);
-  arraylist_seal(Val)(&c->consts.al);
+  dynarray_seal(uint8_t)(&c->bytecode);
+  dynarray_seal(size_t)(&c->lines);
+  // list_seal(&c->consts); TODO: seal?
 }
 
 void chunk_free(Chunk *c) {
-  arraylist_free(Opcode)(&c->bytecode);
-  arraylist_free(Line)(&c->lines);
+  dynarray_free(uint8_t)(&c->bytecode);
+  dynarray_free(size_t)(&c->lines);
   list_free(&c->consts);
 }
 
@@ -115,15 +88,15 @@ static char const *opcodes[] = {
 };
 #undef OPCODE
 
-static size_t disassamble_op(const Chunk *chunk, size_t offset, Line l) {
+static size_t disassamble_op(const Chunk *chunk, size_t offset, size_t line) {
   assert(offset < chunk_len(chunk));
   printf("%6zu ", offset);
-  if (!l) { // line zero keeps the previous line number
+  if (!line) { // line zero keeps the previous line number
     printf("     | ");
   } else {
-    printf("%6zu ", l);
+    printf("%6zu ", line);
   }
-  Opcode op = *arraylist_get(Opcode)(&chunk->bytecode, offset);
+  uint8_t op = *dynarray_get(uint8_t)(&chunk->bytecode, offset);
   offset++;
   if (op >= OP__MAX) {
     printf("bad opcode: %" PRIu8 "\n", op);
@@ -137,7 +110,7 @@ static size_t disassamble_op(const Chunk *chunk, size_t offset, Line l) {
   case OP_CONSTANT: {
     uint64_t const_idx = chunk_read_operator(chunk, &offset);
     printf("%-16s %6" PRIu64 " ", name, const_idx);
-    val_print(list_get(&chunk->consts, const_idx, VAL_NIL));
+    tag_print(*list_get(&chunk->consts, const_idx));
     printf("\n");
     break;
   }
@@ -158,13 +131,13 @@ static size_t disassamble_op(const Chunk *chunk, size_t offset, Line l) {
   return offset;
 }
 
-static size_t lines_delta(const Chunk *c, Line l, size_t new_offset) {
-  size_t offset = *arraylist_get(Line)(&c->lines, l);
+static size_t lines_delta(const Chunk *c, size_t l, size_t new_offset) {
+  size_t offset = *dynarray_get(size_t)(&c->lines, l);
   if (offset > new_offset) {
     return 0;
   }
   size_t delta = 0;
-  while (offset >= *arraylist_get(Line)(&c->lines, l + delta)) {
+  while (offset >= *dynarray_get(size_t)(&c->lines, l + delta)) {
     delta++;
   }
   return delta;

@@ -103,6 +103,7 @@ static size_t grow(Table *t) {
     }
   }
   assert((start < old_cap || old_cap == 0) && "table can't be full");
+  // TODO: reset and rehash at the same time, mem access is slow
   // reset tombstones
   for (size_t i = 0; dynarray_len(Entry)(&t->array) > t->real_len; i++) {
     Entry *entry = dynarray_get(Entry)(&t->array, i);
