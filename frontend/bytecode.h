@@ -4,8 +4,8 @@
 #include "types/dynarray.h" // DynamicArray, dynarray_*
 #include "types/list.h"     // List
 
-#include <assert.h> // assert
-#include <stdint.h> // uint8_t, SIZE_MAX, uint64_t
+#include <assert.h>   // assert
+#include <stdint.h>   // uint8_t, SIZE_MAX, uint64_t
 
 #define OPCODE(ENUM) ENUM,
 typedef enum {

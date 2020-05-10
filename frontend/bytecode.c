@@ -58,7 +58,7 @@ void chunk_patch_unary(Chunk *c, size_t bkmark, uint8_t op, uint64_t operand) {
     *dynarray_get(uint8_t)(&c->bytecode, bkmark + i) = 0x80 | (0x7f & operand);
     operand >>= 7;
   }
-  *dynarray_get(uint8_t)(&c->bytecode, bkmark + 10) = operand;
+  *dynarray_get(uint8_t)(&c->bytecode, bkmark + 9) = operand;
 }
 
 size_t chunk_record_const(Chunk *c, Tag t) {
