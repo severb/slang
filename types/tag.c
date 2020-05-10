@@ -76,7 +76,11 @@ static void print(Tag t, bool is_repr) {
     }
     break;
   case TYPE_PAIR:
-    printf("(%" PRId16 ", %" PRId32 ")", tag_to_pair_a(t), tag_to_pair_b(t));
+    if (tag_to_pair_ua(t) == 0) {
+      printf("%" PRId32, tag_to_pair_b(t));
+    } else {
+      printf("(%" PRId16 ", %" PRId32 ")", tag_to_pair_a(t), tag_to_pair_b(t));
+    }
     break;
   case TYPE_DOUBLE:
     printf("%f", tag_to_double(t));
