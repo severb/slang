@@ -51,14 +51,18 @@ size_t chunk_reserve_unary(Chunk *c, size_t line) {
   return idx;
 }
 
-void chunk_patch_unary(Chunk *c, size_t bkmark, uint8_t op, uint64_t operand) {
-  assert(bkmark < SIZE_MAX - 10);
-  *dynarray_get(uint8_t)(&c->bytecode, bkmark) = op;
+void chunk_patch_unary(Chunk *c, size_t bookmark, uint8_t op) {
+  size_t clen = chunk_len(c);
+  assert(bookmark <= clen && "invalid bookmark");
+  uint64_t oper = clen - bookmark;
+  assert(oper >= 10 && "invalid bookmark");
+  oper -= 10;
+  *dynarray_get(uint8_t)(&c->bytecode, bookmark) = op;
   for (int i = 1; i < 9; i++) {
-    *dynarray_get(uint8_t)(&c->bytecode, bkmark + i) = 0x80 | (0x7f & operand);
-    operand >>= 7;
+    *dynarray_get(uint8_t)(&c->bytecode, bookmark + i) = 0x80 | (0x7f & oper);
+    oper >>= 7;
   }
-  *dynarray_get(uint8_t)(&c->bytecode, bkmark + 9) = operand;
+  *dynarray_get(uint8_t)(&c->bytecode, bookmark + 9) = oper;
 }
 
 size_t chunk_record_const(Chunk *c, Tag t) {

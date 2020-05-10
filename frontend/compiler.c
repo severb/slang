@@ -327,34 +327,25 @@ static void compile_if_statement(Compiler *c) {
   compile_expression(c);
   consume(c, TOKEN_RIGHT_PAREN, "missing paren after if condition");
   size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
-  size_t then_label = chunk_len(c->chunk);
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
   compile_statement(c);
   size_t jump_after_else = chunk_reserve_unary(c->chunk, c->prev.line);
-  size_t else_label = chunk_len(c->chunk);
-  assert(chunk_len(c->chunk) >= then_label);
-  chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE,
-                    chunk_len(c->chunk) - then_label);
+  chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
   if (match(c, TOKEN_ELSE)) {
     compile_statement(c);
   }
-  assert(chunk_len(c->chunk) >= else_label);
-  chunk_patch_unary(c->chunk, jump_after_else, OP_JUMP,
-                    chunk_len(c->chunk) - else_label);
+  chunk_patch_unary(c->chunk, jump_after_else, OP_JUMP);
 }
 
 static void compile_while_statement(Compiler *c) {
   consume(c, TOKEN_LEFT_BRACE, "missing paren before while condition");
-  size_t start_label = chunk_len(c->chunk);
   compile_expression(c);
   consume(c, TOKEN_RIGHT_BRACE, "missing paren after while condition");
   size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
   compile_statement(c);
-  assert(chunk_len(c->chunk) >= start_label);
-  chunk_patch_unary(c->chunk, jump_if_false, OP_LOOP,
-                    chunk_len(c->chunk) - start_label);
+  chunk_patch_unary(c->chunk, jump_if_false, OP_LOOP);
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
 }
 
@@ -525,22 +516,16 @@ static void compile_variable(Compiler *c, bool can_assign) {
 
 static void compile_and(Compiler *c, bool _) {
   size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
-  size_t begin_label = chunk_len(c->chunk);
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
   compile_precedence(c, PREC_AND);
-  assert(chunk_len(c->chunk) >= begin_label);
-  chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE,
-                    chunk_len(c->chunk) - begin_label);
+  chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
 }
 
 static void compile_or(Compiler *c, bool _) {
   size_t jump_if_true = chunk_reserve_unary(c->chunk, c->prev.line);
-  size_t begin_label = chunk_len(c->chunk);
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
   compile_precedence(c, PREC_OR);
-  assert(chunk_len(c->chunk) >= begin_label);
-  chunk_patch_unary(c->chunk, jump_if_true, OP_JUMP_IF_TRUE,
-                    chunk_len(c->chunk) - begin_label);
+  chunk_patch_unary(c->chunk, jump_if_true, OP_JUMP_IF_TRUE);
 }
 
 static void compile_grouping(Compiler *c, bool _) {

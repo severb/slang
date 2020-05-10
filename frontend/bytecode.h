@@ -22,8 +22,7 @@ typedef struct {
 void chunk_write_operation(Chunk *, size_t line, uint8_t op);
 void chunk_write_unary(Chunk *, size_t line, uint8_t op, uint64_t operand);
 size_t chunk_reserve_unary(Chunk *, size_t line);
-// TODO: infer patch's operand
-void chunk_patch_unary(Chunk *, size_t bookmark, uint8_t op, uint64_t operand);
+void chunk_patch_unary(Chunk *, size_t bookmark, uint8_t op);
 size_t chunk_record_const(Chunk *, Tag);
 void chunk_seal(Chunk *);
 void chunk_free(Chunk *);
