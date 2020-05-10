@@ -21,9 +21,7 @@ void string_free(String *s) {
   mem_free_flex(s, sizeof(String), sizeof(char), s->len);
 }
 
-void slice_free(Slice *s) {
-  mem_free_array(s, sizeof(char), sizeof(s->len));
-}
+void slice_free(Slice *s) { mem_free_array(s, sizeof(char), sizeof(s->len)); }
 
 static void print(const char *c, size_t len) {
   // TODO: fix cast to int
@@ -78,3 +76,4 @@ bool slice_eq_slice(const Slice *a, const Slice *b) { STR_EQ_STR; }
 
 extern inline size_t string_len(const String *);
 extern inline size_t slice_len(const Slice *);
+extern inline Slice slice(const char *start, const char *end);

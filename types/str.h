@@ -1,6 +1,7 @@
 #ifndef slang_str_h
 #define slang_str_h
 
+#include <assert.h>  // assert
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 
@@ -13,11 +14,17 @@ typedef struct String {
 typedef struct Slice {
   size_t len;
   size_t hash;
-  char *c;
+  const char *c;
 } Slice;
 
 String *string_new(const char *, size_t);
 void string_free(String *);
+
+inline Slice slice(const char *start, const char *end) {
+  assert(start <= end);
+  return (Slice) { .len = end - start, .hash = 0, .c = start };
+}
+
 void slice_free(Slice *);
 
 void string_print(const String *);

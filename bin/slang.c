@@ -1,7 +1,8 @@
-#include "bytecode.h" // Chunk, chunk_dissasamble
-#include "compiler.h" // compile
-#include "mem.h"      // mem_allocation_summary
+#include "frontend/bytecode.h" // Chunk, chunk_dissasamble
+#include "frontend/compiler.h" // compile
+#include "mem.h"               // mem_stats
 
+#include <assert.h> // assert
 #include <stdio.h>  // stderr, fopen, fprintf, fseek, ftell, SEEK_END, SEEK_SET
                     // fread, fclose
 #include <stdlib.h> // EXIT_SUCCESS, exit, size_t, malloc
@@ -39,14 +40,14 @@ int main(int argc, char *argv[]) {
     if (compile(src, &c)) {
       chunk_disassamble_src(src, &c);
     } else {
-      fprintf(stderr, "there were errors during compilation\n");
+      fprintf(stderr, "errors during compilation\n");
     }
   } else {
     fprintf(stderr, "usage: %s [path]\n", argv[0]);
   }
 
-#ifdef CLOX_DEBUG
-  mem_allocation_summary();
+#ifdef SLANG_DEBUG
+  assert(mem_stats().bytes == 0 && "unfreed memory");
 #endif
   return EXIT_SUCCESS;
 }
