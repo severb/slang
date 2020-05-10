@@ -67,7 +67,7 @@ size_t slice_hash(Slice *s) {
   if (a->hash != 0 && b->hash != 0 && a->hash != b->hash) {                    \
     return false;                                                              \
   }                                                                            \
-  return memcmp(a->c, b->c, a->len)
+  return memcmp(a->c, b->c, a->len) == 0;
 
 bool string_eq_string(const String *a, const String *b) { STR_EQ_STR; }
 bool string_eq_slice(const String *a, const Slice *b) { STR_EQ_STR; }
