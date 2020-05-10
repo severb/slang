@@ -42,6 +42,7 @@ int main(int argc, char *argv[]) {
     } else {
       fprintf(stderr, "errors during compilation\n");
     }
+    chunk_free(&c);
   } else {
     fprintf(stderr, "usage: %s [path]\n", argv[0]);
   }

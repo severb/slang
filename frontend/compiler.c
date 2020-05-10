@@ -385,7 +385,7 @@ static void compile_statement(Compiler *c) {
   }
 }
 
-Tag sliceval_from_token(Token t) {
+Tag var_from_token(Token t) {
   // TODO: use a memory pool
   Slice *s = mem_allocate(sizeof(Slice));
   *s = slice(t.start, t.end);
@@ -395,7 +395,7 @@ Tag sliceval_from_token(Token t) {
 static void compile_var_declaration(Compiler *c) {
 start:
   consume(c, TOKEN_IDENTIFIER, "variable name is missing");
-  Tag var = sliceval_from_token(c->prev);
+  Tag var = var_from_token(c->prev);
   if (in_scope(c)) {
     declare_local(c, var);
   }
@@ -487,7 +487,7 @@ static void compile_binary(Compiler *c, bool _) {
 }
 
 static void compile_variable(Compiler *c, bool can_assign) {
-  Tag var = sliceval_from_token(c->prev);
+  Tag var = var_from_token(c->prev);
   if (can_assign && match(c, TOKEN_EQUAL)) { // an assignment
     compile_expression(c);
     if (in_scope(c)) { // in local scope
