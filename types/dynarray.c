@@ -1,6 +1,6 @@
 #include "dynarray.h"
 
-#include "mem.h" // mem_resize_array, mem_free_array
+#include "mem.h" // mem_resize_array, mem_free_array, mem_free
 
 #include <stddef.h> // size_t
 
@@ -44,9 +44,14 @@ size_t dynarray_grow_T(DynamicArrayT *array, size_t item_size) {
   return 0;
 }
 
-void dynarray_free_T(DynamicArrayT *array, size_t item_size) {
+void dynarray_destroy_T(DynamicArrayT *array, size_t item_size) {
   mem_free_array(array->items, item_size, array->cap);
   *array = (DynamicArrayT){0};
+}
+
+void dynarray_free_T(DynamicArrayT *array, size_t item_size) {
+  dynarray_destroy_T(array, item_size);
+  mem_free(array, sizeof(DynamicArrayT));
 }
 
 size_t dynarray_seal_T(DynamicArrayT *array, size_t item_size) {

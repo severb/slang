@@ -15,6 +15,7 @@ typedef struct List {
 } List;
 
 bool list_eq(const List *, const List *);
+void list_destroy(List *);
 void list_free(List *);
 void list_print(const List *);
 

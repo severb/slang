@@ -2,6 +2,7 @@
 
 #include "dynarray.h" // dynarray_*
 #include "list.h"     // list_*
+#include "mem.h"      // mem_free
 #include "tag.h"      // Tag, tag_*
 
 #include <assert.h>   // assert
@@ -80,10 +81,15 @@ void chunk_seal(Chunk *c) {
   // list_seal(&c->consts); TODO: seal?
 }
 
+void chunk_destroy(Chunk *c) {
+  dynarray_destroy(uint8_t)(&c->bytecode);
+  dynarray_destroy(size_t)(&c->lines);
+  list_destroy(&c->consts);
+}
+
 void chunk_free(Chunk *c) {
-  dynarray_free(uint8_t)(&c->bytecode);
-  dynarray_free(size_t)(&c->lines);
-  list_free(&c->consts);
+  chunk_destroy(c);
+  mem_free(c, sizeof(Chunk));
 }
 
 #define OPCODE(STRING) #STRING,

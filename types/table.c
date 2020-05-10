@@ -1,6 +1,7 @@
 #include "table.h"
 
 #include "dynarray.h" // dynarray_*
+#include "mem.h"      // mem_free
 #include "tag.h"      // tag_biteq
 
 #include <stdbool.h> // bool, true, false
@@ -191,7 +192,7 @@ bool table_del(Table *t, Tag key) {
   return true;
 }
 
-void table_free(Table *t) {
+void table_destroy(Table *t) {
   assert(t->real_len < dynarray_cap(Entry)(&t->array) || t->real_len == 0);
   size_t remaining = t->real_len;
   for (size_t i = 0; remaining; i++) {
@@ -203,8 +204,13 @@ void table_free(Table *t) {
     tag_free(entry->key);
     tag_free(entry->val);
   }
-  dynarray_free(Entry)(&t->array);
+  dynarray_destroy(Entry)(&t->array);
   t->real_len = 0;
+}
+
+void table_free(Table *t) {
+  table_destroy(t);
+  mem_free(t, sizeof(Table));
 }
 
 void table_print(const Table *t) {

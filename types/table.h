@@ -20,6 +20,7 @@ typedef struct Table {
 } Table;
 
 bool table_eq(const Table *, const Table *);
+void table_destroy(Table *);
 void table_free(Table *);
 void table_print(const Table *);
 size_t table_set(Table *, Tag key, Tag val);

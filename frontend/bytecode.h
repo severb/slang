@@ -25,6 +25,7 @@ size_t chunk_reserve_unary(Chunk *, size_t line);
 void chunk_patch_unary(Chunk *, size_t bookmark, uint8_t op);
 size_t chunk_record_const(Chunk *, Tag);
 void chunk_seal(Chunk *);
+void chunk_destroy(Chunk *);
 void chunk_free(Chunk *);
 
 void chunk_disassamble(const Chunk *);

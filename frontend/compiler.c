@@ -50,9 +50,9 @@ static CompileRule rules[TOKEN__COUNT];
 static void compile_statement(Compiler *c);
 static void compile_declaration(Compiler *c);
 
-static void compiler_free(Compiler *c) {
-  list_free(&c->scopes);
-  list_free(&c->uninitialized);
+static void compiler_destroy(Compiler *c) {
+  list_destroy(&c->scopes);
+  list_destroy(&c->uninitialized);
   *c = (Compiler){0};
 }
 
@@ -543,7 +543,7 @@ bool compile(const char *src, Chunk *chunk) {
   }
   chunk_write_operation(chunk, c.current.line, OP_RETURN);
   bool had_error = c.had_error;
-  compiler_free(&c);
+  compiler_destroy(&c);
   return !had_error;
 }
 

@@ -1,6 +1,7 @@
 #include "list.h"
 
 #include "dynarray.h" // dynarray_define
+#include "mem.h"      // mem_free
 #include "tag.h"      // Tag, tag_free
 
 #include <stdio.h> // putchar, printf
@@ -20,10 +21,15 @@ bool list_eq(const List *a, const List *b) {
 }
 
 void list_free(List *l) {
+  list_destroy(l);
+  mem_free(l, sizeof(List));
+}
+
+void list_destroy(List *l) {
   for (size_t i = 0; i < list_len(l); i++) {
     tag_free(*list_get(l, i));
   }
-  dynarray_free(Tag)(&l->array);
+  dynarray_destroy(Tag)(&l->array);
 }
 
 void list_print(const List *l) {

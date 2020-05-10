@@ -15,7 +15,7 @@ typedef struct Slice {
   size_t len;
   size_t hash;
   const char *c;
-} Slice;
+} Slice; // Slices don't own char *c
 
 String *string_new(const char *, size_t);
 void string_free(String *);

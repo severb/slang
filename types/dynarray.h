@@ -14,6 +14,7 @@ typedef struct {
 size_t dynarray_reserve_T(DynamicArrayT *, size_t cap, size_t item_size);
 size_t dynarray_grow_T(DynamicArrayT *, size_t item_size);
 size_t dynarray_seal_T(DynamicArrayT *, size_t item_size);
+void dynarray_destroy_T(DynamicArrayT *, size_t item_size);
 void dynarray_free_T(DynamicArrayT *, size_t item_size);
 
 #define DynamicArray(T) DynamicArray_GEN_##T
@@ -25,7 +26,8 @@ void dynarray_free_T(DynamicArrayT *, size_t item_size);
 #define dynarray_get(T) dynarray_get_GEN_##T
 #define dynarray_trunc(T) dynarray_trunc_GEN_##T
 #define dynarray_append(T) dynarray_append_GEN_##T
-#define dynarray_free(T) dynarray_free_GEN_##T
+#define dynarray_destroy(T) dynarray_free_GEN_##T
+#define dynarray_free(T) denarray_free_GEN_##T
 #define dynarray_seal(T) dynarray_seal_GEN_##T
 
 #define dynarray_declare(T)                                                    \
@@ -71,6 +73,10 @@ void dynarray_free_T(DynamicArrayT *, size_t item_size);
     return dynarray_trunc(T)(l, dynarray_len(T)(l) + 1);                       \
   }                                                                            \
                                                                                \
+  inline void dynarray_destroy(T)(struct DynamicArray(T) * l) {                \
+    dynarray_destroy_T(&l->array, sizeof(T));                                  \
+  }                                                                            \
+                                                                               \
   inline void dynarray_free(T)(struct DynamicArray(T) * l) {                   \
     dynarray_free_T(&l->array, sizeof(T));                                     \
   }                                                                            \
@@ -89,6 +95,7 @@ void dynarray_free_T(DynamicArrayT *, size_t item_size);
   extern inline T *dynarray_get(T)(const DynamicArray(T) *, size_t);           \
   extern inline size_t dynarray_trunc(T)(DynamicArray(T) *, size_t);           \
   extern inline size_t dynarray_append(T)(DynamicArray(T) *, const T *);       \
+  extern inline void dynarray_destroy(T)(DynamicArray(T) *);                   \
   extern inline void dynarray_free(T)(DynamicArray(T) *);                      \
   extern inline size_t dynarray_seal(T)(DynamicArray(T) *)
 

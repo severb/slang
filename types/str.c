@@ -22,7 +22,7 @@ void string_free(String *s) {
   mem_free_flex(s, sizeof(String), sizeof(char), s->len);
 }
 
-void slice_free(Slice *s) { mem_free_array(s, sizeof(char), sizeof(s->len)); }
+void slice_free(Slice *s) { mem_free(s, sizeof(Slice)); }
 
 static void print(const char *c, size_t len) {
   // TODO: fix cast to int
