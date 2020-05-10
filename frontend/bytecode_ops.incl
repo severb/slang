@@ -1,7 +1,7 @@
 // This file is supposed to be included after a custom OPCODE macro is defined.
 
 OPCODE(OP_ADD)
-OPCODE(OP_CONSTANT)
+OPCODE(OP_GET_CONSTANT)
 OPCODE(OP_DEF_GLOBAL)
 OPCODE(OP_DIVIDE)
 OPCODE(OP_EQUAL)

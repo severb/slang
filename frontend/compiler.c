@@ -165,7 +165,7 @@ static void compile_int(Compiler *c, bool _) {
   return;
 emit : {
   size_t idx = chunk_record_const(c->chunk, t);
-  chunk_write_unary(c->chunk, c->prev.line, OP_CONSTANT, idx);
+  chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
 }
 }
 
@@ -177,7 +177,7 @@ static void compile_float(Compiler *c, bool _) {
   }
   assert(d >= 0); // only positive values
   size_t idx = chunk_record_const(c->chunk, double_to_tag(d));
-  chunk_write_unary(c->chunk, c->prev.line, OP_CONSTANT, idx);
+  chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
 }
 
 static void compile_string(Compiler *c, bool _) {
@@ -186,7 +186,7 @@ static void compile_string(Compiler *c, bool _) {
   *s = slice(c->prev.start + 1 /*skip 1st quote */,
              c->prev.end - 1 /* skip last quotes */);
   size_t idx = chunk_record_const(c->chunk, slice_to_tag(s));
-  chunk_write_unary(c->chunk, c->prev.line, OP_CONSTANT, idx);
+  chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
 }
 
 static void compile_literal(Compiler *c, bool _) {

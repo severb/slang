@@ -107,7 +107,7 @@ static size_t disassamble_op(const Chunk *chunk, size_t offset, size_t line) {
   case OP_SET_GLOBAL:
   case OP_GET_GLOBAL:
   case OP_DEF_GLOBAL:
-  case OP_CONSTANT: {
+  case OP_GET_CONSTANT: {
     uint64_t const_idx = chunk_read_operator(chunk, &offset);
     printf("%-16s %6" PRIu64 " ", name, const_idx);
     tag_print(*list_get(&chunk->consts, const_idx));
