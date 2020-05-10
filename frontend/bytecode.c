@@ -1,8 +1,8 @@
 #include "bytecode.h"
 
-#include "types/dynarray.h" // dynarray_*
-#include "types/list.h"     // list_*
-#include "types/tag.h"      // Tag, tag_*
+#include "dynarray.h" // dynarray_*
+#include "list.h"     // list_*
+#include "tag.h"      // Tag, tag_*
 
 #include <assert.h>   // assert
 #include <inttypes.h> // PRI*

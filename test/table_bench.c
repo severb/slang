@@ -1,7 +1,7 @@
-#include "mem.h"         // mem_stats
-#include "test/util.h"   // randint, randstr
-#include "types/list.h"  // List, list_*
-#include "types/table.h" // Table, table_*
+#include "list.h"  // List, list_*
+#include "mem.h"   // mem_stats
+#include "table.h" // Table, table_*
+#include "util.h"  // randint, randstr
 
 #include <inttypes.h> // PRId*
 #include <stdio.h>    // fprintf, stderr

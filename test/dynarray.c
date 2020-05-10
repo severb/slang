@@ -1,5 +1,5 @@
-#include "types/dynarray.h" // arraylist_*
-#include "mem.h"            // mem_allocation_summary
+#include "dynarray.h" // arraylist_*
+#include "mem.h"      // mem_allocation_summary
 
 #include <assert.h> // assert
 #include <stddef.h> // size_t

@@ -1,10 +1,10 @@
 #include "compiler.h"
 
-#include "frontend/lex.h" // Lexer, lex_consume
-#include "mem.h"          // mem_allocate
-#include "types/list.h"   // List, list_*
-#include "types/str.h"    // Slice, slice
-#include "types/tag.h"    // Tag, *_to_tag, tag_to_*
+#include "lex.h"  // Lexer, lex_consume
+#include "list.h" // List, list_*
+#include "mem.h"  // mem_allocate
+#include "str.h"  // Slice, slice
+#include "tag.h"  // Tag, *_to_tag, tag_to_*
 
 #include <errno.h>   // errno
 #include <stdbool.h> // bool, true, false

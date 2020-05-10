@@ -1,8 +1,8 @@
 #ifndef slang_list_h
 #define slang_list_h
 
-#include "types/dynarray.h" // dynarray_*
-#include "types/tag.h"      // Tag
+#include "dynarray.h" // dynarray_*
+#include "tag.h"      // Tag
 
 #include <assert.h>  // assert
 #include <stdbool.h> // bool, true, false

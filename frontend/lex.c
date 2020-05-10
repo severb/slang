@@ -1,4 +1,4 @@
-#include "frontend/lex.h"
+#include "lex.h"
 
 #include <assert.h>  // assert
 #include <limits.h>  // INT_MAX

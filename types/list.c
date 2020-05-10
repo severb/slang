@@ -1,8 +1,11 @@
-#include "types/list.h"
+#include "list.h"
 
-#include "types/tag.h" // tag_free
+#include "dynarray.h" // dynarray_define
+#include "tag.h"      // Tag, tag_free
 
 #include <stdio.h> // putchar, printf
+
+dynarray_define(Tag);
 
 bool list_eq(const List *a, const List *b) {
   if (list_len(a) != list_len(b)) {

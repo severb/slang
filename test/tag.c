@@ -1,5 +1,4 @@
-#include "types/tag.h"
-
+#include "tag.h"
 #include "mem.h" // mem_allocation_summary
 
 #include <stdlib.h> // EXIT_SUCCESS

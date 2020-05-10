@@ -1,11 +1,13 @@
-#include "types/table.h"
+#include "table.h"
 
-#include "types/dynarray.h" // dynarray_*
-#include "types/tag.h"      // tag_biteq
+#include "dynarray.h" // dynarray_*
+#include "tag.h"      // tag_biteq
 
 #include <stdbool.h> // bool, true, false
 #include <stddef.h>  // size_t
 #include <stdio.h>   // putchar, printf
+
+dynarray_define(Entry);
 
 #define TOMBSTONE_KEY USER_SYMBOL(0)
 #define EMPTY_KEY USER_SYMBOL(1)

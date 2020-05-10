@@ -1,4 +1,5 @@
-#include "types/str.h"
+#include "str.h"
+
 #include "mem.h" // mem_free_flex, mem_free_array, mem_free
 
 #include <stdbool.h> // bool

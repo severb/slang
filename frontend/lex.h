@@ -5,7 +5,7 @@
 
 #define TOKEN(ENUM) ENUM,
 typedef enum {
-#include "frontend/lex_tokens.inc"
+#include "lex_tokens.inc"
 } TokenType;
 #undef TOKEN
 

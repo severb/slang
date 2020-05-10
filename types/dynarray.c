@@ -1,4 +1,4 @@
-#include "types/dynarray.h"
+#include "dynarray.h"
 
 #include "mem.h" // mem_resize_array, mem_free_array
 

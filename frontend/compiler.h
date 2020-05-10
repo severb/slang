@@ -1,7 +1,7 @@
 #ifndef clox_compiler_h
 #define clox_compiler_h
 
-#include "frontend/bytecode.h"
+#include "bytecode.h"
 
 #include <stdbool.h>
 

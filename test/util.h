@@ -1,8 +1,8 @@
 #ifndef SLANG_TEST_UTIL_H
 #define SLANG_TEST_UTIL_H
 
-#include "types/str.h" // string_new
-#include "types/tag.h" // Tag, USER_SYMBOL
+#include "str.h" // string_new
+#include "tag.h" // Tag, USER_SYMBOL
 
 #include <stdlib.h> // size_t, RAND_MAX
 

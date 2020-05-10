@@ -1,11 +1,11 @@
 #ifndef slang_bytecode_h
 #define slang_bytecode_h
 
-#include "types/dynarray.h" // DynamicArray, dynarray_*
-#include "types/list.h"     // List
+#include "dynarray.h" // DynamicArray, dynarray_*
+#include "list.h"     // List
 
-#include <assert.h>   // assert
-#include <stdint.h>   // uint8_t, SIZE_MAX, uint64_t
+#include <assert.h> // assert
+#include <stdint.h> // uint8_t, SIZE_MAX, uint64_t
 
 #define OPCODE(ENUM) ENUM,
 typedef enum {

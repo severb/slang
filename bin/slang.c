@@ -1,6 +1,6 @@
-#include "frontend/bytecode.h" // Chunk, chunk_dissasamble
-#include "frontend/compiler.h" // compile
-#include "mem.h"               // mem_stats
+#include "bytecode.h" // Chunk, chunk_dissasamble
+#include "compiler.h" // compile
+#include "mem.h"      // mem_stats
 
 #include <assert.h> // assert
 #include <stdio.h>  // stderr, fopen, fprintf, fseek, ftell, SEEK_END, SEEK_SET

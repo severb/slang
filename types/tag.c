@@ -1,9 +1,9 @@
-#include "types/tag.h"
+#include "tag.h"
 
-#include "mem.h"         // mem_free
-#include "types/list.h"  // list_*
-#include "types/str.h"   // string_*, slice_*
-#include "types/table.h" // table_*
+#include "list.h"  // list_*
+#include "mem.h"   // mem_free
+#include "str.h"   // string_*, slice_*
+#include "table.h" // table_*
 
 #include <inttypes.h> // PRId*
 #include <stdbool.h>  // bool

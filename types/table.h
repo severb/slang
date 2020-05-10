@@ -1,8 +1,8 @@
 #ifndef slang_table_h
 #define slang_table_h
 
-#include "types/dynarray.h" // dynarray_*
-#include "types/tag.h"      // Tag
+#include "dynarray.h" // dynarray_*
+#include "tag.h"      // Tag
 
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
