@@ -164,6 +164,17 @@ void chunk_disassamble(const Chunk *c) {
   }
 }
 
+static const char *skip_lines(const char *src, size_t lines) {
+  for (; lines > 1; lines--) {
+    for (; *src != '\n' && *src != '\0'; src++) {
+    };
+    if (*src == '\n') {
+      src++;
+    }
+  }
+  return src;
+}
+
 void chunk_disassamble_src(const char *src, const Chunk *c) {
   printf("constants: ");
   list_print(&c->consts);
@@ -173,22 +184,24 @@ void chunk_disassamble_src(const char *src, const Chunk *c) {
   size_t offset = 0;
   while (offset < chunk_len(c)) {
     line += lines_delta(c, line - 1, offset);
-    while (printed_lines < line) {
+    if (printed_lines < line) {
+      // skip empty lines
+      src = skip_lines(src, line - printed_lines);
       printf("\n");
-      printf("%13zu ", printed_lines + 1);
+      printf("%13zu ", line);
       if (*src != '\0') {
         while (*src != '\n' && *src != '\0') {
           putchar(*src);
           src++;
         }
+        putchar('\n');
         if (*src != '\0') {
-          putchar(*src);
           src++;
         }
       } else {
         printf("at end of file\n");
       }
-      printed_lines++;
+      printed_lines = line;
     }
     offset = disassamble_op(c, offset, 0);
   }
