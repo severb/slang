@@ -142,7 +142,7 @@ static bool match(Compiler *c, TokenType type) {
   return false;
 }
 
-static void compile_int(Compiler *c, bool _) {
+static void compile_int(Compiler *c, __attribute__((unused)) bool _) {
   long long i = strtoll(c->prev.start, /*str_end*/ 0, /*base*/ 0);
   if (errno == ERANGE) {
     err_at_prev(c, "integer constant out of range");
@@ -169,7 +169,7 @@ emit : {
 }
 }
 
-static void compile_float(Compiler *c, bool _) {
+static void compile_float(Compiler *c, __attribute__((unused)) bool _) {
   double d = strtod(c->prev.start, 0);
   if (errno == ERANGE) {
     err_at_prev(c, "float constant out of range");
@@ -180,7 +180,7 @@ static void compile_float(Compiler *c, bool _) {
   chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
 }
 
-static void compile_string(Compiler *c, bool _) {
+static void compile_string(Compiler *c, __attribute__((unused)) bool _) {
   // TODO: use a memory pool
   Slice *s = mem_allocate(sizeof(Slice));
   *s = slice(c->prev.start + 1 /*skip 1st quote */,
@@ -189,7 +189,7 @@ static void compile_string(Compiler *c, bool _) {
   chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
 }
 
-static void compile_literal(Compiler *c, bool _) {
+static void compile_literal(Compiler *c, __attribute__((unused)) bool _) {
   TokenType lit = c->prev.type;
   switch (lit) {
   case TOKEN_FALSE:
@@ -349,7 +349,9 @@ static void compile_while_statement(Compiler *c) {
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
 }
 
-static void compile_for_statement(Compiler *c) {}
+static void compile_for_statement(Compiler *c) {
+  (void) c; // TODO: compile for
+}
 
 static void compile_expression_statement(Compiler *c) {
   compile_expression(c);
@@ -429,7 +431,7 @@ static void compile_declaration(Compiler *c) {
   synchronize(c);
 }
 
-static void compile_unary(Compiler *c, bool _) {
+static void compile_unary(Compiler *c, __attribute__((unused)) bool _) {
   Token t = c->prev;
   compile_precedence(c, PREC_UNARY);
   switch (t.type) {
@@ -444,7 +446,7 @@ static void compile_unary(Compiler *c, bool _) {
   }
 }
 
-static void compile_binary(Compiler *c, bool _) {
+static void compile_binary(Compiler *c, __attribute__((unused)) bool _) {
   Token t = c->prev;
   compile_precedence(c, rules[t.type].precedence + 1);
   switch (t.type) {
@@ -514,21 +516,21 @@ static void compile_variable(Compiler *c, bool can_assign) {
   }
 }
 
-static void compile_and(Compiler *c, bool _) {
+static void compile_and(Compiler *c, __attribute__((unused)) bool _) {
   size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
   compile_precedence(c, PREC_AND);
   chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
 }
 
-static void compile_or(Compiler *c, bool _) {
+static void compile_or(Compiler *c, __attribute__((unused)) bool _) {
   size_t jump_if_true = chunk_reserve_unary(c->chunk, c->prev.line);
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
   compile_precedence(c, PREC_OR);
   chunk_patch_unary(c->chunk, jump_if_true, OP_JUMP_IF_TRUE);
 }
 
-static void compile_grouping(Compiler *c, bool _) {
+static void compile_grouping(Compiler *c, __attribute__((unused)) bool _) {
   compile_expression(c);
   consume(c, TOKEN_RIGHT_PAREN, "missing paren after expression");
 }

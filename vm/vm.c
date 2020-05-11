@@ -14,6 +14,8 @@ typedef struct {
 } VM;
 
 InterpretResult interpret(Chunk *chunk, const char *src) {
-  VM vm = {.chunk = chunk, 0};
+  VM vm = (VM){0};
+  vm.chunk = chunk;
+  (void) src;
   return INTERPRET_OK;
 }
