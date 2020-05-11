@@ -29,7 +29,7 @@ void chunk_destroy(Chunk *);
 void chunk_free(Chunk *);
 
 void chunk_disassamble(const Chunk *);
-void chunk_disassamble_src(const char *, const Chunk *);
+void chunk_disassamble_src(const Chunk *c, const char *);
 
 inline size_t chunk_len(const Chunk *c) {
   return dynarray_len(uint8_t)(&c->bytecode);

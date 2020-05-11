@@ -13,11 +13,15 @@ endif()
 
 add_subdirectory(types)
 add_subdirectory(frontend)
+add_subdirectory(vm)
 
 add_library(mem OBJECT mem.c)
 target_include_directories(mem INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_executable(slang bin/slang.c)
-target_link_libraries(slang PUBLIC types)
-target_link_libraries(slang PUBLIC frontend)
-target_link_libraries(slang PUBLIC mem)
+target_link_libraries(slang
+    PUBLIC types
+    PUBLIC frontend
+    PUBLIC mem
+    PUBLIC vm
+)

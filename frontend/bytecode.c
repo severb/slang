@@ -175,7 +175,7 @@ static const char *skip_lines(const char *src, size_t lines) {
   return src;
 }
 
-void chunk_disassamble_src(const char *src, const Chunk *c) {
+void chunk_disassamble_src(const Chunk *c,const char *src) {
   printf("constants: ");
   list_print(&c->consts);
   printf("\n");

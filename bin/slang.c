@@ -1,6 +1,7 @@
 #include "bytecode.h" // Chunk, chunk_dissasamble
 #include "compiler.h" // compile
 #include "mem.h"      // mem_stats
+#include "vm.h"       // interpret
 
 #include <assert.h> // assert
 #include <stdio.h>  // stderr, fopen, fprintf, fseek, ftell, SEEK_END, SEEK_SET
@@ -38,7 +39,8 @@ int main(int argc, char *argv[]) {
     char *src = read_file(argv[1]);
     Chunk c = {0};
     if (compile(src, &c)) {
-      chunk_disassamble_src(src, &c);
+      chunk_disassamble_src(&c, src);
+      interpret(&c, src);
     } else {
       fprintf(stderr, "errors during compilation\n");
     }

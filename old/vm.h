@@ -1,3 +1,4 @@
+/*
 #ifndef clox_vm_h
 #define clox_vm_h
 
@@ -27,3 +28,4 @@ void vm_destroy(VM *);
 InterpretResult interpret(VM *, const char *src);
 
 #endif
+*/
