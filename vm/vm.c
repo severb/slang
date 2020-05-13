@@ -8,14 +8,17 @@
 
 typedef struct {
   Chunk *chunk;
-  size_t ip;
+  uint8_t *ip;
   List stack;
   Table globals;
 } VM;
 
 InterpretResult interpret(Chunk *chunk, const char *src) {
-  VM vm = (VM){0};
-  vm.chunk = chunk;
+  VM vm = (VM) {
+    .chunk = chunk,
+    .ip = dynarray_get(uint8_t)(&chunk->bytecode, 0)
+  };
+  (void) vm;
   (void) src;
   return INTERPRET_OK;
 }

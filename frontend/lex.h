@@ -23,7 +23,7 @@ typedef struct {
 } Token;
 
 inline Lexer lex(char const *c) {
-  return (Lexer){.start = c, .current = c, .line = 0};
+  return (Lexer){.start = c, .current = c};
 }
 void lex_consume(Lexer *, Token *);
 void lex_print(const Lexer *);

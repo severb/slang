@@ -22,7 +22,7 @@ void string_free(String *);
 
 inline Slice slice(const char *start, const char *end) {
   assert(start <= end);
-  return (Slice) { .len = end - start, .hash = 0, .c = start };
+  return (Slice) { .len = end - start, .c = start };
 }
 
 void slice_free(Slice *);

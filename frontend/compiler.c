@@ -536,9 +536,7 @@ static void compile_grouping(Compiler *c, __attribute__((unused)) bool _) {
 }
 
 bool compile(const char *src, Chunk *chunk) {
-  Compiler c = {0};
-  c.chunk = chunk;
-  c.lex = lex(src);
+  Compiler c = {.chunk = chunk, .lex = lex(src)};
   advance(&c);
   while (!match(&c, TOKEN_EOF)) {
     compile_declaration(&c);
