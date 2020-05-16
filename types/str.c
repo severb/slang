@@ -5,7 +5,7 @@
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint64_t, UINT64_C
-#include <stdio.h>   // fprintf, putc
+#include <stdio.h>   // fprintf, fputc, fputs
 #include <string.h>  // memcmp
 
 String *string_new(const char *c, size_t len) {
@@ -31,15 +31,15 @@ static void print(FILE *f, const char *c, size_t len) {
 
 void string_printf(FILE *f, const String *s) { print(f, s->c, s->len); }
 void string_reprf(FILE *f, const String *s) {
-  putc('"', f);
+  fputc('"', f);
   print(f, s->c, s->len);
-  putc('"', f);
+  fputc('"', f);
 }
 void slice_printf(FILE *f, const Slice *s) { print(f, s->c, s->len); }
 void slice_reprf(FILE *f, const Slice *s) {
-  putc('"', f);
+  fputc('"', f);
   print(f, s->c, s->len);
-  putc('"', f);
+  fputs("\"S", f);
 }
 
 static size_t hash(const char *c, size_t len) {

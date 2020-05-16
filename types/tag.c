@@ -6,10 +6,11 @@
 #include "table.h" // table_*
 
 #include <inttypes.h> // PRId*
+#include <limits.h>   // INT32_MAX, INT32_MIN
 #include <stdbool.h>  // bool
 #include <stddef.h>   // size_t, max_align_t
 #include <stdint.h>   // uint*_t, int*_t, uintptr_t, UINT64_C
-#include <stdio.h>    // printf
+#include <stdio.h>    // fprintf, FILE, fputc
 
 void tag_free(Tag t) {
   if (!tag_is_own(t)) {
@@ -27,6 +28,7 @@ void tag_free(Tag t) {
     break;
   case TYPE_I64:
     mem_free(tag_to_i64(t), sizeof(uint64_t));
+    break;
   case TYPE_ERROR: {
     Tag *error = tag_to_error(t);
     t = *error;
@@ -60,6 +62,9 @@ static void print(FILE *f, Tag t, bool is_repr) {
     break;
   case TYPE_I64:
     fprintf(f, "%" PRId64, *tag_to_i64(t));
+    if (is_repr) {
+      fputc('L', f);
+    }
     break;
   case TYPE_ERROR:
     fputs("error: ", f);
@@ -76,7 +81,8 @@ static void print(FILE *f, Tag t, bool is_repr) {
     if (tag_to_pair_ua(t) == 0) {
       fprintf(f, "%" PRId32, tag_to_pair_b(t));
     } else {
-      fprintf(f, "(%" PRId16 ", %" PRId32 ")", tag_to_pair_a(t), tag_to_pair_b(t));
+      fprintf(f, "(%" PRId16 ", %" PRId32 ")", tag_to_pair_a(t),
+              tag_to_pair_b(t));
     }
     break;
   case TYPE_DOUBLE:
@@ -93,6 +99,9 @@ static void print(FILE *f, Tag t, bool is_repr) {
   }
   default:
     assert(0 && "tag print called on unknown tag type");
+  }
+  if (is_repr && tag_is_ptr(t)) {
+    fputc(tag_is_own(t) ? 'O' : 'R', f);
   }
 }
 
@@ -223,18 +232,48 @@ bool tag_eq(Tag a, Tag b) {
   }
 }
 
-static char error_add[] = "cannot add these types";
 Tag tag_add(Tag left, Tag right) {
-  if (tag_is_pair(left) && tag_is_pair(right)) {
-    int32_t l = tag_to_pair_b(left);
-    int32_t r = tag_to_pair_b(right);
-    return pair_to_tag(0, l + r);
+  int64_t sum;
+  switch (tag_type(left)) {
+  case TYPE_PAIR:
+    switch (tag_type(right)) {
+    case TYPE_PAIR:
+      sum = (int64_t)tag_to_pair_b(left) + (int64_t)tag_to_pair_b(right);
+      break;
+    case TYPE_I64:
+      sum = (int64_t)tag_to_pair_b(left) + *tag_to_i64(right);
+      break;
+    case TYPE_DOUBLE:
+      return double_to_tag((double)tag_to_pair_b(left) + tag_to_double(right));
+    default:
+      goto error;
+    }
+    break;
+  default:
+    goto error;
   }
-  String *s = string_new(error_add, sizeof(error_add) / sizeof(error_add[0]));
-  Tag *t = mem_allocate(sizeof(Tag));
-  *t = string_to_tag(s);
-  return error_to_tag(t);
+  if ((int64_t)INT32_MIN <= sum && sum <= (int64_t)INT32_MAX) {
+    return pair_to_tag(0, sum);
+  }
+  int64_t *result = mem_allocate(sizeof(int64_t));
+  *result = sum;
+  return i64_to_tag(result);
+error : {
+  char buf[64];
+  const char *left_type = tag_type_str(tag_type(left));
+  const char *right_type = tag_type_str(tag_type(right));
+  int len = snprintf(&buf[0], sizeof(buf) / sizeof(buf[0]),
+                     "cannot add %s to %s", left_type, right_type);
+  String *s = string_new(buf, len);
+  Tag *error = mem_allocate(sizeof(Tag));
+  *error = string_to_tag(s);
+  return error_to_tag(error);
 }
+}
+
+const char *tag_type_names[] = {"String",  "Table",  "List", "Integer",
+                                "Integer", "Symbol", "",     "",
+                                "Error",   "String", "Float"};
 
 extern inline bool tag_biteq(Tag, Tag);
 extern inline bool tag_is_ptr(Tag);
@@ -284,6 +323,7 @@ extern inline Tag double_to_tag(double);
 extern inline double tag_to_double(Tag);
 
 extern inline TagType tag_type(Tag);
+extern inline const char *tag_type_str(TagType);
 
 extern inline void tag_print(Tag);
 extern inline void tag_repr(Tag);

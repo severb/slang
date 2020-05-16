@@ -63,7 +63,11 @@ static bool run(VM *vm) {
     }
     case OP_GET_CONSTANT: {
       size_t idx = chunk_read_operator(vm->chunk, &vm->ip);
-      push(vm, chunk_get_const(vm->chunk, idx));
+      Tag constant = chunk_get_const(vm->chunk, idx);
+      if (tag_is_ptr(constant)) {
+        constant = tag_to_ref(constant);
+      }
+      push(vm, constant);
       break;
     }
     case OP_PRINT:

@@ -151,7 +151,7 @@ size_t chunk_lines_delta(const Chunk *c, size_t l, size_t new_offset) {
     return 0;
   }
   size_t delta = 0;
-  while (offset >= *dynarray_get(size_t)(&c->lines, l + delta)) {
+  while (new_offset >= *dynarray_get(size_t)(&c->lines, l + delta)) {
     delta++;
   }
   return delta;

@@ -216,6 +216,7 @@ inline Slice *tag_to_slice(Tag t) {
   }){.f = VAL}                                                                 \
       .t
 
+// TODO: replace the pair with a 48bit integer
 #define PAIR_DISCRIMINANT BYTES(ff, f4, 00, 00, 00, 00, 00, 00)
 inline bool tag_is_pair(Tag t) {
   return ((t.u & DISCRIMINANT_MASK) == PAIR_DISCRIMINANT);
@@ -302,6 +303,9 @@ inline TagType tag_type(Tag t) {
   uint64_t b = (t.u & BYTES(80, 00, 00, 00, 00, 00, 00, 00)) >> 61;
   return (int)(a | b);
 }
+
+extern const char *tag_type_names[];
+inline const char *tag_type_str(TagType tt) { return tag_type_names[tt]; }
 
 void tag_free(Tag);
 void tag_printf(FILE *, Tag);
