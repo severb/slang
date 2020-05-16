@@ -4,6 +4,7 @@
 #include <assert.h>  // assert
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
+#include <stdio.h>   // FILE
 
 typedef struct String {
   size_t len;
@@ -22,15 +23,20 @@ void string_free(String *);
 
 inline Slice slice(const char *start, const char *end) {
   assert(start <= end);
-  return (Slice) { .len = end - start, .c = start };
+  return (Slice){.len = end - start, .c = start};
 }
 
 void slice_free(Slice *);
 
-void string_print(const String *);
-void string_repr(const String *);
-void slice_print(const Slice *);
-void slice_repr(const Slice *);
+void string_printf(FILE *, const String *);
+void string_reprf(FILE *, const String *);
+void slice_printf(FILE *, const Slice *);
+void slice_reprf(FILE *, const Slice *);
+
+inline void string_print(const String *s) { string_printf(stdout, s); }
+inline void string_repr(const String *s) { string_reprf(stdout, s); }
+inline void slice_print(const Slice *s) { slice_printf(stdout, s); }
+inline void slice_repr(const Slice *s) { slice_reprf(stdout, s); }
 
 inline size_t string_len(const String *s) { return s->len; }
 inline size_t slice_len(const Slice *s) { return s->len; }

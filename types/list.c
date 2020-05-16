@@ -4,7 +4,7 @@
 #include "mem.h"      // mem_free
 #include "tag.h"      // Tag, tag_free
 
-#include <stdio.h> // putchar, printf
+#include <stdio.h> // FILE, putc, fprintf, fputs
 
 dynarray_define(Tag);
 
@@ -32,16 +32,16 @@ void list_destroy(List *l) {
   dynarray_destroy(Tag)(&l->array);
 }
 
-void list_print(const List *l) {
-  putchar('[');
+void list_printf(FILE *f, const List *l) {
+  putc('[', f);
   size_t len = list_len(l);
   for (size_t i = 0; i < len; i++) {
-    tag_repr(*list_get(l, i));
+    tag_reprf(f, *list_get(l, i));
     if (i + 1 < len) {
-      printf(", ");
+      fputs(", ", f);
     }
   }
-  putchar(']');
+  putc(']', f);
 }
 
 extern inline size_t list_len(const List *);
@@ -56,3 +56,5 @@ extern inline bool list_lastbool(const List *, Tag *);
 
 extern inline size_t list_append(List *, Tag);
 extern inline bool list_find(const List *, Tag, size_t *);
+
+extern inline void list_print(const List *);

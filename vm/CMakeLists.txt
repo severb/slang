@@ -1,4 +1,4 @@
-add_library(vm OBJECT vm.c)
+add_library(vm vm.c)
 
 target_link_libraries(vm
     PRIVATE types

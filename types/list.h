@@ -7,6 +7,7 @@
 #include <assert.h>  // assert
 #include <stdbool.h> // bool, true, false
 #include <stddef.h>  // size_t
+#include <stdio.h>   // FILE
 
 dynarray_declare(Tag);
 
@@ -17,7 +18,8 @@ typedef struct List {
 bool list_eq(const List *, const List *);
 void list_destroy(List *);
 void list_free(List *);
-void list_print(const List *);
+void list_printf(FILE *, const List *);
+inline void list_print(const List *l) { list_printf(stdout, l); }
 
 inline size_t list_len(const List *l) { return dynarray_len(Tag)(&l->array); }
 

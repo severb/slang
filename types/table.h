@@ -7,6 +7,7 @@
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint64_t
+#include <stdio.h>   // FILE
 
 typedef struct Entry {
   Tag key;
@@ -22,7 +23,8 @@ typedef struct Table {
 bool table_eq(const Table *, const Table *);
 void table_destroy(Table *);
 void table_free(Table *);
-void table_print(const Table *);
+void table_printf(FILE *, const Table *);
+inline void table_print(const Table *t) { table_printf(stdout, t); }
 size_t table_set(Table *, Tag key, Tag val);
 bool table_get(const Table *, Tag key, Tag *val);
 bool table_del(Table *, Tag);

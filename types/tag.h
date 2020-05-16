@@ -6,6 +6,7 @@
 #include <stdbool.h> // bool
 #include <stddef.h>  // max_align_t, size_t
 #include <stdint.h>  // *int16_t, *int32_t, *int64_t, UINT64_C, uintptr_t
+#include <stdio.h>   // FILE
 
 // A Tag is a discriminated union of all known Slang types.
 //
@@ -303,8 +304,10 @@ inline TagType tag_type(Tag t) {
 }
 
 void tag_free(Tag);
-void tag_print(Tag);
-void tag_repr(Tag);
+void tag_printf(FILE *, Tag);
+inline void tag_print(Tag t) { tag_printf(stdout, t); }
+void tag_reprf(FILE *, Tag);
+inline void tag_repr(Tag t) { tag_reprf(stdout, t); }
 size_t tag_hash(Tag);
 bool tag_is_true(Tag);
 bool tag_eq(Tag, Tag);

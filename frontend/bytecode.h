@@ -2,7 +2,8 @@
 #define slang_bytecode_h
 
 #include "dynarray.h" // DynamicArray, dynarray_*
-#include "list.h"     // List
+#include "list.h"     // List, list_
+#include "tag.h"      // Tag
 
 #include <assert.h> // assert
 #include <stdint.h> // uint8_t, SIZE_MAX, uint64_t
@@ -24,9 +25,13 @@ void chunk_write_unary(Chunk *, size_t line, uint8_t op, uint64_t operand);
 size_t chunk_reserve_unary(Chunk *, size_t line);
 void chunk_patch_unary(Chunk *, size_t bookmark, uint8_t op);
 size_t chunk_record_const(Chunk *, Tag);
+inline Tag chunk_get_const(const Chunk *c, size_t idx) {
+  return *list_get(&c->consts, idx);
+}
 void chunk_seal(Chunk *);
 void chunk_destroy(Chunk *);
 void chunk_free(Chunk *);
+size_t chunk_lines_delta(const Chunk *, size_t current_line, size_t offset);
 
 void chunk_disassamble(const Chunk *);
 void chunk_disassamble_src(const Chunk *c, const char *);

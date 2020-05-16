@@ -43,51 +43,51 @@ void tag_free(Tag t) {
 }
 
 static const char *symbols[] = {"<false>", "<true>", "<nil>", "<ok>"};
-static void print(Tag t, bool is_repr) {
+static void print(FILE *f, Tag t, bool is_repr) {
   switch (tag_type(t)) {
   case TYPE_STRING:
     if (is_repr) {
-      string_repr(tag_to_string(t));
+      string_reprf(f, tag_to_string(t));
     } else {
-      string_print(tag_to_string(t));
+      string_printf(f, tag_to_string(t));
     }
     break;
   case TYPE_TABLE:
-    table_print(tag_to_table(t));
+    table_printf(f, tag_to_table(t));
     break;
   case TYPE_LIST:
-    list_print(tag_to_list(t));
+    list_printf(f, tag_to_list(t));
     break;
   case TYPE_I64:
-    printf("%" PRId64, *tag_to_i64(t));
+    fprintf(f, "%" PRId64, *tag_to_i64(t));
     break;
   case TYPE_ERROR:
-    puts("error: ");
-    print(*tag_to_error(t), true);
+    fputs("error: ", f);
+    print(f, *tag_to_error(t), is_repr);
     break;
   case TYPE_SLICE:
     if (is_repr) {
-      slice_repr(tag_to_slice(t));
+      slice_reprf(f, tag_to_slice(t));
     } else {
-      slice_print(tag_to_slice(t));
+      slice_printf(f, tag_to_slice(t));
     }
     break;
   case TYPE_PAIR:
     if (tag_to_pair_ua(t) == 0) {
-      printf("%" PRId32, tag_to_pair_b(t));
+      fprintf(f, "%" PRId32, tag_to_pair_b(t));
     } else {
-      printf("(%" PRId16 ", %" PRId32 ")", tag_to_pair_a(t), tag_to_pair_b(t));
+      fprintf(f, "(%" PRId16 ", %" PRId32 ")", tag_to_pair_a(t), tag_to_pair_b(t));
     }
     break;
   case TYPE_DOUBLE:
-    printf("%f", tag_to_double(t));
+    fprintf(f, "%f", tag_to_double(t));
     break;
   case TYPE_SYMBOL: {
     Symbol s = tag_to_symbol(t);
     if (s >= SYM__COUNT) {
-      printf("<symbol: %d>", s);
+      fprintf(f, "<symbol: %d>", s);
     } else {
-      puts(symbols[s]);
+      fputs(symbols[s], f);
     }
     break;
   }
@@ -96,8 +96,8 @@ static void print(Tag t, bool is_repr) {
   }
 }
 
-void tag_print(Tag t) { print(t, false); }
-void tag_repr(Tag t) { print(t, true); }
+void tag_printf(FILE *f, Tag t) { print(f, t, false); }
+void tag_reprf(FILE *f, Tag t) { print(f, t, true); }
 
 static size_t int_hash(uint64_t i) { return i * 13 + 37; }
 
@@ -223,7 +223,18 @@ bool tag_eq(Tag a, Tag b) {
   }
 }
 
-Tag tag_add(Tag a, Tag b) { return a; }
+static char error_add[] = "cannot add these types";
+Tag tag_add(Tag left, Tag right) {
+  if (tag_is_pair(left) && tag_is_pair(right)) {
+    int32_t l = tag_to_pair_b(left);
+    int32_t r = tag_to_pair_b(right);
+    return pair_to_tag(0, l + r);
+  }
+  String *s = string_new(error_add, sizeof(error_add) / sizeof(error_add[0]));
+  Tag *t = mem_allocate(sizeof(Tag));
+  *t = string_to_tag(s);
+  return error_to_tag(t);
+}
 
 extern inline bool tag_biteq(Tag, Tag);
 extern inline bool tag_is_ptr(Tag);
@@ -273,3 +284,6 @@ extern inline Tag double_to_tag(double);
 extern inline double tag_to_double(Tag);
 
 extern inline TagType tag_type(Tag);
+
+extern inline void tag_print(Tag);
+extern inline void tag_repr(Tag);

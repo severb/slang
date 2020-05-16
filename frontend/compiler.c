@@ -1,10 +1,11 @@
 #include "compiler.h"
 
-#include "lex.h"  // Lexer, lex_consume
-#include "list.h" // List, list_*
-#include "mem.h"  // mem_allocate
-#include "str.h"  // Slice, slice
-#include "tag.h"  // Tag, *_to_tag, tag_to_*
+#include "bytecode.h" // Chunk
+#include "lex.h"      // Lexer, lex_consume
+#include "list.h"     // List, list_*
+#include "mem.h"      // mem_allocate
+#include "str.h"      // Slice, slice
+#include "tag.h"      // Tag, *_to_tag, tag_to_*
 
 #include <errno.h>   // errno
 #include <stdbool.h> // bool, true, false
@@ -57,7 +58,7 @@ static void compiler_destroy(Compiler *c) {
 }
 
 static void error_print(const Token *t, const char *msg) {
-  fprintf(stderr, "[line %zu] Error", t->line);
+  fprintf(stderr, "[line %zu] error", t->line);
   switch (t->type) {
   case TOKEN_EOF:
     fprintf(stderr, " at end of file: ");
@@ -320,6 +321,7 @@ start:
     goto start;
   }
   consume(c, TOKEN_SEMICOLON, "semicolon missing after print");
+  chunk_write_operation(c->chunk, c->prev.line, OP_PRINT_NL);
 }
 
 static void compile_if_statement(Compiler *c) {
@@ -350,7 +352,7 @@ static void compile_while_statement(Compiler *c) {
 }
 
 static void compile_for_statement(Compiler *c) {
-  (void) c; // TODO: compile for
+  (void)c; // TODO: compile for
 }
 
 static void compile_expression_statement(Compiler *c) {

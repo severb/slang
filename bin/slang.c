@@ -33,6 +33,7 @@ static char *read_file(const char *path) {
 }
 
 int main(int argc, char *argv[]) {
+  bool success = false;
   if (argc == 1) {
     // repl();
   } else if (argc == 2) {
@@ -40,9 +41,7 @@ int main(int argc, char *argv[]) {
     Chunk c = {0};
     if (compile(src, &c)) {
       chunk_disassamble_src(&c, src);
-      interpret(&c, src);
-    } else {
-      fprintf(stderr, "errors during compilation\n");
+      success = interpret(&c);
     }
     chunk_destroy(&c);
     free(src);
@@ -53,5 +52,10 @@ int main(int argc, char *argv[]) {
 #ifdef SLANG_DEBUG
   assert(mem_stats().bytes == 0 && "unfreed memory");
 #endif
+
+  if (!success) {
+    exit(1);
+  }
+
   return EXIT_SUCCESS;
 }

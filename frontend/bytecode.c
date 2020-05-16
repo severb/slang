@@ -141,7 +141,7 @@ static size_t disassamble_op(const Chunk *chunk, size_t offset, size_t line) {
   return offset;
 }
 
-static size_t lines_delta(const Chunk *c, size_t l, size_t new_offset) {
+size_t chunk_lines_delta(const Chunk *c, size_t l, size_t new_offset) {
   size_t offset = *dynarray_get(size_t)(&c->lines, l);
   if (offset > new_offset) {
     return 0;
@@ -158,7 +158,7 @@ void chunk_disassamble(const Chunk *c) {
   size_t line = 1;
   size_t offset = 0;
   while (offset < chunk_len(c)) {
-    line += lines_delta(c, line - 1, offset);
+    line += chunk_lines_delta(c, line - 1, offset);
     offset = disassamble_op(c, offset, last_line != line ? line : 0);
     last_line = line;
   }
@@ -183,7 +183,7 @@ void chunk_disassamble_src(const Chunk *c,const char *src) {
   size_t line = 1;
   size_t offset = 0;
   while (offset < chunk_len(c)) {
-    line += lines_delta(c, line - 1, offset);
+    line += chunk_lines_delta(c, line - 1, offset);
     if (printed_lines < line) {
       // skip empty lines
       src = skip_lines(src, line - printed_lines);
@@ -208,4 +208,6 @@ void chunk_disassamble_src(const Chunk *c,const char *src) {
 }
 
 extern inline size_t chunk_len(const Chunk *);
+extern uint8_t chunk_read_opcode(const Chunk *, size_t);
 extern uint64_t chunk_read_operator(const Chunk *, size_t *);
+extern inline Tag chunk_get_const(const Chunk *, size_t);

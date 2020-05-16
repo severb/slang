@@ -6,7 +6,7 @@
 
 #include <stdbool.h> // bool, true, false
 #include <stddef.h>  // size_t
-#include <stdio.h>   // putchar, printf
+#include <stdio.h>   // FILE, putc, fprintf
 
 dynarray_define(Entry);
 
@@ -213,9 +213,9 @@ void table_free(Table *t) {
   mem_free(t, sizeof(Table));
 }
 
-void table_print(const Table *t) {
+void table_printf(FILE *f, const Table *t) {
   assert(t->real_len < dynarray_cap(Entry)(&t->array) || t->real_len == 0);
-  putchar('{');
+  putc('{', f);
   size_t remaining = t->real_len;
   for (size_t i = 0; remaining; i++) {
     Entry *entry = dynarray_get(Entry)(&t->array, i);
@@ -223,14 +223,14 @@ void table_print(const Table *t) {
       continue;
     }
     remaining--;
-    tag_print(entry->key);
-    printf(": ");
-    tag_print(entry->val);
+    tag_printf(f, entry->key);
+    fputs(": ", f);
+    tag_printf(f, entry->val);
     if (remaining > 0) {
-      printf(", ");
+      fputs(", ", f);
     }
   }
-  putchar('}');
+  putc('}', f);
 }
 
 bool table_eq(const Table *a, const Table *b) {
@@ -258,6 +258,7 @@ bool table_eq(const Table *a, const Table *b) {
 }
 
 extern inline size_t table_len(const Table *);
+extern inline void table_print(const Table *);
 
 #undef TOMBSTONE_KEY
 #undef EMPTY_KEY

@@ -5,7 +5,7 @@
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint64_t, UINT64_C
-#include <stdio.h>   // printf
+#include <stdio.h>   // fprintf, putc
 #include <string.h>  // memcmp
 
 String *string_new(const char *c, size_t len) {
@@ -24,22 +24,22 @@ void string_free(String *s) {
 
 void slice_free(Slice *s) { mem_free(s, sizeof(Slice)); }
 
-static void print(const char *c, size_t len) {
+static void print(FILE *f, const char *c, size_t len) {
   // TODO: fix cast to int
-  printf("%.*s", (int)len, c);
+  fprintf(f, "%.*s", (int)len, c);
 }
 
-void string_print(const String *s) { print(s->c, s->len); }
-void string_repr(const String *s) {
-  putchar('"');
-  print(s->c, s->len);
-  putchar('"');
+void string_printf(FILE *f, const String *s) { print(f, s->c, s->len); }
+void string_reprf(FILE *f, const String *s) {
+  putc('"', f);
+  print(f, s->c, s->len);
+  putc('"', f);
 }
-void slice_print(const Slice *s) { print(s->c, s->len); }
-void slice_repr(const Slice *s) {
-  putchar('"');
-  print(s->c, s->len);
-  putchar('"');
+void slice_printf(FILE *f, const Slice *s) { print(f, s->c, s->len); }
+void slice_reprf(FILE *f, const Slice *s) {
+  putc('"', f);
+  print(f, s->c, s->len);
+  putc('"', f);
 }
 
 static size_t hash(const char *c, size_t len) {
@@ -78,3 +78,8 @@ bool slice_eq_slice(const Slice *a, const Slice *b) { STR_EQ_STR; }
 extern inline size_t string_len(const String *);
 extern inline size_t slice_len(const Slice *);
 extern inline Slice slice(const char *start, const char *end);
+
+extern inline void string_print(const String *);
+extern inline void string_repr(const String *);
+extern inline void slice_print(const Slice *);
+extern inline void slice_repr(const Slice *);
