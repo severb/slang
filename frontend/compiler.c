@@ -239,7 +239,7 @@ static List *top_uninitialized_list(Compiler *c) {
 
 static void declare_local(Compiler *c, Tag var) {
   List *top_scope = top_scope_list(c);
-  if (list_find(top_scope, var, 0)) {
+  if (list_find_from(top_scope, var, 0)) {
     err_at_prev(c, "variable already defined");
     return;
   }
@@ -250,21 +250,20 @@ static void declare_local(Compiler *c, Tag var) {
 
 static void initialize_local(Compiler *c, Tag var) {
   List *top_uninitialized = top_uninitialized_list(c);
-  size_t idx;
-  bool found = list_find(top_uninitialized, var, &idx);
+  size_t idx = 0;
+  bool found = list_find_from(top_uninitialized, var, &idx);
   assert(found && "cannot initialize an undefined variable");
   // replace the initialized var with the last uninitialized
-  Tag last = *list_last(top_uninitialized);
+  Tag last = list_pop(top_uninitialized);
   if (idx < list_len(top_uninitialized)) {
     *list_get(top_uninitialized, idx) = last;
-  } else {
-    tag_free(last);
   }
+  // NB: no need to free tags, uninitialized list contains only references
 }
 
 static bool resolve_local(Compiler *c, Tag var, size_t *idx) {
   List *top_uninitialized = top_uninitialized_list(c);
-  if (list_find(top_uninitialized, var, 0)) {
+  if (list_find_from(top_uninitialized, var, 0)) {
     err_at_prev(c, "local variable used in its own initializer");
     return false;
   }
@@ -274,7 +273,8 @@ static bool resolve_local(Compiler *c, Tag var, size_t *idx) {
     size_t ii = i - 1;
     Tag scope_val = *list_get(&c->scopes, ii);
     List *scope_list = tag_to_list(scope_val);
-    if (list_find(scope_list, var, idx)) {
+    *idx = 0;
+    if (list_find_from(scope_list, var, idx)) {
       for (size_t j = ii; j > 0; j--) {
         size_t jj = j - 1;
         Tag parent_scope_val = *list_get(&c->scopes, jj);

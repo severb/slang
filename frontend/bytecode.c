@@ -68,8 +68,12 @@ void chunk_patch_unary(Chunk *c, size_t bookmark, uint8_t op) {
 
 size_t chunk_record_const(Chunk *c, Tag t) {
   size_t idx = 0;
-  if (list_find(&c->consts, t, &idx)) {
-    return idx;
+  if (list_find_from(&c->consts, t, &idx)) {
+    // prevent converting float literals to int literals
+    if (tag_type(t) == tag_type(*list_get(&c->consts, idx))) {
+      return idx;
+    }
+    idx++;
   }
   // TODO: out of memory check
   return list_append(&c->consts, t) - 1;

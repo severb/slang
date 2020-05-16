@@ -72,8 +72,8 @@ inline size_t list_append(List *l, Tag t) {
   return dynarray_append(Tag)(&l->array, &t);
 }
 
-inline bool list_find(const List *l, Tag needle, size_t *idx) {
-  for (size_t i = 0; i < list_len(l); i++) {
+inline bool list_find_from(const List *l, Tag needle, size_t *idx) {
+  for (size_t i = idx ? *idx : 0; i < list_len(l); i++) {
     Tag ith_tag = *list_get(l, i);
     if (tag_eq(ith_tag, needle)) {
       if (idx) {

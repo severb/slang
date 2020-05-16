@@ -55,6 +55,6 @@ extern inline Tag *list_last(const List *);
 extern inline bool list_lastbool(const List *, Tag *);
 
 extern inline size_t list_append(List *, Tag);
-extern inline bool list_find(const List *, Tag, size_t *);
+extern inline bool list_find_from(const List *, Tag, size_t *);
 
 extern inline void list_print(const List *);
