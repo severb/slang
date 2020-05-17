@@ -356,5 +356,7 @@ Tag tag_add(Tag, Tag);
 #undef SLICE_DISCRIMINANT
 #undef PAIR_DISCRIMINANT
 #undef SYMBOL_DISCRIMINANT
+#undef I48_DISCRIMINANT
+#undef I48_SIGN
 
 #endif
