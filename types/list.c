@@ -4,7 +4,7 @@
 #include "mem.h"      // mem_free
 #include "tag.h"      // Tag, tag_free
 
-#include <stdio.h> // FILE, putc, fprintf, fputs
+#include <stdio.h> // FILE, fputc, fprintf, fputs
 
 dynarray_define(Tag);
 
@@ -33,7 +33,7 @@ void list_destroy(List *l) {
 }
 
 void list_printf(FILE *f, const List *l) {
-  putc('[', f);
+  fputc('[', f);
   size_t len = list_len(l);
   for (size_t i = 0; i < len; i++) {
     tag_reprf(f, *list_get(l, i));
@@ -41,7 +41,7 @@ void list_printf(FILE *f, const List *l) {
       fputs(", ", f);
     }
   }
-  putc(']', f);
+  fputc(']', f);
 }
 
 extern inline size_t list_len(const List *);

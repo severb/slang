@@ -4,12 +4,11 @@
 #include "dynarray.h" // dynarray_get
 #include "list.h"     // List, list_*
 #include "table.h"    // Table
-#include "tag.h"
+#include "tag.h"      // Tag, tag_*
 
-#include <stdarg.h> // va_list, va_start, va_end
 #include <stddef.h> // ptrdiff_t
 #include <stdint.h> // uint8_t
-#include <stdio.h>  // vfprintf, stderr, fputs
+#include <stdio.h>  // stderr, stdout, fputc, putchar
 
 typedef struct {
   const Chunk *chunk;
@@ -28,7 +27,7 @@ static void print_runtime_error(VM *vm, Tag error) {
   size_t line = chunk_lines_delta(vm->chunk, 0, vm->ip);
   fprintf(stderr, "[line %zu] runtime ", line + 1);
   tag_printf(stderr, error);
-  fputs("\n", stderr);
+  fputc('\n', stderr);
 }
 
 static inline void push(VM *vm, Tag t) { list_append(&vm->stack, t); }

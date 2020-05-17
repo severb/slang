@@ -9,7 +9,7 @@
 #include <inttypes.h> // PRI*
 #include <stddef.h>   // size_t
 #include <stdint.h>   // uint*_t, SIZE_MAX
-#include <stdio.h>    // printf, putchar
+#include <stdio.h>    // printf, putchar, puts
 
 static void write_byte(Chunk *c, size_t line, uint8_t op) {
   // TODO: out of memory checks
@@ -125,7 +125,7 @@ static size_t disassamble_op(const Chunk *chunk, size_t offset, size_t line) {
     uint64_t const_idx = chunk_read_operator(chunk, &offset);
     printf("%-16s %6" PRIu64 " (", name, const_idx);
     tag_repr(*list_get(&chunk->consts, const_idx));
-    printf(")\n");
+    puts(")");
     break;
   }
   case OP_SET_LOCAL:
@@ -191,8 +191,7 @@ void chunk_disassamble_src(const Chunk *c,const char *src) {
     if (printed_lines < line) {
       // skip empty lines
       src = skip_lines(src, line - printed_lines);
-      printf("\n");
-      printf("%13zu ", line);
+      printf("\n%13zu ", line);
       if (*src != '\0') {
         while (*src != '\n' && *src != '\0') {
           putchar(*src);
@@ -203,7 +202,7 @@ void chunk_disassamble_src(const Chunk *c,const char *src) {
           src++;
         }
       } else {
-        printf("at end of file\n");
+        puts("at end of file");
       }
       printed_lines = line;
     }

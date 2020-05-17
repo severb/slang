@@ -104,7 +104,8 @@ static void print(FILE *f, Tag t, bool is_repr) {
     assert(0 && "tag print called on unknown tag type");
   }
   if (is_repr && tag_is_ptr(t)) {
-    fputc(tag_is_own(t) ? 'O' : 'R', f);
+    char ownership_flag = tag_is_own(t) ? 'O' : 'R';
+    fputc(ownership_flag, f);
   }
 }
 

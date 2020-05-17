@@ -6,7 +6,7 @@
 
 #include <stdbool.h> // bool, true, false
 #include <stddef.h>  // size_t
-#include <stdio.h>   // FILE, putc, fprintf
+#include <stdio.h>   // FILE, fputc, fputs, putchar
 
 dynarray_define(Entry);
 
@@ -215,7 +215,7 @@ void table_free(Table *t) {
 
 void table_printf(FILE *f, const Table *t) {
   assert(t->real_len < dynarray_cap(Entry)(&t->array) || t->real_len == 0);
-  putc('{', f);
+  fputc('{', f);
   size_t remaining = t->real_len;
   for (size_t i = 0; remaining; i++) {
     Entry *entry = dynarray_get(Entry)(&t->array, i);
@@ -230,7 +230,7 @@ void table_printf(FILE *f, const Table *t) {
       fputs(", ", f);
     }
   }
-  putc('}', f);
+  fputc('}', f);
 }
 
 bool table_eq(const Table *a, const Table *b) {
