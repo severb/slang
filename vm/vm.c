@@ -33,16 +33,12 @@ static void print_runtime_error(VM *vm, Tag error) {
 
 static inline void push(VM *vm, Tag t) { list_append(&vm->stack, t); }
 static inline Tag pop(VM *vm) { return list_pop(&vm->stack); }
+static inline Tag top(VM *vm) { return *list_last(&vm->stack); }
 static inline Tag peek(VM *vm, size_t dist) {
   assert(list_len(&vm->stack) > dist);
   return *list_get(&vm->stack, list_len(&vm->stack) - dist - 1);
 }
-static inline Tag top(VM *vm) { return peek(vm, 0); }
-static inline void pop_push(VM *vm, Tag t) { *list_last(&vm->stack) = t; }
-static inline void pop_pop_push(VM *vm, Tag t) {
-  list_pop(&vm->stack);
-  pop_push(vm, t);
-}
+static inline void replace_top(VM *vm, Tag t) { *list_last(&vm->stack) = t; }
 
 static bool run(VM *vm) {
   for (;;) {
@@ -50,15 +46,15 @@ static bool run(VM *vm) {
     vm->ip++;
     switch (opcode) {
     case OP_ADD: {
-      Tag right = top(vm);
-      Tag left = peek(vm, 1);
+      Tag right = pop(vm);
+      Tag left = top(vm);
       Tag result = tag_add(left, right);
       if (tag_is_error(result)) {
         print_runtime_error(vm, result);
         tag_free(result);
         return false;
       }
-      pop_pop_push(vm, result);
+      replace_top(vm, result);
       break;
     }
     case OP_GET_CONSTANT: {

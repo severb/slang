@@ -233,7 +233,10 @@ bool tag_eq(Tag a, Tag b) {
 }
 
 Tag tag_add(Tag left, Tag right) {
-  int64_t sum;
+  // TODO: if the left str is an owned string, expand it instead
+  // TODO: reuse owned i64s when possible
+  // TODO: free owned objects
+   int64_t sum;
   switch (tag_type(left)) {
   case TYPE_PAIR:
     switch (tag_type(right)) {
@@ -245,6 +248,54 @@ Tag tag_add(Tag left, Tag right) {
       break;
     case TYPE_DOUBLE:
       return double_to_tag((double)tag_to_pair_b(left) + tag_to_double(right));
+    default:
+      goto error;
+    }
+    break;
+  case TYPE_I64:
+    switch (tag_type(right)) {
+    case TYPE_PAIR:
+      sum = *tag_to_i64(left) + (int64_t)tag_to_pair_b(right);
+      break;
+    case TYPE_I64:
+      sum = *tag_to_i64(left) + *tag_to_i64(right);
+      break;
+    case TYPE_DOUBLE:
+      return double_to_tag((double)*tag_to_i64(left) + tag_to_double(right));
+    default:
+      goto error;
+    }
+  case TYPE_DOUBLE:
+    switch (tag_type(right)) {
+    case TYPE_PAIR:
+      return double_to_tag(tag_to_double(left) + (double)tag_to_pair_b(right));
+    case TYPE_I64:
+      return double_to_tag(tag_to_double(left) + (double)*tag_to_i64(right));
+    case TYPE_DOUBLE:
+      return double_to_tag(tag_to_double(left) + tag_to_double(right));
+    default:
+      goto error;
+    }
+  case TYPE_SLICE:
+    switch (tag_type(right)) {
+    case TYPE_SLICE:
+      return string_to_tag(
+          slice_concat_slice(tag_to_slice(left), tag_to_slice(right)));
+    case TYPE_STRING:
+      return string_to_tag(
+          slice_concat_string(tag_to_slice(left), tag_to_string(right)));
+    default:
+      goto error;
+    }
+    break;
+ case TYPE_STRING:
+    switch (tag_type(right)) {
+    case TYPE_SLICE:
+      return string_to_tag(
+          string_concat_slice(tag_to_string(left), tag_to_slice(right)));
+    case TYPE_STRING:
+      return string_to_tag(
+          string_concat_string(tag_to_string(left), tag_to_string(right)));
     default:
       goto error;
     }

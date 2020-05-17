@@ -48,4 +48,18 @@ bool string_eq_string(const String *, const String *);
 bool string_eq_slice(const String *, const Slice *);
 bool slice_eq_slice(const Slice *, const Slice *);
 
+String *str_concat(const char *left, size_t, const char *right, size_t);
+inline String *string_concat_string(const String *l, const String *r) {
+  return str_concat(l->c, l->len, r->c, r->len);
+}
+inline String *string_concat_slice(const String *l, const Slice *r) {
+  return str_concat(l->c, l->len, r->c, r->len);
+}
+inline String *slice_concat_string(const Slice *l, const String *r) {
+  return str_concat(l->c, l->len, r->c, r->len);
+}
+inline String *slice_concat_slice(const Slice *l, const Slice *r) {
+  return str_concat(l->c, l->len, r->c, r->len);
+}
+
 #endif
