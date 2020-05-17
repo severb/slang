@@ -97,6 +97,9 @@ static void print(FILE *f, Tag t, bool is_repr) {
     }
     break;
   }
+  case TYPE_I48:
+    fprintf(f, "%" PRId64, tag_to_i48(t));
+    break;
   default:
     assert(0 && "tag print called on unknown tag type");
   }
@@ -134,6 +137,8 @@ size_t tag_hash(Tag t) {
     return int_hash((((uint64_t)tag_to_pair_ua(t)) << 32) | tag_to_pair_ub(t));
   case TYPE_SYMBOL:
     return 0xCACA0 ^ (tag_to_symbol(t) * 31 + 37);
+  case TYPE_I48:
+    return int_hash(SAFE_CAST(int64_t, uint64_t, tag_to_i48(t)));
   }
 }
 
@@ -163,6 +168,8 @@ bool tag_is_true(Tag t) {
     default:
       return false;
     }
+  case TYPE_I48:
+    return tag_to_i48(t);
   default:
     assert(0 && "tag_is_true called on unknown tag type");
   }
@@ -195,6 +202,8 @@ bool tag_eq(Tag a, Tag b) {
       return *tag_to_i64(a) == *tag_to_i64(b);
     } else if (tag_is_double(b)) {
       return *tag_to_i64(a) == tag_to_double(b);
+    } else if (tag_is_i48(b)) {
+      return *tag_to_i64(a) == tag_to_i48(b);
     }
     return false;
   case TYPE_ERROR:
@@ -213,6 +222,8 @@ bool tag_eq(Tag a, Tag b) {
       return tag_to_pair_ua(b) == 0 && tag_to_double(a) == tag_to_pair_b(b);
     } else if (tag_is_i64(b)) {
       return tag_to_double(a) == *tag_to_i64(b);
+    } else if (tag_is_i48(b)) {
+      return tag_to_double(a) == tag_to_i48(b);
     }
     return false;
   case TYPE_PAIR:
@@ -223,8 +234,22 @@ bool tag_eq(Tag a, Tag b) {
         return tag_to_pair_b(a) == *tag_to_i64(b);
       } else if (tag_is_double(b)) {
         return tag_to_pair_b(a) == tag_to_double(b);
+      } else if (tag_is_i48(b)) {
+        return tag_to_pair_b(a) == tag_to_i48(b);
       }
     }
+    return false;
+  case TYPE_I48:
+    if (tag_is_i48(b)) {
+      return tag_to_i48(a) == tag_to_i48(b);
+    } else if (tag_is_i64(b)) {
+      return tag_to_i48(a) == *tag_to_i64(b);
+    } else if (tag_is_double(b)) {
+      return tag_to_i48(a) == tag_to_double(b);
+    } else if (tag_is_pair(b)) {
+      return tag_to_i48(a) == tag_to_pair_b(b);
+    }
+    return false;
   case TYPE_SYMBOL:
     return false; // should be tag_biteq() called at the top
   default:
@@ -236,7 +261,7 @@ Tag tag_add(Tag left, Tag right) {
   // TODO: if the left str is an owned string, expand it instead
   // TODO: reuse owned i64s when possible
   // TODO: free owned objects
-   int64_t sum;
+  int64_t sum;
   switch (tag_type(left)) {
   case TYPE_PAIR:
     switch (tag_type(right)) {
@@ -245,6 +270,9 @@ Tag tag_add(Tag left, Tag right) {
       break;
     case TYPE_I64:
       sum = (int64_t)tag_to_pair_b(left) + *tag_to_i64(right);
+      break;
+    case TYPE_I48:
+      sum = (int64_t)tag_to_pair_b(left) + tag_to_i48(right);
       break;
     case TYPE_DOUBLE:
       return double_to_tag((double)tag_to_pair_b(left) + tag_to_double(right));
@@ -260,17 +288,39 @@ Tag tag_add(Tag left, Tag right) {
     case TYPE_I64:
       sum = *tag_to_i64(left) + *tag_to_i64(right);
       break;
+    case TYPE_I48:
+      sum = *tag_to_i64(left) + tag_to_i48(right);
+      break;
     case TYPE_DOUBLE:
       return double_to_tag((double)*tag_to_i64(left) + tag_to_double(right));
     default:
       goto error;
     }
+  case TYPE_I48:
+    switch (tag_type(right)) {
+    case TYPE_PAIR:
+      sum = tag_to_i48(left) + (int64_t)tag_to_pair_b(right);
+      break;
+    case TYPE_I64:
+      sum = tag_to_i48(left) + *tag_to_i64(right);
+      break;
+    case TYPE_I48:
+      sum = tag_to_i48(left) + tag_to_i48(right);
+      break;
+    case TYPE_DOUBLE:
+      return double_to_tag((double)tag_to_i48(left) + tag_to_double(right));
+    default:
+      goto error;
+    }
+    break;
   case TYPE_DOUBLE:
     switch (tag_type(right)) {
     case TYPE_PAIR:
       return double_to_tag(tag_to_double(left) + (double)tag_to_pair_b(right));
     case TYPE_I64:
       return double_to_tag(tag_to_double(left) + (double)*tag_to_i64(right));
+    case TYPE_I48:
+      return double_to_tag(tag_to_double(left) + (double)tag_to_i48(right));
     case TYPE_DOUBLE:
       return double_to_tag(tag_to_double(left) + tag_to_double(right));
     default:
@@ -288,7 +338,7 @@ Tag tag_add(Tag left, Tag right) {
       goto error;
     }
     break;
- case TYPE_STRING:
+  case TYPE_STRING:
     switch (tag_type(right)) {
     case TYPE_SLICE:
       return string_to_tag(
@@ -303,8 +353,8 @@ Tag tag_add(Tag left, Tag right) {
   default:
     goto error;
   }
-  if ((int64_t)INT32_MIN <= sum && sum <= (int64_t)INT32_MAX) {
-    return pair_to_tag(0, sum);
+  if (I48_MIN <= sum && sum <= I48_MAX) {
+    return i48_to_tag(sum);
   }
   int64_t *result = mem_allocate(sizeof(int64_t));
   *result = sum;
@@ -322,8 +372,8 @@ error : {
 }
 }
 
-const char *tag_type_names[] = {"String",  "Table",  "List", "Integer",
-                                "Integer", "Symbol", "",     "",
+const char *tag_type_names[] = {"String",  "Table",  "List",    "Integer",
+                                "Integer", "Symbol", "Integer", "",
                                 "Error",   "String", "Float"};
 
 extern inline bool tag_biteq(Tag, Tag);
@@ -372,6 +422,10 @@ extern inline Symbol tag_to_symbol(Tag);
 extern inline bool tag_is_double(Tag);
 extern inline Tag double_to_tag(double);
 extern inline double tag_to_double(Tag);
+
+extern inline bool tag_is_i48(Tag);
+extern inline Tag i48_to_tag(int64_t);
+extern inline int64_t tag_to_i48(Tag);
 
 extern inline TagType tag_type(Tag);
 extern inline const char *tag_type_str(TagType);

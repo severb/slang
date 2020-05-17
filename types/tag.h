@@ -273,6 +273,30 @@ inline bool tag_is_double(Tag t) { return (t.u & TAGGED_MASK) != TAGGED_MASK; }
 inline double tag_to_double(Tag t) { return t.d; }
 inline Tag double_to_tag(double d) { return (Tag){.d = d}; }
 
+#define I48_DISCRIMINANT BYTES(ff, f6, 00, 00, 00, 00, 00, 00)
+inline bool tag_is_i48(Tag t) {
+  return ((t.u & DISCRIMINANT_MASK) == I48_DISCRIMINANT);
+}
+
+#define I48_SIGN BYTES(00, 00, 80, 00, 00, 00, 00, 00)
+#define I48_MAX INT64_C(0x7fffffffffff)
+#define I48_MIN -I48_MAX
+
+inline Tag i48_to_tag(int64_t i) {
+  assert((I48_MIN <= i && i <= I48_MAX) && "i48 range");
+  uint64_t sign = i < 0 ? I48_SIGN : 0;
+  i = i < 0 ? -i : i;
+  return (Tag){.u = (uint64_t)i | sign | I48_DISCRIMINANT};
+}
+
+inline int64_t tag_to_i48(Tag t) {
+  assert(tag_is_i48(t));
+  uint64_t sign = t.u & I48_SIGN;
+  uint64_t ui = t.u & ~(DISCRIMINANT_MASK | I48_SIGN);
+  int64_t i = (int64_t)ui;
+  return sign ? -i : i;
+}
+
 // There are six data tags left:
 // 11111111|11110110|........|........|........|........|........|........
 // 11111111|11110111|........|........|........|........|........|........
@@ -288,6 +312,7 @@ typedef enum {
   TYPE_I64,
   TYPE_PAIR,
   TYPE_SYMBOL,
+  TYPE_I48,
   TYPE_ERROR = 8,
   TYPE_SLICE,
   TYPE_DOUBLE,
