@@ -151,8 +151,8 @@ static void compile_int(Compiler *c, __attribute__((unused)) bool _) {
   }
   assert(i >= 0); // only positive values integers
   Tag t;
-  if (i <= I48_MAX) {
-    t = i48_to_tag(i);
+  if (i <= I49_MAX) {
+    t = i49_to_tag(i);
     goto emit;
   }
   if (i <= INT64_MAX) {

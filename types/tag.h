@@ -11,8 +11,8 @@
 // A Tag is a discriminated union of all known Slang types.
 //
 // It uses NaN tagging to pack pointers and their type discriminant together.
-// Tags can also embed a few small primitives, like floats, pairs, and symbols,
-// to save dereferences.
+// Tags can also embed a few small primitives, like floats, 49 bit inegers, and
+// symbols, to save dereferences.
 //
 // All types, except doubles (because of their NaNs), havethe following
 // invariant: two values are equal if their tags are equal bitwise. The reverse
@@ -29,11 +29,6 @@ typedef struct {
 static_assert(sizeof(uint64_t) == sizeof(Tag), "Tag size is not 64");
 
 // Forward declarations of tag pointer types.
-struct String;
-struct Table;
-struct List;
-struct Slice;
-
 typedef struct String String;
 typedef struct Table Table;
 typedef struct List List;
@@ -78,7 +73,7 @@ inline bool tag_biteq(Tag a, Tag b) { return a.u == b.u; }
 #define SIGN_FLAG BYTES(80, 00, 00, 00, 00, 00, 00, 00)
 
 inline bool tag_is_ptr(Tag t) {
-  return (t.u & (TAGGED_MASK | SIGN_FLAG)) == TAGGED_MASK;
+  return (t.u & (SIGN_FLAG | TAGGED_MASK)) == TAGGED_MASK;
 }
 inline bool tag_is_data(Tag t) { return !tag_is_ptr(t); }
 
@@ -90,6 +85,7 @@ inline bool tag_is_data(Tag t) { return !tag_is_ptr(t); }
 // the data and is responsible for freeing it; otherwise, it's just a
 // reference.
 static_assert(sizeof(max_align_t) >= 2, "pointer alginment is too small");
+static_assert(sizeof(uintptr_t) <= sizeof(uint64_t), "pointer size too large");
 
 inline bool tag_is_own(Tag t) {
   return (t.u & (SIGN_FLAG | TAGGED_MASK | 1)) == TAGGED_MASK;
@@ -101,7 +97,7 @@ inline bool tag_is_ref(Tag t) {
 
 inline Tag tag_to_ref(Tag t) {
   assert(tag_is_ptr(t));
-  return (Tag){.u = (t.u | 1)};
+  return (Tag){.u = t.u | 1};
 }
 
 // PTR_MASK isolates the pointer value, ignoring the ownership flag.
@@ -120,9 +116,8 @@ inline bool tag_is_string(Tag t) {
   return ((t.u & DISCRIMINANT_MASK) == STRING_DISCRIMINANT);
 }
 inline Tag string_to_tag(const String *s) {
-  uintptr_t p = (uintptr_t)s;
-  assert((p & DISCRIMINANT_MASK) == 0);
-  return (Tag){.u = p | STRING_DISCRIMINANT};
+  assert(((uintptr_t)s & DISCRIMINANT_MASK) == 0);
+  return (Tag){.u = (uintptr_t)s | STRING_DISCRIMINANT};
 }
 inline String *tag_to_string(Tag t) {
   assert(tag_is_string(t));
@@ -134,9 +129,8 @@ inline bool tag_is_table(Tag t) {
   return ((t.u & DISCRIMINANT_MASK) == TABLE_DISCRIMINANT);
 }
 inline Tag table_to_tag(const Table *t) {
-  uintptr_t p = (uintptr_t)t;
-  assert((p & DISCRIMINANT_MASK) == 0);
-  return (Tag){.u = p | TABLE_DISCRIMINANT};
+  assert(((uintptr_t)t & DISCRIMINANT_MASK) == 0);
+  return (Tag){.u = (uintptr_t)t | TABLE_DISCRIMINANT};
 }
 inline Table *tag_to_table(Tag t) {
   assert(tag_is_table(t));
@@ -148,9 +142,8 @@ inline bool tag_is_list(Tag t) {
   return ((t.u & DISCRIMINANT_MASK) == LIST_DISCRIMINANT);
 }
 inline Tag list_to_tag(const List *l) {
-  uintptr_t p = (uintptr_t)l;
-  assert((p & DISCRIMINANT_MASK) == 0);
-  return (Tag){.u = p | LIST_DISCRIMINANT};
+  assert(((uintptr_t)l & DISCRIMINANT_MASK) == 0);
+  return (Tag){.u = (uintptr_t)l | LIST_DISCRIMINANT};
 }
 inline List *tag_to_list(Tag t) {
   assert(tag_is_list(t));
@@ -162,9 +155,8 @@ inline bool tag_is_i64(Tag t) {
   return ((t.u & DISCRIMINANT_MASK) == I64_DISCRIMINANT);
 }
 inline Tag i64_to_tag(const int64_t *i) {
-  uintptr_t p = (uintptr_t)i;
-  assert((p & DISCRIMINANT_MASK) == 0);
-  return (Tag){.u = p | I64_DISCRIMINANT};
+  assert(((uintptr_t)i & DISCRIMINANT_MASK) == 0);
+  return (Tag){.u = (uintptr_t)i | I64_DISCRIMINANT};
 }
 inline int64_t *tag_to_i64(Tag t) {
   assert(tag_is_i64(t));
@@ -176,9 +168,8 @@ inline bool tag_is_error(Tag t) {
   return ((t.u & DISCRIMINANT_MASK) == ERROR_DISCRIMINANT);
 }
 inline Tag error_to_tag(const Tag *t) {
-  uintptr_t p = (uintptr_t)t;
-  assert((p & DISCRIMINANT_MASK) == 0);
-  return (Tag){.u = p | ERROR_DISCRIMINANT};
+  assert(((uintptr_t)t & DISCRIMINANT_MASK) == 0);
+  return (Tag){.u = (uintptr_t)t | ERROR_DISCRIMINANT};
 }
 inline Tag *tag_to_error(Tag t) {
   assert(tag_is_error(t));
@@ -190,9 +181,8 @@ inline bool tag_is_slice(Tag t) {
   return ((t.u & DISCRIMINANT_MASK) == SLICE_DISCRIMINANT);
 }
 inline Tag slice_to_tag(const Slice *s) {
-  uintptr_t p = (uintptr_t)s;
-  assert((p & DISCRIMINANT_MASK) == 0);
-  return (Tag){.u = p | SLICE_DISCRIMINANT};
+  assert(((uintptr_t)s & DISCRIMINANT_MASK) == 0);
+  return (Tag){.u = (uintptr_t)s | SLICE_DISCRIMINANT};
 }
 inline Slice *tag_to_slice(Tag t) {
   assert(tag_is_slice(t));
@@ -209,46 +199,33 @@ inline Slice *tag_to_slice(Tag t) {
 //
 // Dobules are also considered data tags, but they don't match the TAGGED_MASK.
 
-#define SAFE_CAST(FROM, TO, VAL)                                               \
-  (union {                                                                     \
-    FROM f;                                                                    \
-    TO t;                                                                      \
-  }){.f = VAL}                                                                 \
-      .t
-
-// TODO: replace the pair with a 48bit integer
-#define PAIR_DISCRIMINANT BYTES(ff, f4, 00, 00, 00, 00, 00, 00)
-inline bool tag_is_pair(Tag t) {
-  return ((t.u & DISCRIMINANT_MASK) == PAIR_DISCRIMINANT);
-}
-inline Tag upair_to_tag(uint16_t a, uint32_t b) {
-  uint64_t aa = ((uint64_t)a) << 32;
-  uint64_t bb = (uint64_t)b;
-  return (Tag){.u = (PAIR_DISCRIMINANT | aa | bb)};
-}
-inline Tag pair_to_tag(int16_t a, int32_t b) {
-  uint16_t aa = SAFE_CAST(int16_t, uint16_t, a);
-  uint32_t bb = SAFE_CAST(int32_t, uint32_t, b);
-  return upair_to_tag(aa, bb);
-}
-inline uint16_t tag_to_pair_ua(Tag t) {
-  assert(tag_is_pair(t));
-  return (t.u & BYTES(00, 00, ff, ff, 00, 00, 00, 00)) >> 32;
-}
-inline uint32_t tag_to_pair_ub(Tag t) {
-  assert(tag_is_pair(t));
-  return t.u & BYTES(00, 00, 00, 00, ff, ff, ff, ff);
-}
-inline int16_t tag_to_pair_a(Tag t) {
-  uint16_t ua = tag_to_pair_ua(t);
-  return SAFE_CAST(uint16_t, int16_t, ua);
-}
-inline int32_t tag_to_pair_b(Tag t) {
-  uint32_t ub = tag_to_pair_ub(t);
-  return SAFE_CAST(uint32_t, int32_t, ub);
+#define I49_DISCRIMINANT BYTES(ff, f4, 00, 00, 00, 00, 00, 00)
+#define I49_SIGN BYTES(00, 01, 00, 00, 00, 00, 00, 00)
+#define I49_MAX INT64_C(0xffffffffffff)
+#define I49_MIN -I49_MAX
+inline bool tag_is_i49(Tag t) {
+  // the least significant bit of the mask is used for sign
+  return ((t.u & (DISCRIMINANT_MASK & ~I49_SIGN)) == I49_DISCRIMINANT);
 }
 
-#define SYMBOL_DISCRIMINANT BYTES(ff, f5, 00, 00, 00, 00, 00, 00)
+inline Tag i49_to_tag(int64_t i) {
+  assert((I49_MIN <= i && i <= I49_MAX) && "i49 range");
+  if (i < 0) {
+    return (Tag){.u = (uint64_t)(-i) | I49_SIGN | I49_DISCRIMINANT};
+  }
+  return (Tag){.u = (uint64_t)i | I49_DISCRIMINANT};
+}
+
+inline int64_t tag_to_i49(Tag t) {
+  assert(tag_is_i49(t));
+  uint64_t sign = t.u & I49_SIGN;
+  int64_t i = (int64_t)(t.u & ~DISCRIMINANT_MASK);
+  return sign ? -i : i;
+}
+
+// BYTES(ff, f5, 00, 00, 00, 00, 00, 00) is used by i49
+
+#define SYMBOL_DISCRIMINANT BYTES(ff, f6, 00, 00, 00, 00, 00, 00)
 inline bool tag_is_symbol(Tag t) {
   return ((t.u & DISCRIMINANT_MASK) == SYMBOL_DISCRIMINANT);
 }
@@ -273,32 +250,7 @@ inline bool tag_is_double(Tag t) { return (t.u & TAGGED_MASK) != TAGGED_MASK; }
 inline double tag_to_double(Tag t) { return t.d; }
 inline Tag double_to_tag(double d) { return (Tag){.d = d}; }
 
-#define I48_DISCRIMINANT BYTES(ff, f6, 00, 00, 00, 00, 00, 00)
-inline bool tag_is_i48(Tag t) {
-  return ((t.u & DISCRIMINANT_MASK) == I48_DISCRIMINANT);
-}
-
-#define I48_SIGN BYTES(00, 00, 80, 00, 00, 00, 00, 00)
-#define I48_MAX INT64_C(0x7fffffffffff)
-#define I48_MIN -I48_MAX
-
-inline Tag i48_to_tag(int64_t i) {
-  assert((I48_MIN <= i && i <= I48_MAX) && "i48 range");
-  uint64_t sign = i < 0 ? I48_SIGN : 0;
-  i = i < 0 ? -i : i;
-  return (Tag){.u = (uint64_t)i | sign | I48_DISCRIMINANT};
-}
-
-inline int64_t tag_to_i48(Tag t) {
-  assert(tag_is_i48(t));
-  uint64_t sign = t.u & I48_SIGN;
-  uint64_t ui = t.u & ~(DISCRIMINANT_MASK | I48_SIGN);
-  int64_t i = (int64_t)ui;
-  return sign ? -i : i;
-}
-
-// There are six data tags left:
-// 11111111|11110110|........|........|........|........|........|........
+// There are five data tags left:
 // 11111111|11110111|........|........|........|........|........|........
 // 11111111|11111100|........|........|........|........|........|........
 // 11111111|11111101|........|........|........|........|........|........
@@ -310,9 +262,9 @@ typedef enum {
   TYPE_TABLE,
   TYPE_LIST,
   TYPE_I64,
-  TYPE_PAIR,
+  TYPE_I49P,
+  TYPE_I49N,
   TYPE_SYMBOL,
-  TYPE_I48,
   TYPE_ERROR = 8,
   TYPE_SLICE,
   TYPE_DOUBLE,
@@ -326,7 +278,7 @@ inline TagType tag_type(Tag t) {
   // convert the type discriminant to a TagType
   uint64_t a = (t.u & BYTES(00, 0b, 00, 00, 00, 00, 00, 00)) >> 48;
   uint64_t b = (t.u & BYTES(80, 00, 00, 00, 00, 00, 00, 00)) >> 61;
-  return (int)(a | b);
+  return (TagType)(a | b);
 }
 
 extern const char *tag_type_names[];
@@ -354,9 +306,8 @@ Tag tag_add(Tag, Tag);
 #undef I64_DISCRIMINANT
 #undef ERROR_DISCRIMINANT
 #undef SLICE_DISCRIMINANT
-#undef PAIR_DISCRIMINANT
+#undef I49_DISCRIMINANT
+#undef I49_SIGN
 #undef SYMBOL_DISCRIMINANT
-#undef I48_DISCRIMINANT
-#undef I48_SIGN
 
 #endif

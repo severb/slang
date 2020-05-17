@@ -1,14 +1,12 @@
 #include "vm.h"
 
 #include "bytecode.h" // Chunk, chunk_*
-#include "dynarray.h" // dynarray_get
 #include "list.h"     // List, list_*
 #include "table.h"    // Table
 #include "tag.h"      // Tag, tag_*
 
-#include <stddef.h> // ptrdiff_t
 #include <stdint.h> // uint8_t
-#include <stdio.h>  // stderr, stdout, fputc, putchar
+#include <stdio.h>  // stderr, fputc, putchar
 
 typedef struct {
   const Chunk *chunk;
@@ -65,9 +63,12 @@ static bool run(VM *vm) {
       push(vm, constant);
       break;
     }
-    case OP_PRINT:
-      tag_print(pop(vm));
+    case OP_PRINT: {
+      Tag t = pop(vm);
+      tag_print(t);
+      tag_free(t);
       break;
+    }
     case OP_PRINT_NL:
       putchar('\n');
       break;
