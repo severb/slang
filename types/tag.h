@@ -304,15 +304,22 @@ inline void tag_print(Tag t) { tag_printf(stdout, t); }
 void tag_reprf(FILE *, Tag);
 inline void tag_repr(Tag t) { tag_reprf(stdout, t); }
 size_t tag_hash(Tag);
-bool tag_eq(Tag, Tag);
 
-Tag tag_to_bool(Tag);
+bool tag_eq(Tag, Tag);
 inline Tag tag_equals(Tag a, Tag b) {
-  Tag result = tag_eq(a ,b) ? TAG_TRUE :TAG_FALSE;
+  Tag result = tag_eq(a, b) ? TAG_TRUE : TAG_FALSE;
   tag_free(a);
   tag_free(b);
   return result;
 }
+
+bool tag_is_true(Tag);
+Tag tag_to_bool(Tag t) {
+  Tag result = tag_is_true(t) ? TAG_TRUE : TAG_FALSE;
+  tag_free(t);
+  return result;
+}
+
 Tag tag_add(Tag, Tag);
 // Tag tag_cmp(Tag, Tag); // use symbols for lt, eq, gt--can also return err
 

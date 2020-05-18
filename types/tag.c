@@ -155,43 +155,34 @@ size_t tag_hash(Tag t) {
   }
 }
 
-Tag tag_to_bool(Tag t) {
-  Tag result;
+bool tag_is_true(Tag t) {
   switch (tag_type(t)) {
   case TYPE_STRING:
-    result = string_len(tag_to_string(t)) ? TAG_TRUE : TAG_FALSE;
-    break;
+    return string_len(tag_to_string(t));
   case TYPE_TABLE:
-    result = table_len(tag_to_table(t)) ? TAG_TRUE : TAG_FALSE;
-    break;
+    return table_len(tag_to_table(t));
   case TYPE_LIST:
-    result = list_len(tag_to_list(t)) ? TAG_TRUE : TAG_FALSE;
-    break;
+    return list_len(tag_to_list(t));
   case TYPE_I64:
-    result = *tag_to_i64(t) ? TAG_TRUE : TAG_FALSE;
-    break;
+    return *tag_to_i64(t);
   case TYPE_ERROR:
-    result = TAG_FALSE;
-    break;
+    return false;
   case TYPE_SLICE:
-    result = slice_len(tag_to_slice(t)) ? TAG_TRUE : TAG_FALSE;
-    break;
+    return slice_len(tag_to_slice(t));
   case TYPE_DOUBLE:
-    return tag_to_double(t) ? TAG_TRUE : TAG_FALSE;
+    return tag_to_double(t);
   case TYPE_SYMBOL:
     switch (tag_to_symbol(t)) {
     case SYM_TRUE:
     case SYM_OK:
-      return TAG_TRUE;
+      return true;
     default:
-      return TAG_FALSE;
+      return false;
     }
   case TYPE_I49P:
   case TYPE_I49N:
-    return tag_to_i49(t) ? TAG_TRUE : TAG_FALSE;
+    return tag_to_i49(t);
   }
-  tag_free_ptr(t);
-  return result;
 }
 
 bool tag_eq(Tag a, Tag b) {
