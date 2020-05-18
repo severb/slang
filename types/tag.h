@@ -223,6 +223,14 @@ inline int64_t tag_to_i49(Tag t) {
   return sign ? -i : i;
 }
 
+Tag tag_new_i64(int64_t);
+inline Tag int_to_tag(int64_t i) {
+  if (I49_MIN <= i && i <= I49_MAX) {
+    return i49_to_tag(i);
+  }
+  return tag_new_i64(i);
+}
+
 // BYTES(ff, f5, 00, 00, 00, 00, 00, 00) is used by i49
 
 #define SYMBOL_DISCRIMINANT BYTES(ff, f6, 00, 00, 00, 00, 00, 00)
@@ -284,14 +292,27 @@ inline TagType tag_type(Tag t) {
 extern const char *tag_type_names[];
 inline const char *tag_type_str(TagType tt) { return tag_type_names[tt]; }
 
-void tag_free(Tag);
+void tag_free_ptr(Tag);
+inline void tag_free(Tag t) {
+  if (!tag_is_own(t)) {
+    return; // only free owned pointers
+  }
+  tag_free_ptr(t);
+}
 void tag_printf(FILE *, Tag);
 inline void tag_print(Tag t) { tag_printf(stdout, t); }
 void tag_reprf(FILE *, Tag);
 inline void tag_repr(Tag t) { tag_reprf(stdout, t); }
 size_t tag_hash(Tag);
-bool tag_is_true(Tag);
 bool tag_eq(Tag, Tag);
+
+Tag tag_to_bool(Tag);
+inline Tag tag_equals(Tag a, Tag b) {
+  Tag result = tag_eq(a ,b) ? TAG_TRUE :TAG_FALSE;
+  tag_free(a);
+  tag_free(b);
+  return result;
+}
 Tag tag_add(Tag, Tag);
 // Tag tag_cmp(Tag, Tag); // use symbols for lt, eq, gt--can also return err
 

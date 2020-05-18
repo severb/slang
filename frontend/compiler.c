@@ -150,24 +150,14 @@ static void compile_int(Compiler *c, __attribute__((unused)) bool _) {
     return;
   }
   assert(i >= 0); // only positive values integers
-  Tag t;
-  if (i <= I49_MAX) {
-    t = i49_to_tag(i);
-    goto emit;
+  if (i > INT64_MAX) {
+    err_at_prev(c, "integer constant out of range");
+    return;
   }
-  if (i <= INT64_MAX) {
-    // TODO: use a memory pool
-    int64_t *ip = mem_allocate(sizeof(uint64_t));
-    *ip = i;
-    t = i64_to_tag(ip);
-    goto emit;
-  }
-  err_at_prev(c, "integer constant out of range");
-  return;
-emit : {
+  Tag t = int_to_tag(i);
   size_t idx = chunk_record_const(c->chunk, t);
   chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
-}
+  return;
 }
 
 static void compile_float(Compiler *c, __attribute__((unused)) bool _) {
