@@ -1,3 +1,4 @@
-print -281474976710655;
-print -9223372036854775807;
-print -1.3;
+print true;
+print false;
+print 123 == 123;
+print 123 + -123;

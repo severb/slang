@@ -245,10 +245,11 @@ inline bool tag_is_symbol(Tag t) {
 
 typedef enum { SYM_FALSE, SYM_TRUE, SYM_NIL, SYM_OK, SYM__COUNT } Symbol;
 
-#define TAG_FALSE ((Tag){.u = 0xfff5000000000000 | SYM_FALSE})
-#define TAG_TRUE ((Tag){.u = (0xfff5000000000000) | SYM_TRUE})
-#define TAG_NIL ((Tag){.u = (0xfff5000000000000) | SYM_NIL})
-#define TAG_OK ((Tag){.u = (0xfff5000000000000) | SYM_OK})
+static_assert(0xfff6000000000000 == SYMBOL_DISCRIMINANT, "symbol constant changed");
+#define TAG_FALSE ((Tag){.u = 0xfff6000000000000 | SYM_FALSE})
+#define TAG_TRUE ((Tag){.u = (0xfff6000000000000) | SYM_TRUE})
+#define TAG_NIL ((Tag){.u = (0xfff6000000000000) | SYM_NIL})
+#define TAG_OK ((Tag){.u = (0xfff6000000000000) | SYM_OK})
 
 #define USER_SYMBOL(x) ((Tag){.u = (0xfff5000000000000 | ((x) + SYM__COUNT))})
 
@@ -270,7 +271,7 @@ inline Tag double_to_tag(double d) { return (Tag){.d = d}; }
 // 11111111|11111110|........|........|........|........|........|........
 // 11111111|11111111|........|........|........|........|........|........
 
-typedef enum {
+typedef enum { // careful, this order isn't trivial to figure out
   TYPE_STRING = 0,
   TYPE_TABLE,
   TYPE_LIST,

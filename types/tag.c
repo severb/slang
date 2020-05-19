@@ -12,7 +12,6 @@
 #include <stddef.h>   // size_t, max_align_t
 #include <stdint.h>   // uint*_t, int*_t, uintptr_t, UINT64_C
 #include <stdio.h>    // fprintf, FILE, fputc
-#include <sys/cdefs.h>
 
 #define SAFE_CAST(FROM, TO, VAL)                                               \
   (union {                                                                     \

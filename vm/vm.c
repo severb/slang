@@ -31,10 +31,6 @@ static void print_runtime_error(VM *vm, Tag error) {
 static inline void push(VM *vm, Tag t) { list_append(&vm->stack, t); }
 static inline Tag pop(VM *vm) { return list_pop(&vm->stack); }
 static inline Tag top(VM *vm) { return *list_last(&vm->stack); }
-static inline Tag peek(VM *vm, size_t dist) {
-  assert(list_len(&vm->stack) > dist);
-  return *list_get(&vm->stack, list_len(&vm->stack) - dist - 1);
-}
 static inline void replace_top(VM *vm, Tag t) { *list_last(&vm->stack) = t; }
 
 static bool run(VM *vm) {
@@ -63,8 +59,19 @@ static bool run(VM *vm) {
       push(vm, constant);
       break;
     }
-    case OP_NEGATE: {
+    case OP_NEGATE:
       replace_top(vm, tag_negate(top(vm)));
+      break;
+    case OP_TRUE:
+      push(vm, TAG_TRUE);
+      break;
+    case OP_FALSE:
+      push(vm, TAG_FALSE);
+      break;
+    case OP_EQUAL: {
+      Tag right = pop(vm);
+      Tag left = top(vm);
+      replace_top(vm, tag_equals(left, right));
       break;
     }
     case OP_PRINT: {
