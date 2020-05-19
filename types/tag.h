@@ -224,6 +224,7 @@ inline int64_t tag_to_i49(Tag t) {
 }
 
 Tag tag_new_i64(int64_t);
+
 inline Tag int_to_tag(int64_t i) {
   if (I49_MIN <= i && i <= I49_MAX) {
     return i49_to_tag(i);
@@ -314,7 +315,7 @@ inline Tag tag_equals(Tag a, Tag b) {
 }
 
 bool tag_is_true(Tag);
-Tag tag_to_bool(Tag t) {
+inline Tag tag_to_bool(Tag t) {
   Tag result = tag_is_true(t) ? TAG_TRUE : TAG_FALSE;
   tag_free(t);
   return result;

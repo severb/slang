@@ -64,9 +64,7 @@ void dynarray_free_T(DynamicArrayT *, size_t item_size);
   inline size_t dynarray_append(T)(struct DynamicArray(T) * l, const T *i) {   \
     assert(dynarray_cap(T)(l) >= dynarray_len(T)(l) && "dynarray invariant");  \
     if (dynarray_cap(T)(l) == dynarray_len(T)(l)) {                            \
-      if (!dynarray_grow(T)(l)) {                                              \
-        return 0;                                                              \
-      };                                                                       \
+      dynarray_grow(T)(l);                                                     \
     }                                                                          \
     assert(dynarray_cap(T)(l) > dynarray_len(T)(l) && "dynarray invariant");   \
     *dynarray_get(T)(l, dynarray_len(T)(l)) = *i;                              \

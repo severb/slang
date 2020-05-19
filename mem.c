@@ -1,7 +1,11 @@
 #include "mem.h"
 
 #include <assert.h> // assert
-#include <stdlib.h> // free, realloc
+#include <stdlib.h> // free, realloc, abort
+
+#ifdef SLANG_NOCOREDUMP
+#include <stdio.h> // fputs, stderr
+#endif
 
 #ifdef SLANG_DEBUG
 static MemStats stats;
@@ -35,6 +39,12 @@ void *mem_reallocate(void *p, size_t old_size, size_t new_size) {
   }
 #endif
   void *res = realloc(p, new_size);
+#ifdef SLANG_NOCOREDUMP
+  if (!res) {
+    fputs("out of memory", stderr);
+    abort();
+  }
+#endif
   return res;
 }
 

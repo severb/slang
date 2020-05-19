@@ -22,7 +22,6 @@
 
 static Tag error(const char *fmt, ...) {
   // TODO handle errors, and len > buf_size
-  // TODO handle allocation errors
   char buf[256];
   size_t buf_size = sizeof(buf) / sizeof(buf[0]);
   va_list args;
@@ -69,6 +68,7 @@ void tag_free_ptr(Tag t) {
 
 static const char *symbols[] = {"<false>", "<true>", "<nil>", "<ok>"};
 static void print(FILE *f, Tag t, bool is_repr) {
+  // TODO: what should happen on output errors?
   switch (tag_type(t)) {
   case TYPE_STRING:
     if (is_repr) {
@@ -261,7 +261,6 @@ bool tag_eq(Tag a, Tag b) {
 }
 
 Tag tag_new_i64(int64_t i) {
-  // TODO: alloc error
   int64_t *p = mem_allocate(sizeof(int64_t));
   *p = i;
   return i64_to_tag(p);
@@ -461,4 +460,5 @@ extern inline void tag_free(Tag);
 extern inline void tag_print(Tag);
 extern inline void tag_repr(Tag);
 
+extern inline Tag tag_to_bool(Tag);
 extern inline Tag tag_equals(Tag, Tag);

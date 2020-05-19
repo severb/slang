@@ -3,6 +3,9 @@
 #include "mem.h" // mem_resize_array, mem_free_array, mem_free
 
 #include <stddef.h> // size_t
+#include <stdlib.h> // abort
+#include <stdint.h>
+#include <stdio.h> // fputs, stderr
 
 static size_t next_pow2(size_t n) {
   if ((n & (n - 1)) == 0) {
@@ -25,23 +28,20 @@ size_t dynarray_reserve_T(DynamicArrayT *array, size_t cap, size_t item_size) {
     cap = next_pow2(cap);
   }
   if (!cap) {
-    return 0;
+    fputs("dynamic array too large\n", stderr);
+    abort();
   }
   array->items = mem_resize_array(array->items, item_size, array->cap, cap);
-  if (!array->items) {
-    *array = (DynamicArrayT){0};
-    return 0;
-  }
-  array->cap = cap;
-  return cap;
+  return (array->cap = cap);
 }
 
 size_t dynarray_grow_T(DynamicArrayT *array, size_t item_size) {
-  if (array->cap < SIZE_MAX / 2) {
+  if (array->cap <= SIZE_MAX / 2) {
     size_t new_cap = array->cap ? array->cap * 2 : 8;
     return dynarray_reserve_T(array, new_cap, item_size);
   }
-  return 0;
+  fputs("dynamic array too large\n", stderr);
+  abort();
 }
 
 void dynarray_destroy_T(DynamicArrayT *array, size_t item_size) {
