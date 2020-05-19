@@ -12,6 +12,7 @@
 #include <stddef.h>   // size_t, max_align_t
 #include <stdint.h>   // uint*_t, int*_t, uintptr_t, UINT64_C
 #include <stdio.h>    // fprintf, FILE, fputc
+#include <sys/cdefs.h>
 
 #define SAFE_CAST(FROM, TO, VAL)                                               \
   (union {                                                                     \
@@ -260,7 +261,7 @@ bool tag_eq(Tag a, Tag b) {
   }
 }
 
-Tag tag_new_i64(int64_t i) {
+Tag i64_new(int64_t i) {
   int64_t *p = mem_allocate(sizeof(int64_t));
   *p = i;
   return i64_to_tag(p);
@@ -424,6 +425,31 @@ Tag tag_add(Tag left, Tag right) {
   return error("cannot add %s to %s", left_type, right_type);
 }
 
+Tag tag_negate(Tag t) {
+  switch (tag_type(t)) {
+  case TYPE_I64:
+    if (tag_is_own(t)) {
+      *tag_to_i64(t) *= -1;
+      return t;
+    } else {
+      // assume it can't fit an i49
+      return i64_new(-*tag_to_i64(t));
+      // free_tag(t) -- not owned
+    }
+    break;
+  case TYPE_I49N:
+  case TYPE_I49P:
+    return i49_negate(t);
+  case TYPE_DOUBLE:
+    return double_to_tag(-tag_to_double(t));
+  default: {
+    Tag result = error("cannot negate %s", tag_type_str(tag_type(t)));
+    tag_free(t);
+    return result;
+  }
+  }
+}
+
 const char *tag_type_names[] = {"String",  "Table",   "List",   "Integer",
                                 "Integer", "Integer", "Symbol", "",
                                 "Error",   "String",  "Float"};
@@ -463,6 +489,8 @@ extern inline Slice *tag_to_slice(Tag);
 extern inline bool tag_is_i49(Tag);
 extern inline Tag i49_to_tag(int64_t);
 extern inline int64_t tag_to_i49(Tag);
+extern inline Tag i49_negate(Tag);
+
 extern inline Tag int_to_tag(int64_t);
 
 extern inline bool tag_is_symbol(Tag);

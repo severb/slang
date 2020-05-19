@@ -63,6 +63,10 @@ static bool run(VM *vm) {
       push(vm, constant);
       break;
     }
+    case OP_NEGATE: {
+      replace_top(vm, tag_negate(top(vm)));
+      break;
+    }
     case OP_PRINT: {
       Tag t = pop(vm);
       tag_print(t);

@@ -162,6 +162,7 @@ inline int64_t *tag_to_i64(Tag t) {
   assert(tag_is_i64(t));
   return (int64_t *)tag_to_ptr(t);
 }
+Tag i64_new(int64_t);
 
 #define ERROR_DISCRIMINANT BYTES(7f, fc, 00, 00, 00, 00, 00, 00)
 inline bool tag_is_error(Tag t) {
@@ -223,13 +224,16 @@ inline int64_t tag_to_i49(Tag t) {
   return sign ? -i : i;
 }
 
-Tag tag_new_i64(int64_t);
+inline Tag i49_negate(Tag t) {
+  assert(tag_is_i49(t));
+  return (Tag){.u = t.u ^ I49_SIGN};
+}
 
 inline Tag int_to_tag(int64_t i) {
   if (I49_MIN <= i && i <= I49_MAX) {
     return i49_to_tag(i);
   }
-  return tag_new_i64(i);
+  return i64_new(i);
 }
 
 // BYTES(ff, f5, 00, 00, 00, 00, 00, 00) is used by i49
@@ -322,6 +326,7 @@ inline Tag tag_to_bool(Tag t) {
 }
 
 Tag tag_add(Tag, Tag);
+Tag tag_negate(Tag);
 // Tag tag_cmp(Tag, Tag); // use symbols for lt, eq, gt--can also return err
 
 #undef BYTES
