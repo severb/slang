@@ -68,6 +68,15 @@ static bool run(VM *vm) {
     case OP_FALSE:
       push(vm, TAG_FALSE);
       break;
+    case OP_NIL:
+      push(vm, TAG_NIL);
+      break;
+    case OP_NOT: {
+      Tag t = top(vm);
+      replace_top(vm, tag_is_true(t) ? TAG_FALSE : TAG_TRUE);
+      tag_free(t);
+      break;
+    }
     case OP_EQUAL: {
       Tag right = pop(vm);
       Tag left = top(vm);
