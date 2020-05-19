@@ -56,5 +56,7 @@ extern inline void mem_free_array(void *, size_t item_size, size_t old_len);
 
 extern inline void *mem_allocate_flex(size_t type_size, size_t item_size,
                                       size_t len);
+extern inline void *mem_resize_flex(void *, size_t type_size, size_t item_size,
+                                    size_t old_len, size_t new_len);
 extern inline void mem_free_flex(void *, size_t type_size, size_t item_size,
                                  size_t len);

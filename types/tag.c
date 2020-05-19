@@ -279,7 +279,7 @@ static Tag add_integers(int64_t left, int64_t right) {
 }
 
 static void add_integers_reuse(int64_t left, int64_t right, Tag *out) {
-  if(add_overflows(left, right)) {
+  if (add_overflows(left, right)) {
     tag_free_ptr(*out);
     *out = error("addition overflow");
     return;
@@ -294,7 +294,6 @@ static void add_integers_reuse(int64_t left, int64_t right, Tag *out) {
 }
 
 Tag tag_add(Tag left, Tag right) {
-  // TODO: if the left str is an owned string, expand it instead
   switch (tag_type(left)) {
   case TYPE_I64:
     switch (tag_type(right)) {
@@ -386,12 +385,31 @@ Tag tag_add(Tag left, Tag right) {
     break;
   case TYPE_STRING:
     switch (tag_type(right)) {
-    case TYPE_SLICE:
-      return string_to_tag(
-          string_concat_slice(tag_to_string(left), tag_to_slice(right)));
-    case TYPE_STRING:
-      return string_to_tag(
-          string_concat_string(tag_to_string(left), tag_to_string(right)));
+    case TYPE_SLICE: {
+      String *result;
+      Slice *slice = tag_to_slice(right);
+      if (tag_is_own(left)) {
+        result = string_append(tag_to_string(left), slice->c, slice->len);
+      } else {
+        result = string_concat_slice(tag_to_string(left), slice);
+        // tag_free(left) -- not owned
+      }
+      tag_free(right);
+      return string_to_tag(result);
+    }
+    case TYPE_STRING: {
+      String *result;
+      String *string = tag_to_string(right);
+      if (tag_is_own(left)) {
+        result = string_append(tag_to_string(left), string->c, string->len);
+      } else {
+        result =
+            string_concat_string(tag_to_string(left), tag_to_string(right));
+        // tag_free(left) -- not owned
+      }
+      tag_free(right);
+      return string_to_tag(result);
+    }
     default:
       break;
     }

@@ -3,12 +3,20 @@ project(slang VERSION 0.1)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug)
+endif()
+
 if (MSVC)
     # warning level 4 and all warnings as errors
     add_compile_options(/W4 /WX)
 else()
     # lots of warnings and all warnings as errors
-    add_compile_options(-Wall -Wextra -pedantic -Wno-missing-braces)
+    add_compile_options(
+        -Wall -Wextra -pedantic -Wno-missing-braces
+        $<$<CONFIG:DEBUG>:-g>
+        $<$<CONFIG:RELEASE>:-O3>
+    )
 endif()
 
 add_subdirectory(types)

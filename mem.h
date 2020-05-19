@@ -34,6 +34,15 @@ inline void *mem_allocate_flex(size_t type_size, size_t item_size, size_t len) {
              : 0;
 }
 
+inline void *mem_resize_flex(void *p, size_t type_size, size_t item_size,
+                             size_t old_len, size_t new_len) {
+  assert(old_len < (SIZE_MAX - type_size) / item_size);
+  return (new_len < (SIZE_MAX - type_size) / item_size)
+             ? mem_reallocate(p, type_size + old_len * item_size,
+                              type_size + new_len * item_size)
+             : 0;
+}
+
 inline void mem_free_flex(void *p, size_t type_size, size_t item_size,
                           size_t len) {
   assert(len < (SIZE_MAX - type_size) / item_size);

@@ -75,6 +75,16 @@ bool string_eq_slice(const String *a, const Slice *b) { STR_EQ_STR; }
 bool slice_eq_slice(const Slice *a, const Slice *b) { STR_EQ_STR; }
 #undef STR_EQ_STR
 
+String *string_append(String *s, const char *c, size_t len) {
+  if (len > SIZE_MAX - s->len) {
+    return 0;
+  }
+  s = mem_resize_flex(s, sizeof(String), sizeof(s->c[0]), s->len, s->len + len);
+  memcpy(s->c + s->len, c, len);
+  s->len += len;
+  return s;
+}
+
 String *str_concat(const char *l, size_t l_len, const char *r, size_t r_len) {
   if (l_len > SIZE_MAX - r_len) {
     return 0;
