@@ -417,6 +417,8 @@ Tag tag_add(Tag left, Tag right) {
   default:
     break;
   }
+  tag_free(left);
+  tag_free(right);
   const char *left_type = tag_type_str(tag_type(left));
   const char *right_type = tag_type_str(tag_type(right));
   return error("cannot add %s to %s", left_type, right_type);
