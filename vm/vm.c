@@ -94,6 +94,8 @@ static bool run(VM *vm) {
       break;
     case OP_RETURN:
       return true;
+    case OP_NOOP:
+      break;
     }
   }
 }
