@@ -23,7 +23,7 @@ add_subdirectory(types)
 add_subdirectory(frontend)
 add_subdirectory(vm)
 
-add_library(mem OBJECT mem.c)
+add_library(mem mem.c)
 target_include_directories(mem INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_executable(slang bin/slang.c)
