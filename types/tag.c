@@ -299,7 +299,7 @@ Tag tag_add(Tag left, Tag right) {
     switch (tag_type(right)) {
     case TYPE_I64: {
       int64_t l = *tag_to_i64(left);
-      int64_t r = *tag_to_i64(left);
+      int64_t r = *tag_to_i64(right);
       if (tag_is_own(left)) {
         tag_free(right);
         add_integers_reuse(l, r, &left);
