@@ -34,7 +34,7 @@ void chunk_free(Chunk *);
 size_t chunk_lines_delta(const Chunk *, size_t current_line, size_t offset);
 
 void chunk_disassamble(const Chunk *);
-void chunk_disassamble_src(const Chunk *c, const char *);
+void chunk_disassamble_src(const Chunk *, const char *);
 
 inline size_t chunk_len(const Chunk *c) {
   return dynarray_len(uint8_t)(&c->bytecode);
@@ -45,6 +45,7 @@ inline uint8_t chunk_read_opcode(const Chunk *c, size_t offset) {
 }
 
 inline uint64_t chunk_read_operator(const Chunk *c, size_t *offset) {
+  // TODO: split into a fast path and a call to a slow path to ensure inline
   uint64_t result = *dynarray_get(uint8_t)(&c->bytecode, (*offset)++);
   if (!(result & 0x80)) {
     return result;
