@@ -26,10 +26,14 @@ add_subdirectory(vm)
 add_library(mem mem.c)
 target_include_directories(mem INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
+add_library(safemath safemath.c)
+target_include_directories(safemath INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+
 add_executable(slang bin/slang.c)
 target_link_libraries(slang
     PUBLIC types
     PUBLIC frontend
-    PUBLIC mem
     PUBLIC vm
+    PUBLIC mem
+    PUBLIC safemath
 )

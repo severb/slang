@@ -1,16 +1,22 @@
 #include "mem.h"
 
 #include <assert.h> // assert
+#include <stdio.h>  // fputs, stderr
 #include <stdlib.h> // free, realloc, abort
 
-#ifdef SLANG_NOCOREDUMP
-#include <stdio.h> // fputs, stderr
-#endif
+#include "safemath.h"
 
 #ifdef SLANG_DEBUG
 static MemStats stats;
-MemStats mem_stats(void) { return stats; }
 #endif
+
+void mem_error(const char *msg) {
+  (void)msg;
+#ifndef SLANG_COREDUMP
+  fputs(msg, stderr);
+  abort();
+#endif
+}
 
 void *mem_reallocate(void *p, size_t old_size, size_t new_size) {
 #ifdef SLANG_DEBUG
@@ -18,8 +24,9 @@ void *mem_reallocate(void *p, size_t old_size, size_t new_size) {
 #endif
   if (new_size == 0) {
 #ifdef SLANG_DEBUG
-    assert(old_size <= stats.bytes && "freeing more than allocated");
-    stats.bytes -= old_size;
+    if (size_t_sub_over(stats.bytes, old_size, &stats.bytes)) {
+      mem_error("freeing more bytes than allocated");
+    }
 #endif
     free(p);
     return 0;
@@ -28,23 +35,17 @@ void *mem_reallocate(void *p, size_t old_size, size_t new_size) {
     return p;
   }
 #ifdef SLANG_DEBUG
-  if (new_size > old_size) {
-    size_t diff = new_size - old_size;
-    assert(stats.bytes < SIZE_MAX - diff && "allocating more than SIZE_MAX");
-    stats.bytes += diff;
-  } else {
-    size_t diff = old_size - new_size;
-    assert(stats.bytes >= diff && "freeing more than allocated");
-    stats.bytes -= diff;
+  if (size_t_sub_over(stats.bytes, old_size, &stats.bytes)) {
+    mem_error("freeing more bytes than allocated");
+  }
+  if (size_t_add_over(stats.bytes, new_size, &stats.bytes)) {
+    mem_error("allocating more than SIZE_T_MAX");
   }
 #endif
   void *res = realloc(p, new_size);
-#ifdef SLANG_NOCOREDUMP
   if (!res) {
-    fputs("out of memory", stderr);
-    abort();
+    mem_error("out of memory");
   }
-#endif
   return res;
 }
 

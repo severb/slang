@@ -1,13 +1,12 @@
 #ifndef slang_safemath_h
 #define slang_safemath_h
 
-#include <i386/limits.h>
-#include <limits.h>  // INT64_MAX, INT64_MIN
+#include <limits.h>  // INT64_MAX, INT64_MIN, SIZE_T_MAX, UINT64_MAX
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // int64_t, uint64_t
 
-static inline bool i64_add_over(int64_t l, int64_t r, int64_t *result) {
+inline bool i64_add_over(int64_t l, int64_t r, int64_t *result) {
 #ifdef SLANG_FAST_OVERFLOW
   return __builtin_add_overflow(l, r, result);
 #else
@@ -19,7 +18,7 @@ static inline bool i64_add_over(int64_t l, int64_t r, int64_t *result) {
 #endif
 }
 
-static inline bool u64_add_over(uint64_t l, uint64_t r, uint64_t *result) {
+inline bool u64_add_over(uint64_t l, uint64_t r, uint64_t *result) {
 #ifdef SLANG_FAST_OVERFLOW
   return __builtin_add_overflow(l, r, result);
 #else
@@ -31,7 +30,7 @@ static inline bool u64_add_over(uint64_t l, uint64_t r, uint64_t *result) {
 #endif
 }
 
-static inline bool size_t_add_over(size_t l, size_t r, size_t *result) {
+inline bool size_t_add_over(size_t l, size_t r, size_t *result) {
 #ifdef SLANG_FAST_OVERFLOW
   return __builtin_add_overflow(l, r, result);
 #else
@@ -43,7 +42,7 @@ static inline bool size_t_add_over(size_t l, size_t r, size_t *result) {
 #endif
 }
 
-static inline bool i64_sub_over(int64_t l, int64_t r, int64_t *result) {
+inline bool i64_sub_over(int64_t l, int64_t r, int64_t *result) {
 #ifdef SLANG_FAST_OVERFLOW
   return __builtin_sub_overflow(l, r, result);
 #else
@@ -55,7 +54,7 @@ static inline bool i64_sub_over(int64_t l, int64_t r, int64_t *result) {
 #endif
 }
 
-static inline bool u64_sub_over(uint64_t l, uint64_t r, uint64_t *result) {
+inline bool u64_sub_over(uint64_t l, uint64_t r, uint64_t *result) {
 #ifdef SLANG_FAST_OVERFLOW
   return __builtin_sub_overflow(l, r, result);
 #else
@@ -67,7 +66,7 @@ static inline bool u64_sub_over(uint64_t l, uint64_t r, uint64_t *result) {
 #endif
 }
 
-static inline bool size_t_sub_over(size_t l, size_t r, size_t *result) {
+inline bool size_t_sub_over(size_t l, size_t r, size_t *result) {
 #ifdef SLANG_FAST_OVERFLOW
   return __builtin_sub_overflow(l, r, result);
 #else
@@ -79,7 +78,7 @@ static inline bool size_t_sub_over(size_t l, size_t r, size_t *result) {
 #endif
 }
 
-static inline bool i64_mul_over(int64_t l, int64_t r, int64_t *result) {
+inline bool i64_mul_over(int64_t l, int64_t r, int64_t *result) {
 #ifdef SLANG_FAST_OVERFLOW
   return __builtin_mul_overflow(l, r, result);
 #else
@@ -111,7 +110,7 @@ static inline bool i64_mul_over(int64_t l, int64_t r, int64_t *result) {
 #endif
 }
 
-static inline bool u64_mul_over(uint64_t l, uint64_t r, uint64_t *result) {
+inline bool u64_mul_over(uint64_t l, uint64_t r, uint64_t *result) {
 #ifdef SLANG_FAST_OVERFLOW
   return __builtin_mul_overflow(l, r, result);
 #else
@@ -123,7 +122,7 @@ static inline bool u64_mul_over(uint64_t l, uint64_t r, uint64_t *result) {
 #endif
 }
 
-static inline bool size_t_mul_over(size_t l, size_t r, size_t *result) {
+inline bool size_t_mul_over(size_t l, size_t r, size_t *result) {
 #ifdef SLANG_FAST_OVERFLOW
   return __builtin_mul_overflow(l, r, result);
 #else
@@ -135,7 +134,7 @@ static inline bool size_t_mul_over(size_t l, size_t r, size_t *result) {
 #endif
 }
 
-static inline bool i64_div_over(int64_t l, int64_t r, int64_t *result) {
+inline bool i64_div_over(int64_t l, int64_t r, int64_t *result) {
   if ((r == 0) || (INT64_MIN < -INT64_MAX && l == INT64_MIN && r == -1)) {
     return true;
   }
@@ -143,7 +142,7 @@ static inline bool i64_div_over(int64_t l, int64_t r, int64_t *result) {
   return false;
 }
 
-static inline bool i64_mod_over(int64_t l, int64_t r, int64_t *result) {
+inline bool i64_mod_over(int64_t l, int64_t r, int64_t *result) {
   // l % r can overflow on machines that implement it as part of div
   if ((r == 0) || (INT64_MIN < -INT64_MAX && l == INT64_MIN && r == -1)) {
     return true;
@@ -152,7 +151,7 @@ static inline bool i64_mod_over(int64_t l, int64_t r, int64_t *result) {
   return false;
 }
 
-static inline bool i64_neg_over(int64_t a, int64_t *result) {
+inline bool i64_neg_over(int64_t a, int64_t *result) {
   if (INT64_MIN < -INT64_MAX && a == INT64_MIN) {
     return true;
   }
