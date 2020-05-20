@@ -6,6 +6,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug)
 endif()
+if (CMAKE_BUILD_TYPE MATCHES Debug)
+    add_definitions(-DSLANG_DEBUG)
+endif()
 
 if (MSVC)
     # warning level 4 and all warnings as errors
@@ -23,11 +26,21 @@ add_subdirectory(types)
 add_subdirectory(frontend)
 add_subdirectory(vm)
 
-add_library(mem mem.c)
-target_include_directories(mem INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
-
 add_library(safemath safemath.c)
 target_include_directories(safemath INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+option(FAST_OVERFLOW "compile safemath with fast overflow extension checks" ON)
+if(FAST_OVERFLOW)
+    target_compile_definitions(safemath PUBLIC SLANG_FAST_OVERFLOW)
+endif(FAST_OVERFLOW)
+
+add_library(mem mem.c)
+target_include_directories(mem INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+option(COREDUMP "don't abort execution on memory errors to cause a coredump" OFF)
+if(COREDUMP)
+    target_compile_definitions(mem PRIVATE SLANG_COREDUMP)
+endif(COREDUMP)
+
+target_link_libraries(mem PUBLIC safemath)
 
 add_executable(slang bin/slang.c)
 target_link_libraries(slang

@@ -143,13 +143,14 @@ static bool match(Compiler *c, TokenType type) {
   return false;
 }
 
-static void compile_int(Compiler *c, __attribute__((unused)) bool _) {
+static void compile_int(Compiler *c, bool _) {
+  (void)_; // unused
   long long i = strtoll(c->prev.start, /*str_end*/ 0, /*base*/ 0);
   if (errno == ERANGE) {
     err_at_prev(c, "integer constant out of range");
     return;
   }
-  assert(i >= 0); // only positive values integers
+  assert(i >= 0 && "tokenizer returned negative integer");
   if (i > INT64_MAX) {
     err_at_prev(c, "integer constant out of range");
     return;
@@ -160,18 +161,20 @@ static void compile_int(Compiler *c, __attribute__((unused)) bool _) {
   return;
 }
 
-static void compile_float(Compiler *c, __attribute__((unused)) bool _) {
+static void compile_float(Compiler *c, bool _) {
+  (void)_; // unused
   double d = strtod(c->prev.start, 0);
   if (errno == ERANGE) {
     err_at_prev(c, "float constant out of range");
     return;
   }
-  assert(d >= 0); // only positive values
+  assert(d >= 0 && "tokenizer returend negative foalt");
   size_t idx = chunk_record_const(c->chunk, double_to_tag(d));
   chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
 }
 
-static void compile_string(Compiler *c, __attribute__((unused)) bool _) {
+static void compile_string(Compiler *c, bool _) {
+  (void)_; // unused
   // TODO: use a memory pool
   Slice *s = mem_allocate(sizeof(Slice));
   *s = slice(c->prev.start + 1 /*skip 1st quote */,
@@ -180,7 +183,8 @@ static void compile_string(Compiler *c, __attribute__((unused)) bool _) {
   chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
 }
 
-static void compile_literal(Compiler *c, __attribute__((unused)) bool _) {
+static void compile_literal(Compiler *c, bool _) {
+  (void)_; // unused
   TokenType lit = c->prev.type;
   switch (lit) {
   case TOKEN_FALSE:
@@ -193,7 +197,7 @@ static void compile_literal(Compiler *c, __attribute__((unused)) bool _) {
     chunk_write_operation(c->chunk, c->prev.line, OP_TRUE);
     break;
   default:
-    assert(0);
+    assert(0 && "unknown literal");
   }
 }
 
@@ -242,6 +246,7 @@ static void initialize_local(Compiler *c, Tag var) {
   List *top_uninitialized = top_uninitialized_list(c);
   size_t idx = 0;
   bool found = list_find_from(top_uninitialized, var, &idx);
+  (void)found;
   assert(found && "cannot initialize an undefined variable");
   // replace the initialized var with the last uninitialized
   Tag last = list_pop(top_uninitialized);
@@ -402,7 +407,8 @@ start:
     initialize_local(c, var);
     size_t idx;
     bool found = resolve_local(c, var, &idx);
-    assert(found);
+    (void)found;
+    assert(found && "cannot resolve local variable during declaration");
     chunk_write_unary(c->chunk, c->prev.line, OP_SET_LOCAL, idx);
   } else {
     size_t idx = chunk_record_const(c->chunk, var);
@@ -423,7 +429,8 @@ static void compile_declaration(Compiler *c) {
   synchronize(c);
 }
 
-static void compile_unary(Compiler *c, __attribute__((unused)) bool _) {
+static void compile_unary(Compiler *c, bool _) {
+  (void)_; // unused
   Token t = c->prev;
   compile_precedence(c, PREC_UNARY);
   switch (t.type) {
@@ -434,11 +441,12 @@ static void compile_unary(Compiler *c, __attribute__((unused)) bool _) {
     chunk_write_operation(c->chunk, t.line, OP_NOT);
     break;
   default:
-    assert(0);
+    assert(0 && "unknown unary token");
   }
 }
 
-static void compile_binary(Compiler *c, __attribute__((unused)) bool _) {
+static void compile_binary(Compiler *c, bool _) {
+  (void)_; // unused
   Token t = c->prev;
   compile_precedence(c, rules[t.type].precedence + 1);
   switch (t.type) {
@@ -476,7 +484,7 @@ static void compile_binary(Compiler *c, __attribute__((unused)) bool _) {
     chunk_write_operation(c->chunk, t.line, OP_MULTIPLY);
     break;
   default:
-    assert(0);
+    assert(0 && "unknown binary token");
   }
 }
 
@@ -508,21 +516,24 @@ static void compile_variable(Compiler *c, bool can_assign) {
   }
 }
 
-static void compile_and(Compiler *c, __attribute__((unused)) bool _) {
+static void compile_and(Compiler *c, bool _) {
+  (void)_; // unused
   size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
   compile_precedence(c, PREC_AND);
   chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
 }
 
-static void compile_or(Compiler *c, __attribute__((unused)) bool _) {
+static void compile_or(Compiler *c, bool _) {
+  (void)_; // unused
   size_t jump_if_true = chunk_reserve_unary(c->chunk, c->prev.line);
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
   compile_precedence(c, PREC_OR);
   chunk_patch_unary(c->chunk, jump_if_true, OP_JUMP_IF_TRUE);
 }
 
-static void compile_grouping(Compiler *c, __attribute__((unused)) bool _) {
+static void compile_grouping(Compiler *c, bool _) {
+  (void)_; // unused
   compile_expression(c);
   consume(c, TOKEN_RIGHT_PAREN, "missing paren after expression");
 }

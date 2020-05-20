@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
   }
 
 #ifdef SLANG_DEBUG
-  assert(mem_stats().bytes == 0 && "unfreed memory");
+  assert(mem_stats.bytes == 0 && "unfreed memory");
 #endif
 
   if (!success) {

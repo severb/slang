@@ -7,7 +7,7 @@
 #include "safemath.h"
 
 #ifdef SLANG_DEBUG
-static MemStats stats;
+MemStats mem_stats;
 #endif
 
 void mem_error(const char *msg) {
@@ -20,11 +20,11 @@ void mem_error(const char *msg) {
 
 void *mem_reallocate(void *p, size_t old_size, size_t new_size) {
 #ifdef SLANG_DEBUG
-  stats.calls++;
+  mem_stats.calls++;
 #endif
   if (new_size == 0) {
 #ifdef SLANG_DEBUG
-    if (size_t_sub_over(stats.bytes, old_size, &stats.bytes)) {
+    if (size_t_sub_over(mem_stats.bytes, old_size, &mem_stats.bytes)) {
       mem_error("freeing more bytes than allocated");
     }
 #endif
@@ -35,10 +35,10 @@ void *mem_reallocate(void *p, size_t old_size, size_t new_size) {
     return p;
   }
 #ifdef SLANG_DEBUG
-  if (size_t_sub_over(stats.bytes, old_size, &stats.bytes)) {
+  if (size_t_sub_over(mem_stats.bytes, old_size, &mem_stats.bytes)) {
     mem_error("freeing more bytes than allocated");
   }
-  if (size_t_add_over(stats.bytes, new_size, &stats.bytes)) {
+  if (size_t_add_over(mem_stats.bytes, new_size, &mem_stats.bytes)) {
     mem_error("allocating more than SIZE_T_MAX");
   }
 #endif

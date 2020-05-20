@@ -98,4 +98,6 @@ typedef struct MemStats {
   size_t bytes;
 } MemStats;
 
+extern MemStats mem_stats;
+
 #endif
