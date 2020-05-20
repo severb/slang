@@ -203,7 +203,7 @@ inline Slice *tag_to_slice(Tag t) {
 #define I49_DISCRIMINANT BYTES(ff, f4, 00, 00, 00, 00, 00, 00)
 #define I49_SIGN BYTES(00, 01, 00, 00, 00, 00, 00, 00)
 #define I49_MAX INT64_C(0xffffffffffff)
-#define I49_MIN -I49_MAX
+#define I49_MIN (-I49_MAX)
 inline bool tag_is_i49(Tag t) {
   // the least significant bit of the mask is used for sign
   return ((t.u & (DISCRIMINANT_MASK & ~I49_SIGN)) == I49_DISCRIMINANT);
