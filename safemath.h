@@ -136,7 +136,7 @@ static inline bool size_t_mul_over(size_t l, size_t r, size_t *result) {
 }
 
 static inline bool i64_div_over(int64_t l, int64_t r, int64_t *result) {
-  if ((r == 0) || (l == INT64_MIN && r == -1)) {
+  if ((r == 0) || (INT64_MIN < -INT64_MAX && l == INT64_MIN && r == -1)) {
     return true;
   }
   *result = l / r;
@@ -145,10 +145,18 @@ static inline bool i64_div_over(int64_t l, int64_t r, int64_t *result) {
 
 static inline bool i64_mod_over(int64_t l, int64_t r, int64_t *result) {
   // l % r can overflow on machines that implement it as part of div
-  if ((r == 0) || (l = INT64_MIN && r == -1)) {
+  if ((r == 0) || (INT64_MIN < -INT64_MAX && l == INT64_MIN && r == -1)) {
     return true;
   }
   *result = l % r;
+  return false;
+}
+
+static inline bool i64_neg_over(int64_t a, int64_t *result) {
+  if (INT64_MIN < -INT64_MAX && a == INT64_MIN) {
+    return true;
+  }
+  *result = -a;
   return false;
 }
 
