@@ -50,6 +50,9 @@ static bool run(VM *vm) {
       replace_top(vm, result);
       break;
     }
+    case OP_SUBTRACT: {
+      break; // not used yet
+    }
     case OP_GET_CONSTANT: {
       size_t idx = chunk_read_operator(vm->chunk, &vm->ip);
       Tag constant = chunk_get_const(vm->chunk, idx);
