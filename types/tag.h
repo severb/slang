@@ -200,6 +200,7 @@ inline Slice *tag_to_slice(Tag t) {
 //
 // Dobules are also considered data tags, but they don't match the TAGGED_MASK.
 
+// I49 is a sign-maginute representation of small integers
 #define I49_DISCRIMINANT BYTES(ff, f4, 00, 00, 00, 00, 00, 00)
 #define I49_SIGN BYTES(00, 01, 00, 00, 00, 00, 00, 00)
 #define I49_MAX INT64_C(0xffffffffffff)
