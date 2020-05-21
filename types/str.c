@@ -1,47 +1,14 @@
 #include "str.h"
 
-#include "mem.h" // mem_free_flex, mem_free_array, mem_free
-#include "safemath.h"
+#include "mem.h"      // mem_error, mem_resize_flex, mem_allocate_flex
+#include "safemath.h" // size_t_add_over
 
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // uint64_t, UINT64_C
-#include <stdio.h>   // fprintf, fputc, fputs
-#include <string.h>  // memcmp, memcpy
+#include <string.h>  // memcpy
 
-String *string_new(const char *c, size_t len) {
-  String *s = mem_allocate_flex(sizeof(String), sizeof(char), len);
-  s->len = len;
-  s->hash = 0;
-  memcpy(s->c, c, len);
-  return s;
-}
-
-void string_free(String *s) {
-  mem_free_flex(s, sizeof(String), sizeof(char), s->len);
-}
-
-void slice_free(Slice *s) { mem_free(s, sizeof(Slice)); }
-
-static void print(FILE *f, const char *c, size_t len) {
-  // TODO: get rid of the int cast
-  fprintf(f, "%.*s", (int)len, c);
-}
-
-void string_printf(FILE *f, const String *s) { print(f, s->c, s->len); }
-void string_reprf(FILE *f, const String *s) {
-  fputc('"', f);
-  print(f, s->c, s->len);
-  fputc('"', f);
-}
-void slice_printf(FILE *f, const Slice *s) { print(f, s->c, s->len); }
-void slice_reprf(FILE *f, const Slice *s) {
-  fputc('"', f);
-  print(f, s->c, s->len);
-  fputs("\"S", f);
-}
-
-static size_t hash(const char *c, size_t len) {
+size_t str_hash(const char *c, size_t len) {
   uint64_t res = UINT64_C(2166136261);
   for (size_t i = 0; i < len; i++) {
     res ^= c[i];
@@ -52,27 +19,6 @@ static size_t hash(const char *c, size_t len) {
   }
   return res;
 }
-
-size_t string_hash(String *s) {
-  return s->hash ? s->hash : (s->hash = hash(s->c, s->len));
-}
-size_t slice_hash(Slice *s) {
-  return s->hash ? s->hash : (s->hash = hash(s->c, s->len));
-}
-
-#define STR_EQ_STR                                                             \
-  if (a->len != b->len) {                                                      \
-    return false;                                                              \
-  }                                                                            \
-  if (a->hash != 0 && b->hash != 0 && a->hash != b->hash) {                    \
-    return false;                                                              \
-  }                                                                            \
-  return memcmp(a->c, b->c, a->len) == 0
-
-bool string_eq_string(const String *a, const String *b) { STR_EQ_STR; }
-bool string_eq_slice(const String *a, const Slice *b) { STR_EQ_STR; }
-bool slice_eq_slice(const Slice *a, const Slice *b) { STR_EQ_STR; }
-#undef STR_EQ_STR
 
 String *string_append(String *s, const char *c, size_t len) {
   size_t new_size;
@@ -100,14 +46,31 @@ String *str_concat(const char *l, size_t l_len, const char *r, size_t r_len) {
   return s;
 }
 
-extern inline size_t string_len(const String *);
-extern inline size_t slice_len(const Slice *);
-extern inline Slice slice(const char *start, const char *end);
+extern inline String *string_new(const char *, size_t);
+extern void string_free(String *);
+extern inline Slice slice(const char *, const char *);
+extern inline void slice_free(Slice *);
+
+extern inline void string_printf(FILE *, const String *);
+extern inline void slice_printf(FILE *, const Slice *);
+extern inline void string_reprf(FILE *, const String *);
+extern inline void slice_reprf(FILE *, const Slice *);
 
 extern inline void string_print(const String *);
-extern inline void string_repr(const String *);
 extern inline void slice_print(const Slice *);
+extern inline void string_repr(const String *);
 extern inline void slice_repr(const Slice *);
+
+extern inline size_t string_len(const String *);
+extern inline size_t slice_len(const Slice *);
+
+extern inline size_t string_hash(String *);
+extern inline size_t slice_hash(Slice *);
+
+extern inline bool string_eq_string(const String *, const String *);
+extern inline bool string_eq_slice(const String *, const Slice *);
+extern inline bool slice_eq_slice(const Slice *, const Slice *);
+extern inline bool slice_eq_string(const Slice *, const String *);
 
 extern inline String *string_concat_string(const String *l, const String *);
 extern inline String *string_concat_slice(const String *, const Slice *);

@@ -1,10 +1,13 @@
 #ifndef slang_str_h
 #define slang_str_h
 
+#include "mem.h"
+
 #include <assert.h>  // assert
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdio.h>   // FILE
+#include <string.h>  // memcmp
 
 typedef struct String {
   size_t len;
@@ -18,35 +21,71 @@ typedef struct Slice {
   const char *c;
 } Slice; // Slices don't own char *c
 
-String *string_new(const char *, size_t);
-void string_free(String *);
+inline String *string_new(const char *c, size_t len) {
+  String *s = mem_allocate_flex(sizeof(String), sizeof(char), len);
+  s->len = len;
+  s->hash = 0;
+  memcpy(s->c, c, len);
+  return s;
+}
+
+inline void string_free(String *s) {
+  mem_free_flex(s, sizeof(String), sizeof(s->c[0]), s->len);
+}
 
 inline Slice slice(const char *start, const char *end) {
   assert(start <= end);
   return (Slice){.len = end - start, .c = start};
 }
+inline void slice_free(Slice *s) { mem_free(s, sizeof(Slice)); }
 
-void slice_free(Slice *);
+// TODO: get rid of the int cast
+#define STR_PRINTF fprintf(f, "%.*s", (int)s->len, s->c)
+#define STR_REPRF                                                              \
+  putc('"', f);                                                                \
+  STR_PRINTF;                                                                  \
+  putc('"', f)
 
-void string_printf(FILE *, const String *);
-void string_reprf(FILE *, const String *);
-void slice_printf(FILE *, const Slice *);
-void slice_reprf(FILE *, const Slice *);
+inline void string_printf(FILE *f, const String *s) { STR_PRINTF; }
+inline void slice_printf(FILE *f, const Slice *s) { STR_PRINTF; }
+inline void string_reprf(FILE *f, const String *s) { STR_REPRF; }
+inline void slice_reprf(FILE *f, const Slice *s) {
+  STR_REPRF;
+  putc('S', f);
+}
+
+#undef STR_REPRF
+#undef STR_PRINTF
 
 inline void string_print(const String *s) { string_printf(stdout, s); }
-inline void string_repr(const String *s) { string_reprf(stdout, s); }
 inline void slice_print(const Slice *s) { slice_printf(stdout, s); }
+inline void string_repr(const String *s) { string_reprf(stdout, s); }
 inline void slice_repr(const Slice *s) { slice_reprf(stdout, s); }
 
 inline size_t string_len(const String *s) { return s->len; }
 inline size_t slice_len(const Slice *s) { return s->len; }
 
-size_t string_hash(String *);
-size_t slice_hash(Slice *);
+#define STR_HASH return s->hash ? s->hash : (s->hash = str_hash(s->c, s->len))
+size_t str_hash(const char *, size_t len);
+inline size_t string_hash(String *s) { STR_HASH; }
+inline size_t slice_hash(Slice *s) { STR_HASH; }
+#undef STR_HASH
 
-bool string_eq_string(const String *, const String *);
-bool string_eq_slice(const String *, const Slice *);
-bool slice_eq_slice(const Slice *, const Slice *);
+#define STR_EQ_STR                                                             \
+  if (a->len != b->len) {                                                      \
+    return false;                                                              \
+  }                                                                            \
+  if (a->hash != 0 && b->hash != 0 && a->hash != b->hash) {                    \
+    return false;                                                              \
+  }                                                                            \
+  return memcmp(a->c, b->c, a->len) == 0
+
+inline bool string_eq_string(const String *a, const String *b) { STR_EQ_STR; }
+inline bool string_eq_slice(const String *a, const Slice *b) { STR_EQ_STR; }
+inline bool slice_eq_slice(const Slice *a, const Slice *b) { STR_EQ_STR; }
+inline bool slice_eq_string(const Slice *a, const String *b) { STR_EQ_STR; }
+
+#undef STR_EQ_STR
 
 String *string_append(String *, const char *, size_t);
 
