@@ -1,5 +1,5 @@
 #include "tag.h"
-#include "mem.h" // mem_allocation_summary
+#include "types/tag.h"
 
 #include <stdlib.h> // EXIT_SUCCESS
 
@@ -64,18 +64,30 @@ int main(void) {
   assert(!tag_is_data(t) && "slice data check");
   assert(tag_is_own(t) && "slice pointer ownership check");
 
-  t = pair_to_tag(-7, -8);
-  assert(tag_is_pair(t) && "pair check");
-  assert((tag_to_pair_a(t) == -7) && "pair a conversion");
-  assert((tag_to_pair_b(t) == -8) && "pair b conversion");
-  assert(!tag_is_ptr(t) && "pair pointer check");
-  assert(tag_is_data(t) && "pair data check");
-  t = upair_to_tag(7, 8);
-  assert(tag_is_pair(t) && "upair check");
-  assert((tag_to_pair_ua(t) == 7) && "pair ua conversion");
-  assert((tag_to_pair_ub(t) == 8) && "pair ub conversion");
-  assert(!tag_is_ptr(t) && "upair pointer check");
-  assert(tag_is_data(t) && "upair data check");
+  t = i49_to_tag(7);
+  assert(tag_is_i49(t) && "positive i49 check");
+  assert((tag_to_i49(t) == 7) && "positive i49 conversion");
+  assert(!tag_is_ptr(t) && "positive i49 pointer check");
+  assert(tag_is_data(t) && "positive i49 data check");
+
+  t = i49_to_tag(-7);
+  assert(tag_is_i49(t) && "negative i49 check");
+  assert((tag_to_i49(t) == -7) && "negative i49 conversion");
+  assert(!tag_is_ptr(t) && "negative i49 pointer check");
+  assert(tag_is_data(t) && "negative i49 data check");
+
+  t = i49_to_tag(10);
+  assert((tag_to_i49(i49_negate(t)) == -10) && "i49 negate");
+
+  t = int_to_tag(I49_MAX);
+  assert(tag_is_i49(t) && "I49_MAX check");
+  t = int_to_tag(I49_MIN);
+  assert(tag_is_i49(t) && "I49_MIN check");
+
+  t = int_to_tag(I49_MAX + 1);
+  assert(tag_is_i64(t) && "I49_MAX check");
+  t = int_to_tag(I49_MIN - 1);
+  assert(tag_is_i64(t) && "I49_MIN check");
 
   assert(tag_is_symbol(TAG_FALSE) && "false symbol check");
   assert(!tag_is_ptr(TAG_FALSE) && "false pointer check");

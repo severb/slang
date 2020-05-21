@@ -2,7 +2,7 @@
 #define SLANG_TEST_UTIL_H
 
 #include "str.h" // string_new
-#include "tag.h" // Tag, USER_SYMBOL
+#include "tag.h" // Tag
 
 #include <stdlib.h> // size_t, RAND_MAX
 

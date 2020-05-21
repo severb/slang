@@ -25,6 +25,8 @@ endif()
 add_subdirectory(types)
 add_subdirectory(frontend)
 add_subdirectory(vm)
+add_subdirectory(bin)
+add_subdirectory(test)
 
 add_library(safemath safemath.c)
 target_include_directories(safemath INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -35,18 +37,8 @@ endif(FAST_OVERFLOW)
 
 add_library(mem mem.c)
 target_include_directories(mem INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(mem PUBLIC safemath)
 option(COREDUMP "don't abort execution on memory errors to cause a coredump" OFF)
 if(COREDUMP)
     target_compile_definitions(mem PRIVATE SLANG_COREDUMP)
 endif(COREDUMP)
-
-target_link_libraries(mem PUBLIC safemath)
-
-add_executable(slang bin/slang.c)
-target_link_libraries(slang
-    PUBLIC types
-    PUBLIC frontend
-    PUBLIC vm
-    PUBLIC mem
-    PUBLIC safemath
-)
