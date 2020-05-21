@@ -81,17 +81,12 @@ static Entry *find_entry(const Table *t, Tag key) {
   }
 }
 
-static size_t grow(Table *t) {
+static void grow(Table *t) {
   size_t old_cap = dynarray_cap(Entry)(&t->array);
-  size_t new_cap = dynarray_grow(Entry)(&t->array);
-  if (!new_cap) {
-    return 0;
-  }
+  dynarray_grow(Entry)(&t->array);
+  size_t new_cap = dynarray_cap(Entry)(&t->array);
   for (size_t i = old_cap; i < new_cap; i++) {
     dynarray_get(Entry)(&t->array, i)->key = EMPTY_KEY;
-  }
-  if (!old_cap) {
-    return new_cap;
   }
 
   // Inline rehashing: find the 1st unset and and start rehashing entries to its
@@ -125,24 +120,28 @@ static size_t grow(Table *t) {
     if (tag_biteq(entry->key, EMPTY_KEY)) {
       continue;
     }
+    /* TODO: can this replace the loop above?
+    if (tag_biteq(entry->key, TOMBSTONE_KEY)) {
+      entry->key = EMPTY_KEY;
+      dynarray_trunc(Entry)(&t->array, dynarray_len(Entry)(&t->array) - 1);
+      continue;
+    }
+    */
     remaining--;
     Entry copy = *entry;
     entry->key = EMPTY_KEY;
     *find_entry(t, copy.key) = copy;
   }
-  return new_cap;
 }
 
-size_t table_set(Table *t, Tag key, Tag val) {
+void table_set(Table *t, Tag key, Tag val) {
   assert(!is_unset(key) && "table keys cannot be user symbols 0 or 1");
   size_t len = dynarray_len(Entry)(&t->array);
   size_t cap = dynarray_cap(Entry)(&t->array);
   assert((len == 0 || len < cap) && "table invariant");
   assert(len >= t->real_len && "table invariant");
   if (len + 1 > (cap / 7) * 5) {
-    if (!grow(t)) {
-      return 0;
-    }
+    grow(t);
     len = dynarray_len(Entry)(&t->array); // len changes when tombstones clear
   }
   Entry *entry = find_entry(t, key);
@@ -158,7 +157,6 @@ size_t table_set(Table *t, Tag key, Tag val) {
     tag_free(key);
   }
   entry->val = val;
-  return t->real_len;
 }
 
 bool table_get(const Table *t, Tag key, Tag *val) {

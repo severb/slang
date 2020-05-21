@@ -75,8 +75,8 @@ size_t chunk_record_const(Chunk *c, Tag t) {
     }
     idx++;
   }
-  // TODO: out of memory check
-  return list_append(&c->consts, t) - 1;
+  list_append(&c->consts, t);
+  return list_len(&c->consts) - 1;
 }
 
 void chunk_seal(Chunk *c) {

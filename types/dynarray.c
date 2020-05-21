@@ -1,26 +1,27 @@
 #include "dynarray.h"
 
-#include "mem.h" // mem_resize_array, mem_free_array, mem_free
+#include "mem.h"
+#include "safemath.h"
 
 #include <stddef.h> // size_t
-#include <stdlib.h> // abort
 #include <stdint.h>
-#include <stdio.h> // fputs, stderr
+#include <stdio.h>  // fputs, stderr
+#include <stdlib.h> // abort
 
 static size_t next_pow2(size_t n) {
   if ((n & (n - 1)) == 0) {
     return n;
   }
   size_t pow = 1;
-  while (pow < n && pow) {
+  while (pow && pow < n) {
     pow <<= 1;
   }
   return pow;
 }
 
-size_t dynarray_reserve_T(DynamicArrayT *array, size_t cap, size_t item_size) {
+void dynarray_reserve_T(DynamicArrayT *array, size_t cap, size_t item_size) {
   if (array->cap >= cap) {
-    return array->cap;
+    return;
   }
   if (cap < 8) {
     cap = 8;
@@ -28,20 +29,23 @@ size_t dynarray_reserve_T(DynamicArrayT *array, size_t cap, size_t item_size) {
     cap = next_pow2(cap);
   }
   if (!cap) {
-    fputs("dynamic array too large\n", stderr);
-    abort();
+    mem_error("dynamic array reserve size too large");
+    // if mem_error didn't abort(), force a core dump on next access
+    *array = (DynamicArrayT){0};
+    return;
   }
   array->items = mem_resize_array(array->items, item_size, array->cap, cap);
-  return (array->cap = cap);
+  array->cap = cap;
 }
 
-size_t dynarray_grow_T(DynamicArrayT *array, size_t item_size) {
-  if (array->cap <= SIZE_MAX / 2) {
-    size_t new_cap = array->cap ? array->cap * 2 : 8;
-    return dynarray_reserve_T(array, new_cap, item_size);
+void dynarray_grow_T(DynamicArrayT *array, size_t item_size) {
+  size_t new_cap = 8;
+  if (array->cap && size_t_mul_over(array->cap, 2, &new_cap)) {
+    mem_error("dynamic array grow size too large");
+    // if mem_error didn't abort(), force a core dump on next access
+    *array = (DynamicArrayT){0};
   }
-  fputs("dynamic array too large\n", stderr);
-  abort();
+  dynarray_reserve_T(array, new_cap, item_size);
 }
 
 void dynarray_destroy_T(DynamicArrayT *array, size_t item_size) {
@@ -54,13 +58,9 @@ void dynarray_free_T(DynamicArrayT *array, size_t item_size) {
   mem_free(array, sizeof(DynamicArrayT));
 }
 
-size_t dynarray_seal_T(DynamicArrayT *array, size_t item_size) {
+void dynarray_seal_T(DynamicArrayT *array, size_t item_size) {
   array->items =
       mem_resize_array(array->items, item_size, array->cap, array->len);
-  if (array->items) {
-    return array->cap = array->len;
-  }
-  return array->cap = 0;
 }
 
 // predefined dynamic lists

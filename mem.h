@@ -37,7 +37,9 @@ inline void mem_free_array(void *p, size_t item_size, size_t old_len) {
   size_t old;
   if (size_t_mul_over(old_len, item_size, &old)) {
     mem_error("old size overflows on array free");
-    return; // if mem_error doesn't abort(), we continue and leak memory
+    // if mem_error doesn't abort(), continue with old=0
+    mem_reallocate(p, 0, 0);
+    return;
   };
   mem_reallocate(p, old, 0);
 }
@@ -57,14 +59,17 @@ inline void *mem_allocate_flex(size_t type_size, size_t item_size, size_t len) {
 
 inline void *mem_resize_flex(void *p, size_t type_size, size_t item_size,
                              size_t old_len, size_t new_len) {
-  size_t old;
+  size_t old = 0;
   if (size_t_mul_over(old_len, item_size, &old)) {
     mem_error("old size overflows on flex resize");
-    return 0;
-  }
-  if (size_t_add_over(old, type_size, &old)) {
-    mem_error("old size overflows on flex resize");
-    return 0;
+    // if mem_error doesn't abort(), continue with old=0
+    old = 0;
+  } else {
+    if (size_t_add_over(old, type_size, &old)) {
+      mem_error("old size overflows on flex resize");
+      // if mem_error doesn't abort(), continue with old=0
+      old = 0;
+    }
   }
   size_t new;
   if (size_t_mul_over(new_len, item_size, &new)) {
@@ -83,11 +88,14 @@ inline void mem_free_flex(void *p, size_t type_size, size_t item_size,
   size_t old;
   if (size_t_mul_over(len, item_size, &old)) {
     mem_error("old size overflows on flex free");
-    return; // if mem_error doesn't abort(), continue and leak memory
-  }
-  if (size_t_add_over(old, type_size, &old)) {
-    mem_error("old size overflows on flex free");
-    return; // if mem_error doesn't abort(), continue and leak memory
+    old = 0;
+    // if mem_error doesn't abort(), continue with old=0
+  } else {
+    if (size_t_add_over(old, type_size, &old)) {
+      mem_error("old size overflows on flex free");
+      old = 0;
+      // if mem_error doesn't abort(), continue and leak memory
+    }
   }
   mem_reallocate(p, old, 0);
 }

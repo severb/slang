@@ -15,6 +15,7 @@ typedef struct Entry {
 } Entry;
 
 dynarray_declare(Entry);
+
 typedef struct Table {
   DynamicArray(Entry) array;
   size_t real_len;
@@ -25,7 +26,7 @@ void table_destroy(Table *);
 void table_free(Table *);
 void table_printf(FILE *, const Table *);
 inline void table_print(const Table *t) { table_printf(stdout, t); }
-size_t table_set(Table *, Tag key, Tag val);
+void table_set(Table *, Tag key, Tag val);
 bool table_get(const Table *, Tag key, Tag *val);
 bool table_del(Table *, Tag);
 

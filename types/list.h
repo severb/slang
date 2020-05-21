@@ -68,8 +68,8 @@ inline bool list_lastbool(const List *l, Tag *t) {
   return false;
 }
 
-inline size_t list_append(List *l, Tag t) {
-  return dynarray_append(Tag)(&l->array, &t);
+inline void list_append(List *l, Tag t) {
+  dynarray_append(Tag)(&l->array, &t);
 }
 
 inline bool list_find_from(const List *l, Tag needle, size_t *idx) {

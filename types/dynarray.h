@@ -11,9 +11,9 @@ typedef struct {
   size_t cap;
 } DynamicArrayT;
 
-size_t dynarray_reserve_T(DynamicArrayT *, size_t cap, size_t item_size);
-size_t dynarray_grow_T(DynamicArrayT *, size_t item_size);
-size_t dynarray_seal_T(DynamicArrayT *, size_t item_size);
+void dynarray_reserve_T(DynamicArrayT *, size_t cap, size_t item_size);
+void dynarray_grow_T(DynamicArrayT *, size_t item_size);
+void dynarray_seal_T(DynamicArrayT *, size_t item_size);
 void dynarray_destroy_T(DynamicArrayT *, size_t item_size);
 void dynarray_free_T(DynamicArrayT *, size_t item_size);
 
@@ -35,12 +35,12 @@ void dynarray_free_T(DynamicArrayT *, size_t item_size);
     DynamicArrayT array;                                                       \
   };                                                                           \
                                                                                \
-  inline size_t dynarray_reserve(T)(struct DynamicArray(T) * l, size_t cap) {  \
-    return dynarray_reserve_T(&l->array, cap, sizeof(T));                      \
+  inline void dynarray_reserve(T)(struct DynamicArray(T) * l, size_t cap) {    \
+    dynarray_reserve_T(&l->array, cap, sizeof(T));                             \
   }                                                                            \
                                                                                \
-  inline size_t dynarray_grow(T)(struct DynamicArray(T) * l) {                 \
-    return dynarray_grow_T(&l->array, sizeof(T));                              \
+  inline void dynarray_grow(T)(struct DynamicArray(T) * l) {                   \
+    dynarray_grow_T(&l->array, sizeof(T));                                     \
   }                                                                            \
                                                                                \
   inline size_t dynarray_len(T)(const struct DynamicArray(T) * l) {            \
@@ -56,19 +56,19 @@ void dynarray_free_T(DynamicArrayT *, size_t item_size);
     return &((T *)(l->array.items))[idx];                                      \
   }                                                                            \
                                                                                \
-  inline size_t dynarray_trunc(T)(struct DynamicArray(T) * l, size_t len) {    \
+  inline void dynarray_trunc(T)(struct DynamicArray(T) * l, size_t len) {      \
     assert(len <= dynarray_cap(T)(l) && "dynarray trunc index out of range");  \
-    return l->array.len = len;                                                 \
+    l->array.len = len;                                                        \
   }                                                                            \
                                                                                \
-  inline size_t dynarray_append(T)(struct DynamicArray(T) * l, const T *i) {   \
+  inline void dynarray_append(T)(struct DynamicArray(T) * l, const T *i) {     \
     assert(dynarray_cap(T)(l) >= dynarray_len(T)(l) && "dynarray invariant");  \
     if (dynarray_cap(T)(l) == dynarray_len(T)(l)) {                            \
       dynarray_grow(T)(l);                                                     \
     }                                                                          \
     assert(dynarray_cap(T)(l) > dynarray_len(T)(l) && "dynarray invariant");   \
     *dynarray_get(T)(l, dynarray_len(T)(l)) = *i;                              \
-    return dynarray_trunc(T)(l, dynarray_len(T)(l) + 1);                       \
+    dynarray_trunc(T)(l, dynarray_len(T)(l) + 1);                              \
   }                                                                            \
                                                                                \
   inline void dynarray_destroy(T)(struct DynamicArray(T) * l) {                \
@@ -79,23 +79,23 @@ void dynarray_free_T(DynamicArrayT *, size_t item_size);
     dynarray_free_T(&l->array, sizeof(T));                                     \
   }                                                                            \
                                                                                \
-  inline size_t dynarray_seal(T)(struct DynamicArray(T) * l) {                 \
-    return dynarray_seal_T(&l->array, sizeof(T));                              \
+  inline void dynarray_seal(T)(struct DynamicArray(T) * l) {                   \
+    dynarray_seal_T(&l->array, sizeof(T));                                     \
   }                                                                            \
                                                                                \
   typedef struct DynamicArray(T) DynamicArray(T)
 
 #define dynarray_define(T)                                                     \
-  extern inline size_t dynarray_reserve(T)(DynamicArray(T) *, size_t);         \
-  extern inline size_t dynarray_grow(T)(DynamicArray(T) *);                    \
+  extern inline void dynarray_reserve(T)(DynamicArray(T) *, size_t);           \
+  extern inline void dynarray_grow(T)(DynamicArray(T) *);                      \
   extern inline size_t dynarray_len(T)(const DynamicArray(T) *);               \
   extern inline size_t dynarray_cap(T)(const DynamicArray(T) *);               \
   extern inline T *dynarray_get(T)(const DynamicArray(T) *, size_t);           \
-  extern inline size_t dynarray_trunc(T)(DynamicArray(T) *, size_t);           \
-  extern inline size_t dynarray_append(T)(DynamicArray(T) *, const T *);       \
+  extern inline void dynarray_trunc(T)(DynamicArray(T) *, size_t);             \
+  extern inline void dynarray_append(T)(DynamicArray(T) *, const T *);         \
   extern inline void dynarray_destroy(T)(DynamicArray(T) *);                   \
   extern inline void dynarray_free(T)(DynamicArray(T) *);                      \
-  extern inline size_t dynarray_seal(T)(DynamicArray(T) *)
+  extern inline void dynarray_seal(T)(DynamicArray(T) *)
 
 // predefined dynamic lists
 dynarray_declare(size_t);
