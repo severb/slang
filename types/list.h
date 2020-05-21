@@ -7,7 +7,7 @@
 #include <assert.h>  // assert
 #include <stdbool.h> // bool, true, false
 #include <stddef.h>  // size_t
-#include <stdio.h>   // FILE
+#include <stdio.h>   // FILE, stdout
 
 dynarray_declare(Tag);
 
@@ -27,14 +27,6 @@ inline Tag *list_get(const List *l, size_t idx) {
   return dynarray_get(Tag)(&l->array, idx);
 }
 
-inline bool list_getbool(const List *l, size_t idx, Tag *t) {
-  if (idx < list_len(l)) {
-    *t = *list_get(l, idx);
-    return true;
-  }
-  return false;
-}
-
 inline Tag list_pop(List *l) {
   size_t len = list_len(l);
   assert((len > 0) && "pop on empty list");
@@ -43,29 +35,10 @@ inline Tag list_pop(List *l) {
   return result;
 }
 
-inline bool list_popbool(List *l, Tag *t) {
-  if (list_len(l) > 0) {
-    if (t) {
-      *t = list_pop(l);
-    }
-    return true;
-  }
-  return false;
-}
-
 inline Tag *list_last(const List *l) {
   size_t len = list_len(l);
   assert(len > 0 && "last on empty list");
   return list_get(l, len - 1);
-}
-
-inline bool list_lastbool(const List *l, Tag *t) {
-  size_t len = list_len(l);
-  if (len > 0) {
-    *t = *list_get(l, len - 1);
-    return true;
-  }
-  return false;
 }
 
 inline void list_append(List *l, Tag t) {
