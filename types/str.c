@@ -1,6 +1,7 @@
 #include "str.h"
 
 #include "mem.h" // mem_free_flex, mem_free_array, mem_free
+#include "safemath.h"
 
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
@@ -10,11 +11,9 @@
 
 String *string_new(const char *c, size_t len) {
   String *s = mem_allocate_flex(sizeof(String), sizeof(char), len);
-  if (s) {
-    s->len = len;
-    s->hash = 0;
-    memcpy(s->c, c, len);
-  }
+  s->len = len;
+  s->hash = 0;
+  memcpy(s->c, c, len);
   return s;
 }
 
@@ -25,7 +24,7 @@ void string_free(String *s) {
 void slice_free(Slice *s) { mem_free(s, sizeof(Slice)); }
 
 static void print(FILE *f, const char *c, size_t len) {
-  // TODO: fix cast to int
+  // TODO: get rid of the int cast
   fprintf(f, "%.*s", (int)len, c);
 }
 
@@ -68,7 +67,7 @@ size_t slice_hash(Slice *s) {
   if (a->hash != 0 && b->hash != 0 && a->hash != b->hash) {                    \
     return false;                                                              \
   }                                                                            \
-  return memcmp(a->c, b->c, a->len) == 0;
+  return memcmp(a->c, b->c, a->len) == 0
 
 bool string_eq_string(const String *a, const String *b) { STR_EQ_STR; }
 bool string_eq_slice(const String *a, const Slice *b) { STR_EQ_STR; }
@@ -76,27 +75,28 @@ bool slice_eq_slice(const Slice *a, const Slice *b) { STR_EQ_STR; }
 #undef STR_EQ_STR
 
 String *string_append(String *s, const char *c, size_t len) {
-  if (len > SIZE_MAX - s->len) {
+  size_t new_size;
+  if (size_t_add_over(s->len, len, &new_size)) {
+    mem_error("string size too large");
     return 0;
   }
-  s = mem_resize_flex(s, sizeof(String), sizeof(s->c[0]), s->len, s->len + len);
+  s = mem_resize_flex(s, sizeof(String), sizeof(s->c[0]), s->len, new_size);
   memcpy(s->c + s->len, c, len);
-  s->len += len;
+  s->len = new_size;
   return s;
 }
 
 String *str_concat(const char *l, size_t l_len, const char *r, size_t r_len) {
-  if (l_len > SIZE_MAX - r_len) {
+  size_t new_size;
+  if (size_t_add_over(l_len, r_len, &new_size)) {
+    mem_error("string size too large");
     return 0;
   }
-  size_t s_len = l_len + r_len;
-  String *s = mem_allocate_flex(sizeof(String), sizeof(char), s_len);
-  if (s) {
-    s->len = s_len;
-    s->hash = 0;
-    memcpy(s->c, l, l_len);
-    memcpy(s->c + l_len, r, r_len);
-  }
+  String *s = mem_allocate_flex(sizeof(String), sizeof(char), new_size);
+  s->len = new_size;
+  s->hash = 0;
+  memcpy(s->c, l, l_len);
+  memcpy(s->c + l_len, r, r_len);
   return s;
 }
 
