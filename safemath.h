@@ -1,7 +1,7 @@
 #ifndef slang_safemath_h
 #define slang_safemath_h
 
-#include <limits.h>  // INT64_MAX, INT64_MIN, SIZE_T_MAX, UINT64_MAX
+#include <limits.h>  // INT64_MAX, INT64_MIN, SIZE_MAX, UINT64_MAX
 #include <stdbool.h> // bool
 #include <stddef.h>  // size_t
 #include <stdint.h>  // int64_t, uint64_t
@@ -34,7 +34,7 @@ inline bool size_t_add_over(size_t l, size_t r, size_t *result) {
 #ifdef SLANG_FAST_OVERFLOW
   return __builtin_add_overflow(l, r, result);
 #else
-  if (l > SIZE_T_MAX - r) {
+  if (l > SIZE_MAX - r) {
     return true;
   }
   *result = l + r;
@@ -126,7 +126,7 @@ inline bool size_t_mul_over(size_t l, size_t r, size_t *result) {
 #ifdef SLANG_FAST_OVERFLOW
   return __builtin_mul_overflow(l, r, result);
 #else
-  if (l > SIZE_T_MAX / r) {
+  if (l > SIZE_MAX / r) {
     return true;
   }
   *result = l * r;
