@@ -328,6 +328,7 @@ inline Tag tag_to_bool(Tag t) {
 }
 
 Tag tag_add(Tag, Tag);
+Tag tag_mul(Tag, Tag);
 Tag tag_negate(Tag);
 // Tag tag_cmp(Tag, Tag); // use symbols for lt, eq, gt--can also return err
 

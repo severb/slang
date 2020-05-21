@@ -1,9 +1,10 @@
 #include "tag.h"
 
-#include "list.h"  // list_*
-#include "mem.h"   // mem_free
-#include "str.h"   // string_*, slice_*
-#include "table.h" // table_*
+#include "list.h"     // list_*
+#include "mem.h"      // mem_free
+#include "safemath.h" // i64_add_over, i64_mul_over
+#include "str.h"      // string_*, slice_*
+#include "table.h"    // table_*
 
 #include <inttypes.h> // PRId*
 #include <limits.h>   // INT32_MAX, INT32_MIN
@@ -266,31 +267,27 @@ Tag i64_new(int64_t i) {
   return i64_to_tag(p);
 }
 
-static bool add_overflows(int64_t left, int64_t right) {
-  return (left > 0 && right > INT64_MAX - left) ||
-         (left < 0 && right < INT64_MIN - left);
-}
-
 static Tag add_integers(int64_t left, int64_t right) {
-  if (add_overflows(left, right)) {
+  int64_t result;
+  if (i64_add_over(left, right, &result)) {
     return error("addition overflows");
   }
-  return int_to_tag(left + right);
+  return int_to_tag(result);
 }
 
 static void add_integers_reuse(int64_t left, int64_t right, Tag *out) {
-  if (add_overflows(left, right)) {
+  int64_t result;
+  if (i64_add_over(left, right, &result)) {
     tag_free_ptr(*out);
-    *out = error("addition overflow");
+    *out = error("addition overflows");
     return;
   }
-  int64_t sum = left + right;
-  if (I49_MIN <= sum && sum <= I49_MAX) {
+  if (I49_MIN <= result && result <= I49_MAX) {
     tag_free_ptr(*out);
-    i49_to_tag(sum);
+    i49_to_tag(result);
     return;
   }
-  *tag_to_i64(*out) = sum;
+  *tag_to_i64(*out) = result;
 }
 
 Tag tag_add(Tag left, Tag right) {
@@ -422,6 +419,117 @@ Tag tag_add(Tag left, Tag right) {
   const char *left_type = tag_type_str(tag_type(left));
   const char *right_type = tag_type_str(tag_type(right));
   return error("cannot add %s to %s", left_type, right_type);
+}
+
+static Tag mul_integers(int64_t left, int64_t right) {
+  int64_t result;
+  if (i64_mul_over(left, right, &result)) {
+    return error("multiplication overflows");
+  }
+  return int_to_tag(result);
+}
+
+static void mul_integers_reuse(int64_t left, int64_t right, Tag *out) {
+  int64_t result;
+  if (i64_mul_over(left, right, &result)) {
+    tag_free_ptr(*out);
+    *out = error("multiplication overflows");
+    return;
+  }
+  if (I49_MIN <= result && result <= I49_MAX) {
+    tag_free_ptr(*out);
+    i49_to_tag(result);
+    return;
+  }
+  *tag_to_i64(*out) = result;
+}
+
+Tag tag_mul(Tag left, Tag right) {
+  switch (tag_type(left)) {
+  case TYPE_I64:
+    switch (tag_type(right)) {
+    case TYPE_I64: {
+      int64_t l = *tag_to_i64(left);
+      int64_t r = *tag_to_i64(right);
+      if (tag_is_own(left)) {
+        tag_free(right);
+        mul_integers_reuse(l, r, &left);
+        return left;
+      }
+      if (tag_is_own(right)) {
+        // tag_free(left); -- not owned
+        mul_integers_reuse(l, r, &right);
+        return right;
+      }
+      // tag_free(left); -- not owned
+      // tag_free(right); -- not owned
+      return mul_integers(l, r);
+    }
+    case TYPE_I49P:
+    case TYPE_I49N: {
+      int64_t l = *tag_to_i64(left);
+      if (tag_is_own(left)) {
+        mul_integers_reuse(l, tag_to_i49(right), &left);
+        return left;
+      }
+      // tag_free(left); -- not owned
+      return mul_integers(l, tag_to_i49(right));
+    }
+    case TYPE_DOUBLE: {
+      int64_t l = *tag_to_i64(left);
+      tag_free_ptr(left);
+      return double_to_tag((double)l * tag_to_double(right));
+    }
+    default:
+      break;
+    }
+    break;
+  case TYPE_I49P:
+  case TYPE_I49N:
+    switch (tag_type(right)) {
+    case TYPE_I64: {
+      int64_t r = *tag_to_i64(right);
+      if (tag_is_own(right)) {
+        mul_integers_reuse(tag_to_i49(left), r, &right);
+        return right;
+      }
+      // tag_free(right); -- not owned
+      return mul_integers(tag_to_i49(left), r);
+    }
+    case TYPE_I49P:
+    case TYPE_I49N:
+      // cannot overflow
+      return mul_integers(tag_to_i49(left), tag_to_i49(right));
+    case TYPE_DOUBLE:
+      return double_to_tag((double)tag_to_i49(left) * tag_to_double(right));
+    default:
+      break;
+    }
+    break;
+  case TYPE_DOUBLE:
+    switch (tag_type(right)) {
+    case TYPE_I64: {
+      int64_t r = *tag_to_i64(right);
+      tag_free(right);
+      return double_to_tag(tag_to_double(left) * (double)r);
+    }
+    case TYPE_I49P:
+    case TYPE_I49N:
+      return double_to_tag(tag_to_double(left) * (double)tag_to_i49(right));
+    case TYPE_DOUBLE:
+      return double_to_tag(tag_to_double(left) * tag_to_double(right));
+    default:
+      break;
+    }
+    break;
+  default:
+    break;
+  }
+  tag_free(left);
+  tag_free(right);
+  const char *left_type = tag_type_str(tag_type(left));
+  const char *right_type = tag_type_str(tag_type(right));
+  return error("cannot multiply %s to %s", left_type, right_type);
 }
 
 Tag tag_negate(Tag t) {

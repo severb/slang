@@ -42,9 +42,23 @@ static bool run(VM *vm) {
       Tag right = pop(vm);
       Tag left = top(vm);
       Tag result = tag_add(left, right);
+      replace_top(vm, result);
       if (tag_is_error(result)) {
         print_runtime_error(vm, result);
-        tag_free(result);
+        // tag_free(result) -- don't free the error, let the stack clean it
+        return false;
+      }
+      replace_top(vm, result);
+      break;
+    }
+    case OP_MULTIPLY: {
+      Tag right = pop(vm);
+      Tag left = top(vm);
+      Tag result = tag_mul(left, right);
+      replace_top(vm, result);
+      if (tag_is_error(result)) {
+        print_runtime_error(vm, result);
+        // tag_free(result) -- don't free the error, let the stack clean it
         return false;
       }
       replace_top(vm, result);
