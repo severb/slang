@@ -14,6 +14,7 @@ void mem_error(const char *msg) {
   (void)msg;
 #ifndef SLANG_COREDUMP
   fputs(msg, stderr);
+  putc('\n', stderr);
   abort();
 #endif
 }
