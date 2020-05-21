@@ -44,6 +44,7 @@ void dynarray_grow_T(DynamicArrayT *array, size_t item_size) {
     mem_error("dynamic array grow size too large");
     // if mem_error didn't abort(), force a core dump on next access
     *array = (DynamicArrayT){0};
+    return;
   }
   dynarray_reserve_T(array, new_cap, item_size);
 }
