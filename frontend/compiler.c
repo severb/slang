@@ -484,7 +484,7 @@ static void compile_binary(Compiler *c, bool _) {
     chunk_write_operation(c->chunk, t.line, OP_MULTIPLY);
     break;
   case TOKEN_PERCENT:
-    chunk_write_operation(c->chunk, t.line, OP_REMINDER);
+    chunk_write_operation(c->chunk, t.line, OP_REMAINDER);
     break;
   default:
     assert(0 && "unknown binary token");

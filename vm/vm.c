@@ -66,7 +66,7 @@ static bool run(VM *vm) {
     case OP_SUBTRACT: {
       break; // not used yet
     }
-    case OP_REMINDER: {
+    case OP_REMAINDER: {
       BINARY_MATH(tag_mod);
       break;
     }
