@@ -574,7 +574,7 @@ Tag tag_less(Tag left, Tag right) {
   tag_free(right);
   const char *left_type = tag_type_str(tag_type(left));
   const char *right_type = tag_type_str(tag_type(right));
-  return error("cannot compare %s with %s", left_type, right_type);
+  return error("cannot compare %s to %s", left_type, right_type);
 }
 
 #define greater_i_or_d(a, b) ((a) > (b) ? TAG_TRUE : TAG_FALSE)
@@ -595,7 +595,7 @@ Tag tag_greater(Tag left, Tag right) {
   tag_free(right);
   const char *left_type = tag_type_str(tag_type(left));
   const char *right_type = tag_type_str(tag_type(right));
-  return error("cannot compare %s with %s", left_type, right_type);
+  return error("cannot compare %s to %s", left_type, right_type);
 }
 
 Tag tag_negate(Tag t) {
