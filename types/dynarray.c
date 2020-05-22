@@ -6,6 +6,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define MIN_CAP 8
+
 static size_t next_pow2(size_t n) {
   if ((n & (n - 1)) == 0) {
     return n;
@@ -21,8 +23,8 @@ void dynarray_reserve_T(DynamicArrayT *array, size_t cap, size_t item_size) {
   if (array->cap >= cap) {
     return;
   }
-  if (cap < 8) {
-    cap = 8;
+  if (cap < MIN_CAP) {
+    cap = MIN_CAP;
   } else {
     cap = next_pow2(cap);
   }
@@ -37,7 +39,7 @@ void dynarray_reserve_T(DynamicArrayT *array, size_t cap, size_t item_size) {
 }
 
 void dynarray_grow_T(DynamicArrayT *array, size_t item_size) {
-  size_t new_cap = 8;
+  size_t new_cap = MIN_CAP;
   if (array->cap && size_t_mul_over(array->cap, 2, &new_cap)) {
     mem_error("dynamic array grow size too large");
     // if mem_error didn't abort(), force a core dump on next access
