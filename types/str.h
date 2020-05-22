@@ -22,7 +22,7 @@ typedef struct Slice {
 } Slice; // Slices don't own char *c
 
 inline String *string_new(const char *c, size_t len) {
-  String *s = mem_allocate_flex(sizeof(String), sizeof(char), len);
+  String *s = mem_allocate_flex(sizeof(*s), sizeof(s->c[0]), len);
   s->len = len;
   s->hash = 0;
   memcpy(s->c, c, len);
@@ -30,7 +30,7 @@ inline String *string_new(const char *c, size_t len) {
 }
 
 inline void string_free(String *s) {
-  mem_free_flex(s, sizeof(String), sizeof(s->c[0]), s->len);
+  mem_free_flex(s, sizeof(*s), sizeof(s->c[0]), s->len);
 }
 
 inline Slice slice(const char *start, const char *end) {

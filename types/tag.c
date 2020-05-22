@@ -33,7 +33,7 @@ static Tag error(const char *fmt, ...) {
   assert((unsigned int)len < buf_size);
   va_end(args);
   String *err_msg = string_new(buf, (unsigned int)len);
-  Tag *error = mem_allocate(sizeof(Tag));
+  Tag *error = mem_allocate(sizeof(*error));
   *error = string_to_tag(err_msg);
   return error_to_tag(error);
 }
@@ -265,7 +265,7 @@ bool tag_eq(Tag a, Tag b) {
 }
 
 Tag i64_new(int64_t i) {
-  int64_t *p = mem_allocate(sizeof(int64_t));
+  int64_t *p = mem_allocate(sizeof(*p));
   *p = i;
   return i64_to_tag(p);
 }

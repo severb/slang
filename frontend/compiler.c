@@ -5,13 +5,13 @@
 #include "list.h"     // List, list_*
 #include "mem.h"      // mem_allocate
 #include "str.h"      // Slice, slice
-#include "tag.h"      // Tag, *_to_tag, tag_to_*
+#include "tag.h"      // Tag, *_tag, tag_*
 
-#include <errno.h>   // errno
-#include <stdbool.h> // bool, true, false
-#include <stdint.h>  // uint64_t
-#include <stdio.h>   // fprintf, stderr
-#include <stdlib.h>  // size_t
+#include <errno.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 typedef struct {
   Token current;
@@ -176,7 +176,7 @@ static void compile_float(Compiler *c, bool _) {
 static void compile_string(Compiler *c, bool _) {
   (void)_; // unused
   // TODO: use a memory pool
-  Slice *s = mem_allocate(sizeof(Slice));
+  Slice *s = mem_allocate(sizeof(*s));
   *s = slice(c->prev.start + 1 /*skip 1st quote */,
              c->prev.end - 1 /* skip last quotes */);
   size_t idx = chunk_record_const(c->chunk, slice_to_tag(s));
@@ -203,10 +203,10 @@ static void compile_literal(Compiler *c, bool _) {
 
 static void enter_scope(Compiler *c) {
   // TODO: use a memory pool
-  List *scopes = mem_allocate(sizeof(List));
+  List *scopes = mem_allocate(sizeof(*scopes));
   *scopes = (List){0};
   list_append(&c->scopes, list_to_tag(scopes));
-  List *uninitialized = mem_allocate(sizeof(List));
+  List *uninitialized = mem_allocate(sizeof(*uninitialized));
   *uninitialized = (List){0};
   list_append(&c->uninitialized, list_to_tag(uninitialized));
 }
@@ -386,7 +386,7 @@ static void compile_statement(Compiler *c) {
 
 Tag var_from_token(Token t) {
   // TODO: use a memory pool
-  Slice *s = mem_allocate(sizeof(Slice));
+  Slice *s = mem_allocate(sizeof(*s));
   *s = slice(t.start, t.end);
   return slice_to_tag(s);
 }

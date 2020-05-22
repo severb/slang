@@ -26,7 +26,7 @@ String *string_append(String *s, const char *c, size_t len) {
     mem_error("string size too large");
     return 0;
   }
-  s = mem_resize_flex(s, sizeof(String), sizeof(s->c[0]), s->len, new_size);
+  s = mem_resize_flex(s, sizeof(*s), sizeof(s->c[0]), s->len, new_size);
   memcpy(s->c + s->len, c, len);
   s->len = new_size;
   return s;
@@ -38,7 +38,7 @@ String *str_concat(const char *l, size_t l_len, const char *r, size_t r_len) {
     mem_error("string size too large");
     return 0;
   }
-  String *s = mem_allocate_flex(sizeof(String), sizeof(char), new_size);
+  String *s = mem_allocate_flex(sizeof(*s), sizeof(s->c[0]), new_size);
   s->len = new_size;
   s->hash = 0;
   memcpy(s->c, l, l_len);
