@@ -1,6 +1,7 @@
 #include "list.h"  // List, list_*
 #include "mem.h"   // mem_stats
 #include "table.h" // Table, table_*
+#include "tag.h"   // Tag, *_to_tag, tag_to_*
 #include "util.h"  // randint, randstr
 
 #include <inttypes.h> // PRId*
@@ -23,8 +24,8 @@ int main(int argc, const char *argv[]) {
   clock_t start = clock();
   for (unsigned int i = 0; i < CYCLES; i++) {
     int n = randint(keyspace);
-    Tag key = pair_to_tag(0, n);
-    Tag val = pair_to_tag(1, i);
+    Tag key = i49_to_tag(n);
+    Tag val = i49_to_tag(i);
     table_set(&t, key, val);
   }
   clock_t duration = clock() - start;
@@ -37,7 +38,7 @@ int main(int argc, const char *argv[]) {
   fprintf(stderr, "queries:%8" PRIu64 " collisions:%8" PRIu64 "\n", s1.queries,
           s1.collisions);
 #endif
-  table_free(&t);
+  table_destroy(&t);
 
   List strings = {0};
   for (size_t i = 0; i < keyspace; i++) {
@@ -62,11 +63,11 @@ int main(int argc, const char *argv[]) {
   fprintf(stderr, "queries:%8" PRIu64 " collisions:%8" PRIu64 "\n",
           s2.queries - s1.queries, s2.collisions - s1.collisions);
 #endif
-  table_free(&t);
-  list_free(&strings);
+  table_destroy(&t);
+  list_destroy(&strings);
 
 #ifdef SLANG_DEBUG
-  assert(mem_stats().bytes == 0 && "unfreed memory");
+  assert(mem_stats.bytes == 0 && "unfreed memory");
 #endif
 
   return EXIT_SUCCESS;

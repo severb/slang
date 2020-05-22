@@ -33,7 +33,7 @@ void testone(bool summary) {
       table_del(&table, key);
       *list_get(&vals, idx) = TAG_NIL;
     } else {
-      Tag val = upair_to_tag(0, i);
+      Tag val = i49_to_tag(i);
       table_set(&table, key, val);
       *list_get(&vals, idx) = val;
     }
@@ -42,7 +42,7 @@ void testone(bool summary) {
   for (size_t i = 0; i < ELEMS; i++) {
     Tag key = *list_get(&keys, i);
     Tag expected_val = *list_get(&vals, i);
-    if (tag_type(expected_val) == TYPE_PAIR) {
+    if (tag_type(expected_val) == TYPE_I49P) {
       Tag val;
       assert(table_get(&table, key, &val) && "key not found");
       assert(tag_eq(expected_val, val) && "val doesn't match");
@@ -54,7 +54,7 @@ void testone(bool summary) {
   size_t expected_len = 0;
   for (size_t i = 0; i < ELEMS; i++) {
     Tag val = *list_get(&vals, i);
-    expected_len += tag_type(val) == TYPE_PAIR;
+    expected_len += tag_type(val) == TYPE_I49P;
   }
   assert(table.real_len == expected_len && "length doesn't match");
 
@@ -64,16 +64,16 @@ void testone(bool summary) {
   }
 #endif
 
-  table_free(&table);
-  list_free(&keys);
-  list_free(&vals);
+  table_destroy(&table);
+  list_destroy(&keys);
+  list_destroy(&vals);
 
 #ifdef SLANG_DEBUG
-  assert(mem_stats().bytes == 0 && "unfreed memory");
+  assert(mem_stats.bytes == 0 && "unfreed memory");
 #endif
 }
 
-int main(int arcg, char const *argv[]) {
+int main(void) {
   srand(1337);
   uint64_t i = 0;
   while (1) {
