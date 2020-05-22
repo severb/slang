@@ -2,11 +2,11 @@
 
 #include "bytecode.h" // Chunk, chunk_*
 #include "list.h"     // List, list_*
-#include "table.h"    // Table
+#include "table.h"    // Table, table_*
 #include "tag.h"      // Tag, tag_*
 
-#include <stdint.h> // uint8_t
-#include <stdio.h>  // stderr, fputc, putchar
+#include <stdint.h>
+#include <stdio.h>
 
 typedef struct {
   const Chunk *chunk;
@@ -33,45 +33,34 @@ static inline Tag pop(VM *vm) { return list_pop(&vm->stack); }
 static inline Tag top(VM *vm) { return *list_last(&vm->stack); }
 static inline void replace_top(VM *vm, Tag t) { *list_last(&vm->stack) = t; }
 
+#define BINARY_MATH(func)                                                      \
+  do {                                                                         \
+    Tag right = pop(vm);                                                       \
+    Tag left = top(vm);                                                        \
+    Tag result = (func)(left, right);                                          \
+    replace_top(vm, result);                                                   \
+    if (tag_is_error(result)) {                                                \
+      print_runtime_error(vm, result);                                         \
+      /* tag_free(result) -- don't free the error, leave it on the  stack */   \
+      return false;                                                            \
+    }                                                                          \
+  } while (0)
+
 static bool run(VM *vm) {
   for (;;) {
     uint8_t opcode = chunk_read_opcode(vm->chunk, vm->ip);
     vm->ip++;
     switch (opcode) {
     case OP_ADD: {
-      Tag right = pop(vm);
-      Tag left = top(vm);
-      Tag result = tag_add(left, right);
-      replace_top(vm, result);
-      if (tag_is_error(result)) {
-        print_runtime_error(vm, result);
-        // tag_free(result) -- don't free the error, let the stack clean it
-        return false;
-      }
+      BINARY_MATH(tag_add);
       break;
     }
     case OP_MULTIPLY: {
-      Tag right = pop(vm);
-      Tag left = top(vm);
-      Tag result = tag_mul(left, right);
-      replace_top(vm, result);
-      if (tag_is_error(result)) {
-        print_runtime_error(vm, result);
-        // tag_free(result) -- don't free the error, let the stack clean it
-        return false;
-      }
+      BINARY_MATH(tag_mul);
       break;
     }
     case OP_DIVIDE: {
-      Tag right = pop(vm);
-      Tag left = top(vm);
-      Tag result = tag_div(left, right);
-      replace_top(vm, result);
-      if (tag_is_error(result)) {
-        print_runtime_error(vm, result);
-        // tag_free(result) -- don't free the error, let the stack clean it
-        return false;
-      }
+      BINARY_MATH(tag_div);
       break;
     }
     case OP_SUBTRACT: {
