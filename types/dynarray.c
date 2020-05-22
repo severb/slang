@@ -1,11 +1,10 @@
 #include "dynarray.h"
 
-#include "mem.h"
-#include "safemath.h"
+#include "mem.h"      // mem_*
+#include "safemath.h" // size_t_mul_over
 
-#include <stddef.h> // size_t
-#include <stdint.h> // uint8_t
-
+#include <stddef.h>
+#include <stdint.h>
 
 static size_t next_pow2(size_t n) {
   if ((n & (n - 1)) == 0) {

@@ -1,14 +1,14 @@
 #include "list.h"  // List, list_*
 #include "mem.h"   // mem_stats
-#include "table.h" // Table, table_
-#include "tag.h"   // Tag, tag_eq, tag_type, TAG_NIL
+#include "table.h" // Table, table_*
+#include "tag.h"   // Tag, tag_*, TAG_NIL
 #include "util.h"  // randint, randstr, SENTINEL
 
-#include <inttypes.h> // PRId*
-#include <stdbool.h>  // bool
-#include <stdint.h>   // uint64_t
-#include <stdio.h>    // printf
-#include <stdlib.h>   // EXIT_SUCCESS, rand, RAND_MAX, size_t
+#include <inttypes.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #define STRSIZE 16
 #define ELEMS 100

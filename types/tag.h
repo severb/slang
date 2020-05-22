@@ -1,12 +1,12 @@
 #ifndef slang_tag_h
 #define slang_tag_h
 
-#include <assert.h>  // static_assert, assert
-#include <limits.h>  // INT_MAX
-#include <stdbool.h> // bool
-#include <stddef.h>  // max_align_t, size_t
-#include <stdint.h>  // *int16_t, *int32_t, *int64_t, UINT64_C, uintptr_t
-#include <stdio.h>   // FILE
+#include <assert.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
 
 // A Tag is a discriminated union of all known Slang types.
 //
@@ -246,7 +246,8 @@ inline bool tag_is_symbol(Tag t) {
 
 typedef enum { SYM_FALSE, SYM_TRUE, SYM_NIL, SYM_OK, SYM__COUNT } Symbol;
 
-static_assert(0xfff6000000000000 == SYMBOL_DISCRIMINANT, "symbol constant changed");
+static_assert(0xfff6000000000000 == SYMBOL_DISCRIMINANT,
+              "symbol constant changed");
 #define TAG_FALSE ((Tag){.u = 0xfff6000000000000 | SYM_FALSE})
 #define TAG_TRUE ((Tag){.u = (0xfff6000000000000) | SYM_TRUE})
 #define TAG_NIL ((Tag){.u = (0xfff6000000000000) | SYM_NIL})

@@ -1,9 +1,9 @@
 #include "dynarray.h" // DynamicArray, dynarray_*
 #include "mem.h"      // mem_stats
 
-#include <assert.h> // assert
-#include <stddef.h> // size_t
-#include <stdlib.h> // EXIT_SUCCESS
+#include <assert.h>
+#include <stddef.h>
+#include <stdlib.h> 
 
 int main(void) {
   DynamicArray(size_t) a = {0};

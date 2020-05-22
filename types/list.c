@@ -1,10 +1,10 @@
 #include "list.h"
 
-#include "dynarray.h" // dynarray_define
-#include "mem.h"      // mem_free
-#include "tag.h"      // Tag, tag_free
+#include "dynarray.h" // dynarray_*
+#include "mem.h"      // mem_*
+#include "tag.h"      // Tag, tag_*
 
-#include <stdio.h> // FILE, putc, fputs
+#include <stdio.h>
 
 dynarray_define(Tag);
 

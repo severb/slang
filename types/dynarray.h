@@ -1,9 +1,9 @@
 #ifndef slang_dynarray_h
 #define slang_dynarray_h
 
-#include <assert.h> // assert
-#include <stddef.h> // size_t
-#include <stdint.h> // uint8_t
+#include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
 
 typedef struct {
   void *items;

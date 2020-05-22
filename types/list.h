@@ -4,10 +4,10 @@
 #include "dynarray.h" // dynarray_*
 #include "tag.h"      // Tag
 
-#include <assert.h>  // assert
-#include <stdbool.h> // bool, true, false
-#include <stddef.h>  // size_t
-#include <stdio.h>   // FILE, stdout
+#include <assert.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
 
 dynarray_declare(Tag);
 

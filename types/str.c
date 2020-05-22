@@ -1,12 +1,12 @@
 #include "str.h"
 
-#include "mem.h"      // mem_error, mem_resize_flex, mem_allocate_flex
+#include "mem.h"      // mem_*
 #include "safemath.h" // size_t_add_over
 
-#include <stdbool.h> // bool
-#include <stddef.h>  // size_t
-#include <stdint.h>  // uint64_t, UINT64_C
-#include <string.h>  // memcpy
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
 
 size_t str_hash(const char *c, size_t len) {
   uint64_t res = UINT64_C(2166136261);

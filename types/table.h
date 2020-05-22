@@ -4,10 +4,10 @@
 #include "dynarray.h" // dynarray_*
 #include "tag.h"      // Tag
 
-#include <stdbool.h> // bool
-#include <stddef.h>  // size_t
-#include <stdint.h>  // uint64_t
-#include <stdio.h>   // FILE
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
 
 typedef struct Entry {
   Tag key;

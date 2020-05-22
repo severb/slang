@@ -1,7 +1,6 @@
-#include "tag.h"
-#include "types/tag.h"
+#include "tag.h" // Tag, tag_*, *_tag
 
-#include <stdlib.h> // EXIT_SUCCESS
+#include <stdlib.h>
 
 struct String {
   char _;

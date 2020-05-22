@@ -1,19 +1,19 @@
 #include "tag.h"
 
-#include "list.h"     // list_*
-#include "mem.h"      // mem_free
-#include "safemath.h" // i64_add_over, i64_mul_over
-#include "str.h"      // string_*, slice_*
-#include "table.h"    // table_*
+#include "list.h"     // List, list_*
+#include "mem.h"      // mem_*
+#include "safemath.h" // i64_*_over
+#include "str.h"      // String, Slice, string_*, slice_*
+#include "table.h"    // Table, table_*
 
-#include <inttypes.h> // PRId*
-#include <limits.h>   // INT32_MAX, INT32_MIN
-#include <math.h>     //ceil
-#include <stdarg.h>   // va_list, va_start, va_end
-#include <stdbool.h>  // bool
-#include <stddef.h>   // size_t, max_align_t
-#include <stdint.h>   // uint*_t, int*_t, uintptr_t, UINT64_C
-#include <stdio.h>    // fprintf, FILE, fputc
+#include <inttypes.h>
+#include <limits.h>
+#include <math.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
 
 #define SAFE_CAST(FROM, TO, VAL)                                               \
   (union {                                                                     \

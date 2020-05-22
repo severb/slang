@@ -1,12 +1,12 @@
 #include "table.h"
 
 #include "dynarray.h" // dynarray_*
-#include "mem.h"      // mem_free
-#include "tag.h"      // tag_biteq
+#include "mem.h"      // mem_*
+#include "tag.h"      // Tag, tag_*, USER_SYMBOL
 
-#include <stdbool.h> // bool, true, false
-#include <stddef.h>  // size_t
-#include <stdio.h>   // FILE, fputc, fputs, putchar
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
 
 dynarray_define(Entry);
 

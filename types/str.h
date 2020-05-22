@@ -1,13 +1,13 @@
 #ifndef slang_str_h
 #define slang_str_h
 
-#include "mem.h"
+#include "mem.h" // mem_*
 
-#include <assert.h>  // assert
-#include <stdbool.h> // bool
-#include <stddef.h>  // size_t
-#include <stdio.h>   // FILE
-#include <string.h>  // memcmp
+#include <assert.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
 
 typedef struct String {
   size_t len;

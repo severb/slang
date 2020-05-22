@@ -2,9 +2,9 @@
 #define SLANG_TEST_UTIL_H
 
 #include "str.h" // string_new
-#include "tag.h" // Tag
+#include "tag.h" // Tag, *_tag
 
-#include <stdlib.h> // size_t, RAND_MAX
+#include <stdlib.h>
 
 static char const charset[] = "0123456789"
                               "abcdefghijklmnopqrstuvwxyz"

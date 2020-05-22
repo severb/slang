@@ -1,13 +1,13 @@
 #include "list.h"  // List, list_*
 #include "mem.h"   // mem_stats
 #include "table.h" // Table, table_*
-#include "tag.h"   // Tag, *_to_tag, tag_to_*
+#include "tag.h"   // Tag, *_tag, tag_*
 #include "util.h"  // randint, randstr
 
-#include <inttypes.h> // PRId*
-#include <stdio.h>    // fprintf, stderr
-#include <stdlib.h>   // size_t, EXIT_SUCCESS
-#include <time.h>     // clock(), clock_t
+#include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
 #define KEYSPACE 10000
 #define STRSIZE 16
