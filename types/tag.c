@@ -270,6 +270,86 @@ Tag i64_new(int64_t i) {
   return i64_to_tag(p);
 }
 
+#define BINARY_MATH(mathf_i64_reuse, mathf_i64, mathf_i49, mathf_double)       \
+  case TYPE_I64: {                                                             \
+    int64_t l = *tag_to_i64(left);                                             \
+    switch (tag_type(right)) {                                                 \
+    case TYPE_I64: {                                                           \
+      int64_t r = *tag_to_i64(right);                                          \
+      if (tag_is_own(left)) {                                                  \
+        tag_free(right);                                                       \
+        mathf_i64_reuse(l, r, &left);                                          \
+        return left;                                                           \
+      }                                                                        \
+      if (tag_is_own(right)) {                                                 \
+        /* tag_free(left); -- not owned */                                     \
+        mathf_i64_reuse(l, r, &right);                                         \
+        return right;                                                          \
+      }                                                                        \
+      /* tag_free(left); -- not owned */                                       \
+      /* tag_free(right); -- not owned */                                      \
+      return mathf_i64(l, r);                                                  \
+    }                                                                          \
+    case TYPE_I49P:                                                            \
+    case TYPE_I49N: {                                                          \
+      if (tag_is_own(left)) {                                                  \
+        mathf_i64_reuse(l, tag_to_i49(right), &left);                          \
+        return left;                                                           \
+      }                                                                        \
+      /* tag_free(left); -- not owned */                                       \
+      return mathf_i64(l, tag_to_i49(right));                                  \
+    }                                                                          \
+    case TYPE_DOUBLE: {                                                        \
+      tag_free_ptr(left);                                                      \
+      return mathf_double((double)l, tag_to_double(right));                    \
+    }                                                                          \
+    default:                                                                   \
+      break;                                                                   \
+    }                                                                          \
+    break;                                                                     \
+  }                                                                            \
+  case TYPE_I49P:                                                              \
+  case TYPE_I49N: {                                                            \
+    int64_t l = tag_to_i49(left);                                              \
+    switch (tag_type(right)) {                                                 \
+    case TYPE_I64: {                                                           \
+      int64_t r = *tag_to_i64(right);                                          \
+      if (tag_is_own(right)) {                                                 \
+        mathf_i64_reuse(l, r, &right);                                         \
+        return right;                                                          \
+      }                                                                        \
+      /* tag_free(right); -- not owned */                                      \
+      return mathf_i64(l, r);                                                  \
+    }                                                                          \
+    case TYPE_I49P:                                                            \
+    case TYPE_I49N:                                                            \
+      return mathf_i49(l, tag_to_i49(right));                                  \
+    case TYPE_DOUBLE:                                                          \
+      return mathf_double((double)l, tag_to_double(right));                    \
+    default:                                                                   \
+      break;                                                                   \
+    }                                                                          \
+    break;                                                                     \
+  }                                                                            \
+  case TYPE_DOUBLE: {                                                          \
+    double l = tag_to_double(left);                                            \
+    switch (tag_type(right)) {                                                 \
+    case TYPE_I64: {                                                           \
+      int64_t r = *tag_to_i64(right);                                          \
+      tag_free(right);                                                         \
+      return mathf_double(l, (double)r);                                       \
+    }                                                                          \
+    case TYPE_I49P:                                                            \
+    case TYPE_I49N:                                                            \
+      return mathf_double(l, (double)tag_to_i49(right));                       \
+    case TYPE_DOUBLE:                                                          \
+      return mathf_double(l, tag_to_double(right));                            \
+    default:                                                                   \
+      break;                                                                   \
+    }                                                                          \
+    break;                                                                     \
+  }
+
 static Tag add_integers(int64_t left, int64_t right) {
   int64_t result;
   if (i64_add_over(left, right, &result)) {
@@ -293,84 +373,13 @@ static void add_integers_reuse(int64_t left, int64_t right, Tag *out) {
   *tag_to_i64(*out) = result;
 }
 
+// summing two i49s can't overflow
+#define add_i49(a, b) (int_to_tag((a) + (b)))
+#define add_double(a, b) (double_to_tag((a) + (b)))
+
 Tag tag_add(Tag left, Tag right) {
   switch (tag_type(left)) {
-  case TYPE_I64:
-    switch (tag_type(right)) {
-    case TYPE_I64: {
-      int64_t l = *tag_to_i64(left);
-      int64_t r = *tag_to_i64(right);
-      if (tag_is_own(left)) {
-        tag_free(right);
-        add_integers_reuse(l, r, &left);
-        return left;
-      }
-      if (tag_is_own(right)) {
-        // tag_free(left); -- not owned
-        add_integers_reuse(l, r, &right);
-        return right;
-      }
-      // tag_free(left); -- not owned
-      // tag_free(right); -- not owned
-      return add_integers(l, r);
-    }
-    case TYPE_I49P:
-    case TYPE_I49N: {
-      int64_t l = *tag_to_i64(left);
-      if (tag_is_own(left)) {
-        add_integers_reuse(l, tag_to_i49(right), &left);
-        return left;
-      }
-      // tag_free(left); -- not owned
-      return add_integers(l, tag_to_i49(right));
-    }
-    case TYPE_DOUBLE: {
-      int64_t l = *tag_to_i64(left);
-      tag_free_ptr(left);
-      return double_to_tag((double)l + tag_to_double(right));
-    }
-    default:
-      break;
-    }
-    break;
-  case TYPE_I49P:
-  case TYPE_I49N:
-    switch (tag_type(right)) {
-    case TYPE_I64: {
-      int64_t r = *tag_to_i64(right);
-      if (tag_is_own(right)) {
-        add_integers_reuse(tag_to_i49(left), r, &right);
-        return right;
-      }
-      // tag_free(right); -- not owned
-      return add_integers(tag_to_i49(left), r);
-    }
-    case TYPE_I49P:
-    case TYPE_I49N:
-      // cannot overflow
-      return int_to_tag(tag_to_i49(left) + tag_to_i49(right));
-    case TYPE_DOUBLE:
-      return double_to_tag((double)tag_to_i49(left) + tag_to_double(right));
-    default:
-      break;
-    }
-    break;
-  case TYPE_DOUBLE:
-    switch (tag_type(right)) {
-    case TYPE_I64: {
-      int64_t r = *tag_to_i64(right);
-      tag_free(right);
-      return double_to_tag(tag_to_double(left) + (double)r);
-    }
-    case TYPE_I49P:
-    case TYPE_I49N:
-      return double_to_tag(tag_to_double(left) + (double)tag_to_i49(right));
-    case TYPE_DOUBLE:
-      return double_to_tag(tag_to_double(left) + tag_to_double(right));
-    default:
-      break;
-    }
-    break;
+    BINARY_MATH(add_integers_reuse, add_integers, add_i49, add_double)
   case TYPE_SLICE:
     switch (tag_type(right)) {
     case TYPE_SLICE:
@@ -447,84 +456,11 @@ static void mul_integers_reuse(int64_t left, int64_t right, Tag *out) {
   *tag_to_i64(*out) = result;
 }
 
+#define mul_double(a, b) (double_to_tag((a) * (b)))
+
 Tag tag_mul(Tag left, Tag right) {
   switch (tag_type(left)) {
-  case TYPE_I64:
-    switch (tag_type(right)) {
-    case TYPE_I64: {
-      int64_t l = *tag_to_i64(left);
-      int64_t r = *tag_to_i64(right);
-      if (tag_is_own(left)) {
-        tag_free(right);
-        mul_integers_reuse(l, r, &left);
-        return left;
-      }
-      if (tag_is_own(right)) {
-        // tag_free(left); -- not owned
-        mul_integers_reuse(l, r, &right);
-        return right;
-      }
-      // tag_free(left); -- not owned
-      // tag_free(right); -- not owned
-      return mul_integers(l, r);
-    }
-    case TYPE_I49P:
-    case TYPE_I49N: {
-      int64_t l = *tag_to_i64(left);
-      if (tag_is_own(left)) {
-        mul_integers_reuse(l, tag_to_i49(right), &left);
-        return left;
-      }
-      // tag_free(left); -- not owned
-      return mul_integers(l, tag_to_i49(right));
-    }
-    case TYPE_DOUBLE: {
-      int64_t l = *tag_to_i64(left);
-      tag_free_ptr(left);
-      return double_to_tag((double)l * tag_to_double(right));
-    }
-    default:
-      break;
-    }
-    break;
-  case TYPE_I49P:
-  case TYPE_I49N:
-    switch (tag_type(right)) {
-    case TYPE_I64: {
-      int64_t r = *tag_to_i64(right);
-      if (tag_is_own(right)) {
-        mul_integers_reuse(tag_to_i49(left), r, &right);
-        return right;
-      }
-      // tag_free(right); -- not owned
-      return mul_integers(tag_to_i49(left), r);
-    }
-    case TYPE_I49P:
-    case TYPE_I49N:
-      // cannot overflow
-      return mul_integers(tag_to_i49(left), tag_to_i49(right));
-    case TYPE_DOUBLE:
-      return double_to_tag((double)tag_to_i49(left) * tag_to_double(right));
-    default:
-      break;
-    }
-    break;
-  case TYPE_DOUBLE:
-    switch (tag_type(right)) {
-    case TYPE_I64: {
-      int64_t r = *tag_to_i64(right);
-      tag_free(right);
-      return double_to_tag(tag_to_double(left) * (double)r);
-    }
-    case TYPE_I49P:
-    case TYPE_I49N:
-      return double_to_tag(tag_to_double(left) * (double)tag_to_i49(right));
-    case TYPE_DOUBLE:
-      return double_to_tag(tag_to_double(left) * tag_to_double(right));
-    default:
-      break;
-    }
-    break;
+    BINARY_MATH(mul_integers_reuse, mul_integers, mul_integers, mul_double)
   default:
     break;
   }
@@ -558,84 +494,15 @@ static void div_integers_reuse(int64_t left, int64_t right, Tag *out) {
   *tag_to_i64(*out) = result;
 }
 
+static Tag div_i49(int64_t left, int64_t right) {
+  return right == 0 ? error("division by zero") : i49_to_tag(left / right);
+}
+
+#define div_double(a, b) (double_to_tag((a) / (b)))
+
 Tag tag_div(Tag left, Tag right) {
   switch (tag_type(left)) {
-  case TYPE_I64:
-    switch (tag_type(right)) {
-    case TYPE_I64: {
-      int64_t l = *tag_to_i64(left);
-      int64_t r = *tag_to_i64(right);
-      if (tag_is_own(left)) {
-        tag_free(right);
-        div_integers_reuse(l, r, &left);
-        return left;
-      }
-      if (tag_is_own(right)) {
-        // tag_free(left); -- not owned
-        div_integers_reuse(l, r, &right);
-        return right;
-      }
-      // tag_free(left); -- not owned
-      // tag_free(right); -- not owned
-      return div_integers(l, r);
-    }
-    case TYPE_I49P:
-    case TYPE_I49N: {
-      int64_t l = *tag_to_i64(left);
-      if (tag_is_own(left)) {
-        div_integers_reuse(l, tag_to_i49(right), &left);
-        return left;
-      }
-      // tag_free(left); -- not owned
-      return div_integers(l, tag_to_i49(right));
-    }
-    case TYPE_DOUBLE: {
-      int64_t l = *tag_to_i64(left);
-      tag_free_ptr(left);
-      return double_to_tag((double)l / tag_to_double(right));
-    }
-    default:
-      break;
-    }
-    break;
-  case TYPE_I49P:
-  case TYPE_I49N:
-    switch (tag_type(right)) {
-    case TYPE_I64: {
-      int64_t r = *tag_to_i64(right);
-      if (tag_is_own(right)) {
-        div_integers_reuse(tag_to_i49(left), r, &right);
-        return right;
-      }
-      // tag_free(right); -- not owned
-      return div_integers(tag_to_i49(left), r);
-    }
-    case TYPE_I49P:
-    case TYPE_I49N:
-      // cannot overflow
-      return div_integers(tag_to_i49(left), tag_to_i49(right));
-    case TYPE_DOUBLE:
-      return double_to_tag((double)tag_to_i49(left) / tag_to_double(right));
-    default:
-      break;
-    }
-    break;
-  case TYPE_DOUBLE:
-    switch (tag_type(right)) {
-    case TYPE_I64: {
-      int64_t r = *tag_to_i64(right);
-      tag_free(right);
-      return double_to_tag(tag_to_double(left) / (double)r);
-    }
-    case TYPE_I49P:
-    case TYPE_I49N:
-      return double_to_tag(tag_to_double(left) / (double)tag_to_i49(right));
-    case TYPE_DOUBLE:
-      return double_to_tag(tag_to_double(left) / tag_to_double(right));
-    default:
-      break;
-    }
-    break;
+    BINARY_MATH(div_integers_reuse, div_integers, div_i49, div_double)
   default:
     break;
   }
