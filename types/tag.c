@@ -8,6 +8,7 @@
 
 #include <inttypes.h> // PRId*
 #include <limits.h>   // INT32_MAX, INT32_MIN
+#include <math.h>     //ceil
 #include <stdarg.h>   // va_list, va_start, va_end
 #include <stdbool.h>  // bool
 #include <stddef.h>   // size_t, max_align_t
@@ -101,9 +102,11 @@ static void print(FILE *f, Tag t, bool is_repr) {
       slice_printf(f, tag_to_slice(t));
     }
     break;
-  case TYPE_DOUBLE:
-    fprintf(f, "%f", tag_to_double(t));
+  case TYPE_DOUBLE: {
+    double d = tag_to_double(t);
+    fprintf(f, ceil(d) == d ? "%.1f" : "%g", d);
     break;
+  }
   case TYPE_SYMBOL: {
     Symbol s = tag_to_symbol(t);
     if (s >= SYM__COUNT) {
@@ -530,6 +533,117 @@ Tag tag_mul(Tag left, Tag right) {
   const char *left_type = tag_type_str(tag_type(left));
   const char *right_type = tag_type_str(tag_type(right));
   return error("cannot multiply %s to %s", left_type, right_type);
+}
+
+static Tag div_integers(int64_t left, int64_t right) {
+  int64_t result;
+  if (i64_div_over(left, right, &result)) {
+    return error(right == 0 ? "division by zero" : "division overflows");
+  }
+  return int_to_tag(result);
+}
+
+static void div_integers_reuse(int64_t left, int64_t right, Tag *out) {
+  int64_t result;
+  if (i64_div_over(left, right, &result)) {
+    tag_free_ptr(*out);
+    *out = error(right == 0 ? "division by zero" : "division overflows");
+    return;
+  }
+  if (I49_MIN <= result && result <= I49_MAX) {
+    tag_free_ptr(*out);
+    i49_to_tag(result);
+    return;
+  }
+  *tag_to_i64(*out) = result;
+}
+
+Tag tag_div(Tag left, Tag right) {
+  switch (tag_type(left)) {
+  case TYPE_I64:
+    switch (tag_type(right)) {
+    case TYPE_I64: {
+      int64_t l = *tag_to_i64(left);
+      int64_t r = *tag_to_i64(right);
+      if (tag_is_own(left)) {
+        tag_free(right);
+        div_integers_reuse(l, r, &left);
+        return left;
+      }
+      if (tag_is_own(right)) {
+        // tag_free(left); -- not owned
+        div_integers_reuse(l, r, &right);
+        return right;
+      }
+      // tag_free(left); -- not owned
+      // tag_free(right); -- not owned
+      return div_integers(l, r);
+    }
+    case TYPE_I49P:
+    case TYPE_I49N: {
+      int64_t l = *tag_to_i64(left);
+      if (tag_is_own(left)) {
+        div_integers_reuse(l, tag_to_i49(right), &left);
+        return left;
+      }
+      // tag_free(left); -- not owned
+      return div_integers(l, tag_to_i49(right));
+    }
+    case TYPE_DOUBLE: {
+      int64_t l = *tag_to_i64(left);
+      tag_free_ptr(left);
+      return double_to_tag((double)l / tag_to_double(right));
+    }
+    default:
+      break;
+    }
+    break;
+  case TYPE_I49P:
+  case TYPE_I49N:
+    switch (tag_type(right)) {
+    case TYPE_I64: {
+      int64_t r = *tag_to_i64(right);
+      if (tag_is_own(right)) {
+        div_integers_reuse(tag_to_i49(left), r, &right);
+        return right;
+      }
+      // tag_free(right); -- not owned
+      return div_integers(tag_to_i49(left), r);
+    }
+    case TYPE_I49P:
+    case TYPE_I49N:
+      // cannot overflow
+      return div_integers(tag_to_i49(left), tag_to_i49(right));
+    case TYPE_DOUBLE:
+      return double_to_tag((double)tag_to_i49(left) / tag_to_double(right));
+    default:
+      break;
+    }
+    break;
+  case TYPE_DOUBLE:
+    switch (tag_type(right)) {
+    case TYPE_I64: {
+      int64_t r = *tag_to_i64(right);
+      tag_free(right);
+      return double_to_tag(tag_to_double(left) / (double)r);
+    }
+    case TYPE_I49P:
+    case TYPE_I49N:
+      return double_to_tag(tag_to_double(left) / (double)tag_to_i49(right));
+    case TYPE_DOUBLE:
+      return double_to_tag(tag_to_double(left) / tag_to_double(right));
+    default:
+      break;
+    }
+    break;
+  default:
+    break;
+  }
+  tag_free(left);
+  tag_free(right);
+  const char *left_type = tag_type_str(tag_type(left));
+  const char *right_type = tag_type_str(tag_type(right));
+  return error("cannot divide %s to %s", left_type, right_type);
 }
 
 Tag tag_negate(Tag t) {

@@ -48,7 +48,6 @@ static bool run(VM *vm) {
         // tag_free(result) -- don't free the error, let the stack clean it
         return false;
       }
-      replace_top(vm, result);
       break;
     }
     case OP_MULTIPLY: {
@@ -61,7 +60,18 @@ static bool run(VM *vm) {
         // tag_free(result) -- don't free the error, let the stack clean it
         return false;
       }
+      break;
+    }
+    case OP_DIVIDE: {
+      Tag right = pop(vm);
+      Tag left = top(vm);
+      Tag result = tag_div(left, right);
       replace_top(vm, result);
+      if (tag_is_error(result)) {
+        print_runtime_error(vm, result);
+        // tag_free(result) -- don't free the error, let the stack clean it
+        return false;
+      }
       break;
     }
     case OP_SUBTRACT: {
