@@ -248,6 +248,9 @@ void lex_consume(Lexer *lex, Token *t) {
   case '*':
     token(lex, TOKEN_STAR, t);
     return;
+  case '%':
+    token(lex, TOKEN_PERCENT, t);
+    return;
   case '!':
     token(lex, match(lex, '=') ? TOKEN_BANG_EQUAL : TOKEN_BANG, t);
     return;

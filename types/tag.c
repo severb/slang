@@ -513,6 +513,49 @@ Tag tag_div(Tag left, Tag right) {
   return error("cannot divide %s to %s", left_type, right_type);
 }
 
+static Tag mod_integers(int64_t left, int64_t right) {
+  int64_t result;
+  if (i64_mod_over(left, right, &result)) {
+    return error(right == 0 ? "division by zero" : "division overflows");
+  }
+  return int_to_tag(result);
+}
+
+static void mod_integers_reuse(int64_t left, int64_t right, Tag *out) {
+  int64_t result;
+  if (i64_mod_over(left, right, &result)) {
+    tag_free_ptr(*out);
+    *out = error(right == 0 ? "division by zero" : "division overflows");
+    return;
+  }
+  if (I49_MIN <= result && result <= I49_MAX) {
+    tag_free_ptr(*out);
+    i49_to_tag(result);
+    return;
+  }
+  *tag_to_i64(*out) = result;
+}
+
+static Tag mod_i49(int64_t left, int64_t right) {
+  return right == 0 ? error("division by zero") : i49_to_tag(left % right);
+}
+
+#define mod_double(a, b) (double_to_tag(fmod((a), (b))))
+
+Tag tag_mod(Tag left, Tag right) {
+  switch (tag_type(left)) {
+    BINARY_MATH(mod_integers_reuse, mod_integers, mod_i49, mod_double)
+  default:
+    break;
+  }
+  tag_free(left);
+  tag_free(right);
+  const char *left_type = tag_type_str(tag_type(left));
+  const char *right_type = tag_type_str(tag_type(right));
+  // Should the message say cannot modulo instead of divide?
+  return error("cannot divide %s to %s", left_type, right_type);
+}
+
 Tag tag_negate(Tag t) {
   switch (tag_type(t)) {
   case TYPE_I64:

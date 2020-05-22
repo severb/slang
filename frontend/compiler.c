@@ -483,6 +483,9 @@ static void compile_binary(Compiler *c, bool _) {
   case TOKEN_STAR:
     chunk_write_operation(c->chunk, t.line, OP_MULTIPLY);
     break;
+  case TOKEN_PERCENT:
+    chunk_write_operation(c->chunk, t.line, OP_REMINDER);
+    break;
   default:
     assert(0 && "unknown binary token");
   }
@@ -550,6 +553,7 @@ bool compile(const char *src, Chunk *chunk) {
   return !had_error;
 }
 
+// This table matches token's enum definition order
 static CompileRule rules[] = {
     {compile_grouping, 0, PREC_NONE},           // TOKEN_LEFT_PAREN
     {0, 0, PREC_NONE},                          // TOKEN_RIGHT_PAREN
@@ -561,6 +565,7 @@ static CompileRule rules[] = {
     {0, compile_binary, PREC_TERM},             // TOKEN_PLUS
     {0, 0, PREC_NONE},                          // TOKEN_SEMICOLON
     {0, compile_binary, PREC_FACTOR},           // TOKEN_SLASH
+    {0, compile_binary, PREC_FACTOR},           // TOKEN_STAR
     {0, compile_binary, PREC_FACTOR},           // TOKEN_STAR
     {compile_unary, 0, PREC_NONE},              // TOKEN_BANG
     {0, compile_binary, PREC_EQUALITY},         // TOKEN_BANG_EQUAL
