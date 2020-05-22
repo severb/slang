@@ -333,6 +333,8 @@ Tag tag_add(Tag, Tag);
 Tag tag_mul(Tag, Tag);
 Tag tag_div(Tag, Tag);
 Tag tag_mod(Tag, Tag);
+Tag tag_less(Tag, Tag);
+Tag tag_greater(Tag, Tag);
 
 Tag tag_negate(Tag);
 // Tag tag_cmp(Tag, Tag); // use symbols for lt, eq, gt--can also return err

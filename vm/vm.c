@@ -70,6 +70,14 @@ static bool run(VM *vm) {
       BINARY_MATH(tag_mod);
       break;
     }
+    case OP_LESS: {
+      BINARY_MATH(tag_less);
+      break;
+    }
+    case OP_GREATER: {
+      BINARY_MATH(tag_greater);
+      break;
+    }
     case OP_GET_CONSTANT: {
       size_t idx = chunk_read_operator(vm->chunk, &vm->ip);
       Tag constant = chunk_get_const(vm->chunk, idx);
