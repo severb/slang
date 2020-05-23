@@ -71,6 +71,7 @@ size_t chunk_record_const(Chunk *c, Tag t) {
   if (list_find_from(&c->consts, t, &idx)) {
     // prevent converting float literals to int literals
     if (tag_type(t) == tag_type(*list_get(&c->consts, idx))) {
+      tag_free(t);
       return idx;
     }
     idx++;

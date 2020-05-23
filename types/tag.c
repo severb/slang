@@ -300,7 +300,7 @@ Tag i64_new(int64_t i) {
       return mathf_i64(l, tag_to_i49(right));                                  \
     }                                                                          \
     case TYPE_DOUBLE: {                                                        \
-      tag_free_ptr(left);                                                      \
+      tag_free(left);                                                          \
       return mathf_double((double)l, tag_to_double(right));                    \
     }                                                                          \
     default:                                                                   \
@@ -380,42 +380,52 @@ static void add_integers_reuse(int64_t left, int64_t right, Tag *out) {
 Tag tag_add(Tag left, Tag right) {
   switch (tag_type(left)) {
     BINARY_MATH(add_integers_reuse, add_integers, add_i49, add_double)
-  case TYPE_SLICE:
+  case TYPE_SLICE: {
+    Slice *l = tag_to_slice(left);
     switch (tag_type(right)) {
-    case TYPE_SLICE:
-      return string_to_tag(
-          slice_concat_slice(tag_to_slice(left), tag_to_slice(right)));
-    case TYPE_STRING:
-      return string_to_tag(
-          slice_concat_string(tag_to_slice(left), tag_to_string(right)));
+    case TYPE_SLICE: {
+      Tag result = string_to_tag(slice_concat_slice(l, tag_to_slice(right)));
+      tag_free(left);
+      tag_free(right);
+      return result;
+    }
+    case TYPE_STRING: {
+      Tag result = string_to_tag(slice_concat_string(l, tag_to_string(right)));
+      tag_free(left);
+      tag_free(right);
+      return result;
+    }
     default:
       break;
     }
     break;
-  case TYPE_STRING:
+  }
+  case TYPE_STRING: {
+    String *l = tag_to_string(left);
     switch (tag_type(right)) {
     case TYPE_SLICE: {
       String *result;
-      Slice *slice = tag_to_slice(right);
+      Slice *r = tag_to_slice(right);
       if (tag_is_own(left)) {
-        result = string_append(tag_to_string(left), slice->c, slice->len);
+        result = string_append(l, r->c, r->len);
       } else {
-        result = string_concat_slice(tag_to_string(left), slice);
+        result = string_concat_slice(l, r);
         // tag_free(left) -- not owned
       }
+      tag_free(left);
       tag_free(right);
       return string_to_tag(result);
     }
     case TYPE_STRING: {
       String *result;
-      String *string = tag_to_string(right);
+      String *r = tag_to_string(right);
       if (tag_is_own(left)) {
-        result = string_append(tag_to_string(left), string->c, string->len);
+        result = string_append(l, r->c, r->len);
       } else {
-        result =
-            string_concat_string(tag_to_string(left), tag_to_string(right));
+        result = string_concat_string(l, r);
         // tag_free(left) -- not owned
       }
+      tag_free(left);
       tag_free(right);
       return string_to_tag(result);
     }
@@ -423,6 +433,7 @@ Tag tag_add(Tag left, Tag right) {
       break;
     }
     break;
+  }
   default:
     break;
   }
@@ -566,7 +577,51 @@ static Tag less_integers_reuse(int64_t left, int64_t right, Tag *out) {
 Tag tag_less(Tag left, Tag right) {
   switch (tag_type(left)) {
     BINARY_MATH(less_integers_reuse, less_i_or_d, less_i_or_d, less_i_or_d)
-    // TODO: add string and list
+    // TODO: add list
+  case TYPE_STRING: {
+    String *l = tag_to_string(left);
+    switch (tag_type(right)) {
+    case TYPE_STRING: {
+      Tag result =
+          string_cmp_string(l, tag_to_string(right)) < 0 ? TAG_TRUE : TAG_FALSE;
+      tag_free(left);
+      tag_free(right);
+      return result;
+    }
+    case TYPE_SLICE: {
+      Tag result =
+          string_cmp_slice(l, tag_to_slice(right)) < 0 ? TAG_TRUE : TAG_FALSE;
+      tag_free(left);
+      tag_free(right);
+      return result;
+    }
+    default:
+      break;
+    }
+    break;
+  }
+  case TYPE_SLICE: {
+    Slice *l = tag_to_slice(left);
+    switch (tag_type(right)) {
+    case TYPE_STRING: {
+      Tag result =
+          slice_cmp_string(l, tag_to_string(right)) < 0 ? TAG_TRUE : TAG_FALSE;
+      tag_free(left);
+      tag_free(right);
+      return result;
+    }
+    case TYPE_SLICE: {
+      Tag result =
+          slice_cmp_slice(l, tag_to_slice(right)) < 0 ? TAG_TRUE : TAG_FALSE;
+      tag_free(left);
+      tag_free(right);
+      return result;
+    }
+    default:
+      break;
+    }
+    break;
+  }
   default:
     break;
   }
@@ -586,8 +641,53 @@ static Tag greater_integers_reuse(int64_t left, int64_t right, Tag *out) {
 
 Tag tag_greater(Tag left, Tag right) {
   switch (tag_type(left)) {
-    BINARY_MATH(greater_integers_reuse, greater_i_or_d, greater_i_or_d, greater_i_or_d)
-    // TODO: add string and list
+    BINARY_MATH(greater_integers_reuse, greater_i_or_d, greater_i_or_d,
+                greater_i_or_d)
+    // TODO: add list
+  case TYPE_STRING: {
+    String *l = tag_to_string(left);
+    switch (tag_type(right)) {
+    case TYPE_STRING: {
+      Tag result =
+          string_cmp_string(l, tag_to_string(right)) > 0 ? TAG_TRUE : TAG_FALSE;
+      tag_free(left);
+      tag_free(right);
+      return result;
+    }
+    case TYPE_SLICE: {
+      Tag result =
+          string_cmp_slice(l, tag_to_slice(right)) > 0 ? TAG_TRUE : TAG_FALSE;
+      tag_free(left);
+      tag_free(right);
+      return result;
+    }
+    default:
+      break;
+    }
+    break;
+  }
+  case TYPE_SLICE: {
+    Slice *l = tag_to_slice(left);
+    switch (tag_type(right)) {
+    case TYPE_STRING: {
+      Tag result =
+          slice_cmp_string(l, tag_to_string(right)) > 0 ? TAG_TRUE : TAG_FALSE;
+      tag_free(left);
+      tag_free(right);
+      return result;
+    }
+    case TYPE_SLICE: {
+      Tag result =
+          slice_cmp_slice(l, tag_to_slice(right)) > 0 ? TAG_TRUE : TAG_FALSE;
+      tag_free(left);
+      tag_free(right);
+      return result;
+    }
+    default:
+      break;
+    }
+    break;
+  }
   default:
     break;
   }

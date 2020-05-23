@@ -1,12 +1,11 @@
-#include "bytecode.h" // Chunk, chunk_dissasamble
+#include "bytecode.h" // Chunk, chunk_*
 #include "compiler.h" // compile
 #include "mem.h"      // mem_stats
 #include "vm.h"       // interpret
 
-#include <assert.h> // assert
-#include <stdio.h>  // stderr, fopen, fprintf, fseek, ftell, SEEK_END, SEEK_SET
-                    // fread, fclose
-#include <stdlib.h> // EXIT_SUCCESS, exit, size_t, malloc
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 static char *read_file(const char *path) {
   FILE *file = fopen(path, "rb");

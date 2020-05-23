@@ -76,3 +76,8 @@ extern inline String *string_concat_string(const String *l, const String *);
 extern inline String *string_concat_slice(const String *, const Slice *);
 extern inline String *slice_concat_string(const Slice *, const String *);
 extern inline String *slice_concat_slice(const Slice *, const Slice *);
+
+extern inline int string_cmp_string(const String *, const String *);
+extern inline int string_cmp_slice(const String *, const Slice *);
+extern inline int slice_cmp_slice(const Slice *, const Slice *);
+extern inline int slice_cmp_string(const Slice *, const String *);

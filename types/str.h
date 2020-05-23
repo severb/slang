@@ -79,13 +79,33 @@ inline size_t slice_hash(Slice *s) { STR_HASH; }
     return false;                                                              \
   }                                                                            \
   return memcmp(a->c, b->c, a->len) == 0
-
 inline bool string_eq_string(const String *a, const String *b) { STR_EQ_STR; }
 inline bool string_eq_slice(const String *a, const Slice *b) { STR_EQ_STR; }
 inline bool slice_eq_slice(const Slice *a, const Slice *b) { STR_EQ_STR; }
 inline bool slice_eq_string(const Slice *a, const String *b) { STR_EQ_STR; }
-
 #undef STR_EQ_STR
+
+#define STR_CMP_STR                                                            \
+  size_t min_len = a->len;                                                     \
+  if (b->len < min_len) {                                                      \
+    min_len = b->len;                                                          \
+  }                                                                            \
+  int result = memcmp(a->c, b->c, min_len);                                    \
+  if (result != 0) {                                                           \
+    return result;                                                             \
+  }                                                                            \
+  if (a->len < b->len) {                                                       \
+    return -1;                                                                 \
+  }                                                                            \
+  if (a->len > b->len) {                                                       \
+    return 1;                                                                  \
+  }                                                                            \
+  return 0
+inline int string_cmp_string(const String *a, const String *b) { STR_CMP_STR; }
+inline int string_cmp_slice(const String *a, const Slice *b) { STR_CMP_STR; }
+inline int slice_cmp_slice(const Slice *a, const Slice *b) { STR_CMP_STR; }
+inline int slice_cmp_string(const Slice *a, const String *b) { STR_CMP_STR; }
+#undef STR_CMP_STR
 
 String *string_append(String *, const char *, size_t);
 
