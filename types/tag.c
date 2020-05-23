@@ -374,12 +374,12 @@ static void add_integers_reuse(int64_t left, int64_t right, Tag *out) {
 }
 
 // summing two i49s can't overflow
-#define add_i49(a, b) (int_to_tag((a) + (b)))
-#define add_double(a, b) (double_to_tag((a) + (b)))
+#define ADD_I49(a, b) (int_to_tag((a) + (b)))
+#define ADD_DOUBLE(a, b) (double_to_tag((a) + (b)))
 
 Tag tag_add(Tag left, Tag right) {
   switch (tag_type(left)) {
-    BINARY_MATH(add_integers_reuse, add_integers, add_i49, add_double)
+    BINARY_MATH(add_integers_reuse, add_integers, ADD_I49, ADD_DOUBLE)
   case TYPE_SLICE: {
     Slice *l = tag_to_slice(left);
     switch (tag_type(right)) {
@@ -465,11 +465,11 @@ static void mul_integers_reuse(int64_t left, int64_t right, Tag *out) {
   *tag_to_i64(*out) = result;
 }
 
-#define mul_double(a, b) (double_to_tag((a) * (b)))
+#define MUL_DOUBLE(a, b) (double_to_tag((a) * (b)))
 
 Tag tag_mul(Tag left, Tag right) {
   switch (tag_type(left)) {
-    BINARY_MATH(mul_integers_reuse, mul_integers, mul_integers, mul_double)
+    BINARY_MATH(mul_integers_reuse, mul_integers, mul_integers, MUL_DOUBLE)
   default:
     break;
   }
@@ -507,11 +507,11 @@ static Tag div_i49(int64_t left, int64_t right) {
   return right == 0 ? error("division by zero") : i49_to_tag(left / right);
 }
 
-#define div_double(a, b) (double_to_tag((a) / (b)))
+#define DIV_DOUBLE(a, b) (double_to_tag((a) / (b)))
 
 Tag tag_div(Tag left, Tag right) {
   switch (tag_type(left)) {
-    BINARY_MATH(div_integers_reuse, div_integers, div_i49, div_double)
+    BINARY_MATH(div_integers_reuse, div_integers, div_i49, DIV_DOUBLE)
   default:
     break;
   }
@@ -549,11 +549,11 @@ static Tag mod_i49(int64_t left, int64_t right) {
   return right == 0 ? error("division by zero") : i49_to_tag(left % right);
 }
 
-#define mod_double(a, b) (double_to_tag(fmod((a), (b))))
+#define MOD_DOUBLE(a, b) (double_to_tag(fmod((a), (b))))
 
 Tag tag_mod(Tag left, Tag right) {
   switch (tag_type(left)) {
-    BINARY_MATH(mod_integers_reuse, mod_integers, mod_i49, mod_double)
+    BINARY_MATH(mod_integers_reuse, mod_integers, mod_i49, MOD_DOUBLE)
   default:
     break;
   }
@@ -565,61 +565,66 @@ Tag tag_mod(Tag left, Tag right) {
   return error("cannot divide %s to %s", left_type, right_type);
 }
 
-#define less_i_or_d(a, b) ((a) < (b) ? TAG_TRUE : TAG_FALSE)
+#define STR_CMP(CMP_TO_TAG)                                                    \
+  case TYPE_STRING: {                                                          \
+    String *l = tag_to_string(left);                                           \
+    switch (tag_type(right)) {                                                 \
+    case TYPE_STRING: {                                                        \
+      String *r = tag_to_string(right);                                        \
+      Tag result = CMP_TO_TAG(string_cmp_string(l, r));                        \
+      tag_free(left);                                                          \
+      tag_free(right);                                                         \
+      return result;                                                           \
+    }                                                                          \
+    case TYPE_SLICE: {                                                         \
+      Slice *r = tag_to_slice(right);                                          \
+      Tag result = CMP_TO_TAG(string_cmp_slice(l, r));                         \
+      tag_free(left);                                                          \
+      tag_free(right);                                                         \
+      return result;                                                           \
+    }                                                                          \
+    default:                                                                   \
+      break;                                                                   \
+    }                                                                          \
+    break;                                                                     \
+  }                                                                            \
+  case TYPE_SLICE: {                                                           \
+    Slice *l = tag_to_slice(left);                                             \
+    switch (tag_type(right)) {                                                 \
+    case TYPE_STRING: {                                                        \
+      String *r = tag_to_string(right);                                        \
+      Tag result = CMP_TO_TAG(slice_cmp_string(l, r));                         \
+      tag_free(left);                                                          \
+      tag_free(right);                                                         \
+      return result;                                                           \
+    }                                                                          \
+    case TYPE_SLICE: {                                                         \
+      Slice *r = tag_to_slice(right);                                          \
+      Tag result = CMP_TO_TAG(slice_cmp_slice(l, r));                          \
+      tag_free(left);                                                          \
+      tag_free(right);                                                         \
+      return result;                                                           \
+    }                                                                          \
+    default:                                                                   \
+      break;                                                                   \
+    }                                                                          \
+    break;                                                                     \
+  }
+
+#define LESS_I_OR_D(a, b) ((a) < (b) ? TAG_TRUE : TAG_FALSE)
 
 static Tag less_integers_reuse(int64_t left, int64_t right, Tag *out) {
   tag_free(*out);
-  return left < right ? TAG_TRUE : TAG_FALSE;
+  return LESS_I_OR_D(left, right);
 }
+
+#define STR_LESS(R) ((R) < 0 ? TAG_TRUE : TAG_FALSE)
 
 Tag tag_less(Tag left, Tag right) {
   switch (tag_type(left)) {
-    BINARY_MATH(less_integers_reuse, less_i_or_d, less_i_or_d, less_i_or_d)
+    BINARY_MATH(less_integers_reuse, LESS_I_OR_D, LESS_I_OR_D, LESS_I_OR_D)
     // TODO: add list
-  case TYPE_STRING: {
-    String *l = tag_to_string(left);
-    switch (tag_type(right)) {
-    case TYPE_STRING: {
-      Tag result =
-          string_cmp_string(l, tag_to_string(right)) < 0 ? TAG_TRUE : TAG_FALSE;
-      tag_free(left);
-      tag_free(right);
-      return result;
-    }
-    case TYPE_SLICE: {
-      Tag result =
-          string_cmp_slice(l, tag_to_slice(right)) < 0 ? TAG_TRUE : TAG_FALSE;
-      tag_free(left);
-      tag_free(right);
-      return result;
-    }
-    default:
-      break;
-    }
-    break;
-  }
-  case TYPE_SLICE: {
-    Slice *l = tag_to_slice(left);
-    switch (tag_type(right)) {
-    case TYPE_STRING: {
-      Tag result =
-          slice_cmp_string(l, tag_to_string(right)) < 0 ? TAG_TRUE : TAG_FALSE;
-      tag_free(left);
-      tag_free(right);
-      return result;
-    }
-    case TYPE_SLICE: {
-      Tag result =
-          slice_cmp_slice(l, tag_to_slice(right)) < 0 ? TAG_TRUE : TAG_FALSE;
-      tag_free(left);
-      tag_free(right);
-      return result;
-    }
-    default:
-      break;
-    }
-    break;
-  }
+    STR_CMP(STR_LESS)
   default:
     break;
   }
@@ -630,62 +635,21 @@ Tag tag_less(Tag left, Tag right) {
   return error("cannot compare %s to %s", left_type, right_type);
 }
 
-#define greater_i_or_d(a, b) ((a) > (b) ? TAG_TRUE : TAG_FALSE)
+#define GREATER_I_OR_D(a, b) ((a) > (b) ? TAG_TRUE : TAG_FALSE)
 
 static Tag greater_integers_reuse(int64_t left, int64_t right, Tag *out) {
   tag_free(*out);
-  return left < right ? TAG_TRUE : TAG_FALSE;
+  return GREATER_I_OR_D(left, right);
 }
+
+#define STR_GREATER(R) ((R) > 0 ? TAG_TRUE : TAG_FALSE)
 
 Tag tag_greater(Tag left, Tag right) {
   switch (tag_type(left)) {
-    BINARY_MATH(greater_integers_reuse, greater_i_or_d, greater_i_or_d,
-                greater_i_or_d)
+    BINARY_MATH(greater_integers_reuse, GREATER_I_OR_D, GREATER_I_OR_D,
+                GREATER_I_OR_D)
     // TODO: add list
-  case TYPE_STRING: {
-    String *l = tag_to_string(left);
-    switch (tag_type(right)) {
-    case TYPE_STRING: {
-      Tag result =
-          string_cmp_string(l, tag_to_string(right)) > 0 ? TAG_TRUE : TAG_FALSE;
-      tag_free(left);
-      tag_free(right);
-      return result;
-    }
-    case TYPE_SLICE: {
-      Tag result =
-          string_cmp_slice(l, tag_to_slice(right)) > 0 ? TAG_TRUE : TAG_FALSE;
-      tag_free(left);
-      tag_free(right);
-      return result;
-    }
-    default:
-      break;
-    }
-    break;
-  }
-  case TYPE_SLICE: {
-    Slice *l = tag_to_slice(left);
-    switch (tag_type(right)) {
-    case TYPE_STRING: {
-      Tag result =
-          slice_cmp_string(l, tag_to_string(right)) > 0 ? TAG_TRUE : TAG_FALSE;
-      tag_free(left);
-      tag_free(right);
-      return result;
-    }
-    case TYPE_SLICE: {
-      Tag result =
-          slice_cmp_slice(l, tag_to_slice(right)) > 0 ? TAG_TRUE : TAG_FALSE;
-      tag_free(left);
-      tag_free(right);
-      return result;
-    }
-    default:
-      break;
-    }
-    break;
-  }
+    STR_CMP(STR_GREATER)
   default:
     break;
   }
