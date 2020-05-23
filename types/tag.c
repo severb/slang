@@ -70,7 +70,7 @@ void tag_free_ptr(Tag t) {
 
 static const char *symbols[] = {"<false>", "<true>", "<nil>", "<ok>"};
 static void print(FILE *f, Tag t, bool is_repr) {
-  // TODO: what should happen on output errors?
+  // TODO: OK to ignore output errors?
   switch (tag_type(t)) {
   case TYPE_STRING:
     if (is_repr) {
@@ -620,10 +620,10 @@ static Tag less_integers_reuse(int64_t left, int64_t right, Tag *out) {
 
 #define STR_LESS(R) ((R) < 0 ? TAG_TRUE : TAG_FALSE)
 
+// TODO: add list comparison
 Tag tag_less(Tag left, Tag right) {
   switch (tag_type(left)) {
     BINARY_MATH(less_integers_reuse, LESS_I_OR_D, LESS_I_OR_D, LESS_I_OR_D)
-    // TODO: add list
     STR_CMP(STR_LESS)
   default:
     break;
@@ -648,7 +648,6 @@ Tag tag_greater(Tag left, Tag right) {
   switch (tag_type(left)) {
     BINARY_MATH(greater_integers_reuse, GREATER_I_OR_D, GREATER_I_OR_D,
                 GREATER_I_OR_D)
-    // TODO: add list
     STR_CMP(STR_GREATER)
   default:
     break;

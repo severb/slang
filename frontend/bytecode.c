@@ -12,7 +12,6 @@
 #include <stdio.h>    // printf, putchar, puts
 
 static void write_byte(Chunk *c, size_t line, uint8_t op) {
-  // TODO: out of memory checks
   dynarray_append(uint8_t)(&c->bytecode, &op);
   size_t len = dynarray_len(size_t)(&c->lines);
   size_t prev = len > 0 ? *dynarray_get(size_t)(&c->lines, len - 1) : 0;

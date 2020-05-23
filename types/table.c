@@ -101,16 +101,6 @@ static void grow(Table *t) {
     }
   }
   assert((start < old_cap || old_cap == 0) && "table can't be full");
-  // TODO: reset and rehash at the same time, mem access is slow
-  // reset tombstones
-  for (size_t i = 0; dynarray_len(Entry)(&t->array) > t->real_len; i++) {
-    Entry *entry = dynarray_get(Entry)(&t->array, i);
-    if (tag_biteq(entry->key, TOMBSTONE_KEY)) {
-      entry->key = EMPTY_KEY;
-      dynarray_trunc(Entry)(&t->array, dynarray_len(Entry)(&t->array) - 1);
-    }
-  }
-  assert(dynarray_len(Entry)(&t->array) == t->real_len && "lens don't match");
   // rehash
   size_t remaining = t->real_len;
   assert((old_cap & (old_cap - 1)) == 0 && "cap not a power of two");
@@ -120,13 +110,11 @@ static void grow(Table *t) {
     if (tag_biteq(entry->key, EMPTY_KEY)) {
       continue;
     }
-    /* TODO: can this replace the loop above?
     if (tag_biteq(entry->key, TOMBSTONE_KEY)) {
       entry->key = EMPTY_KEY;
       dynarray_trunc(Entry)(&t->array, dynarray_len(Entry)(&t->array) - 1);
       continue;
     }
-    */
     remaining--;
     Entry copy = *entry;
     entry->key = EMPTY_KEY;
