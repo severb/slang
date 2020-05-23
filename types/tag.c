@@ -412,7 +412,6 @@ Tag tag_add(Tag left, Tag right) {
         result = string_concat_slice(l, r);
         // tag_free(left) -- not owned
       }
-      tag_free(left);
       tag_free(right);
       return string_to_tag(result);
     }
@@ -425,7 +424,6 @@ Tag tag_add(Tag left, Tag right) {
         result = string_concat_string(l, r);
         // tag_free(left) -- not owned
       }
-      tag_free(left);
       tag_free(right);
       return string_to_tag(result);
     }
