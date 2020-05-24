@@ -49,6 +49,9 @@ int main(int argc, char *argv[]) {
   }
 
 #ifdef SLANG_DEBUG
+  if (mem_stats.bytes != 0) {
+    fprintf(stderr, "unfreed memory: %zu\n", mem_stats.bytes);
+  }
   assert(mem_stats.bytes == 0 && "unfreed memory");
 #endif
 

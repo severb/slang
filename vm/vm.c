@@ -12,11 +12,13 @@ typedef struct {
   const Chunk *chunk;
   size_t ip;
   List stack;
+  List temps;
   Table globals;
 } VM;
 
 static void destroy(VM *vm) {
   list_destroy(&vm->stack);
+  list_destroy(&vm->temps);
   table_destroy(&vm->globals);
   *vm = (VM){0};
 }
@@ -146,6 +148,29 @@ static bool run(VM *vm) {
       size_t pos = chunk_read_operator(vm->chunk, &ip);
       assert(vm->ip >= pos && "loop before start");
       vm->ip -= pos;
+      break;
+    }
+    case OP_SET_LOCAL: {
+      // TODO: set a reference!
+      Tag t = top(vm);
+      if (tag_is_own(t)) {
+        list_append(&vm->temps, t);
+        replace_top(vm, tag_to_ref(t));
+      }
+      size_t pos = chunk_read_operator(vm->chunk, &vm->ip);
+      if (pos + 1 != list_len(&vm->stack)) {
+        // assignment
+        *list_get(&vm->stack, pos) = pop(vm);
+      } else {
+        // declaration
+        // when a new variable is declared, it calls OP_SET_LOCAL with the same
+        // position as the top of the stack where its initial value is
+      }
+      break;
+    }
+    case OP_GET_LOCAL: {
+      size_t pos = chunk_read_operator(vm->chunk, &vm->ip);
+      push(vm, *list_get(&vm->stack, pos));
       break;
     }
     }

@@ -231,15 +231,17 @@ static List *top_uninitialized_list(Compiler *c) {
   return tag_to_list(uninitialized);
 }
 
-static void declare_local(Compiler *c, Tag var) {
+static bool declare_local(Compiler *c, Tag var) {
   List *top_scope = top_scope_list(c);
   if (list_find_from(top_scope, var, 0)) {
+    tag_free(var);
     err_at_prev(c, "variable already defined");
-    return;
+    return false;
   }
   List *top_uninitialized = top_uninitialized_list(c);
   list_append(top_scope, var);
   list_append(top_uninitialized, tag_to_ref(var)); // just a ref
+  return true;
 }
 
 static void initialize_local(Compiler *c, Tag var) {
@@ -253,7 +255,7 @@ static void initialize_local(Compiler *c, Tag var) {
   if (idx < list_len(top_uninitialized)) {
     *list_get(top_uninitialized, idx) = last;
   }
-  // NB: no need to free tags, uninitialized list contains only references
+  // NB: no need to free the tag, it's only a reference
 }
 
 static bool resolve_local(Compiler *c, Tag var, size_t *idx) {
@@ -387,6 +389,7 @@ static void compile_statement(Compiler *c) {
 }
 
 Tag var_from_token(Token t) {
+  // TODO: use a static slice in the caller instead of allways allocating
   // TODO: use a memory pool
   Slice *s = mem_allocate(sizeof(*s));
   *s = slice(t.start, t.end);
@@ -398,7 +401,9 @@ start:
   consume(c, TOKEN_IDENTIFIER, "variable name is missing");
   Tag var = var_from_token(c->prev);
   if (in_scope(c)) {
-    declare_local(c, var);
+    if (!declare_local(c, var)) {
+      return;
+    };
   }
   if (match(c, TOKEN_EQUAL)) {
     compile_expression(c);
@@ -500,6 +505,7 @@ static void compile_variable(Compiler *c, bool can_assign) {
     if (in_scope(c)) { // in local scope
       size_t idx;
       if (resolve_local(c, var, &idx)) {
+        tag_free(var);
         chunk_write_unary(c->chunk, c->prev.line, OP_SET_LOCAL, idx);
         return;
       }
@@ -511,6 +517,7 @@ static void compile_variable(Compiler *c, bool can_assign) {
     if (in_scope(c)) { // in local scope
       size_t idx;
       if (resolve_local(c, var, &idx)) {
+        tag_free(var);
         chunk_write_unary(c->chunk, c->prev.line, OP_GET_LOCAL, idx);
         return;
       }
