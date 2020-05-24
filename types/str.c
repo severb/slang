@@ -46,6 +46,24 @@ String *str_concat(const char *l, size_t l_len, const char *r, size_t r_len) {
   return s;
 }
 
+int str_cmp(const char *l, size_t l_len, const char *r, size_t r_len) {
+  size_t min_len = l_len;
+  if (r_len < min_len) {
+    min_len = r_len;
+  }
+  int result = memcmp(l, r, min_len);
+  if (result != 0) {
+    return result;
+  }
+  if (l_len < r_len) {
+    return -1;
+  }
+  if (l_len > r_len) {
+    return 1;
+  }
+  return 0;
+}
+
 extern inline String *string_new(const char *, size_t);
 extern void string_free(String *);
 extern inline Slice slice(const char *, const char *);
@@ -76,8 +94,3 @@ extern inline String *string_concat_string(const String *l, const String *);
 extern inline String *string_concat_slice(const String *, const Slice *);
 extern inline String *slice_concat_string(const Slice *, const String *);
 extern inline String *slice_concat_slice(const Slice *, const Slice *);
-
-extern inline int string_cmp_string(const String *, const String *);
-extern inline int string_cmp_slice(const String *, const Slice *);
-extern inline int slice_cmp_slice(const Slice *, const Slice *);
-extern inline int slice_cmp_string(const Slice *, const String *);

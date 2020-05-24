@@ -278,13 +278,11 @@ Tag i64_new(int64_t i) {
       int64_t r = *tag_to_i64(right);                                          \
       if (tag_is_own(left)) {                                                  \
         tag_free(right);                                                       \
-        mathf_i64_reuse(l, r, &left);                                          \
-        return left;                                                           \
+        return mathf_i64_reuse(l, r, left);                                    \
       }                                                                        \
       if (tag_is_own(right)) {                                                 \
         /* tag_free(left); -- not owned */                                     \
-        mathf_i64_reuse(l, r, &right);                                         \
-        return right;                                                          \
+        return mathf_i64_reuse(l, r, right);                                   \
       }                                                                        \
       /* tag_free(left); -- not owned */                                       \
       /* tag_free(right); -- not owned */                                      \
@@ -293,8 +291,7 @@ Tag i64_new(int64_t i) {
     case TYPE_I49P:                                                            \
     case TYPE_I49N: {                                                          \
       if (tag_is_own(left)) {                                                  \
-        mathf_i64_reuse(l, tag_to_i49(right), &left);                          \
-        return left;                                                           \
+        return mathf_i64_reuse(l, tag_to_i49(right), left);                    \
       }                                                                        \
       /* tag_free(left); -- not owned */                                       \
       return mathf_i64(l, tag_to_i49(right));                                  \
@@ -315,8 +312,7 @@ Tag i64_new(int64_t i) {
     case TYPE_I64: {                                                           \
       int64_t r = *tag_to_i64(right);                                          \
       if (tag_is_own(right)) {                                                 \
-        mathf_i64_reuse(l, r, &right);                                         \
-        return right;                                                          \
+        return mathf_i64_reuse(l, r, right);                                   \
       }                                                                        \
       /* tag_free(right); -- not owned */                                      \
       return mathf_i64(l, r);                                                  \
@@ -350,7 +346,7 @@ Tag i64_new(int64_t i) {
     break;                                                                     \
   }
 
-static Tag add_integers(int64_t left, int64_t right) {
+static Tag add_i64(int64_t left, int64_t right) {
   int64_t result;
   if (i64_add_over(left, right, &result)) {
     return error("addition overflows");
@@ -358,39 +354,45 @@ static Tag add_integers(int64_t left, int64_t right) {
   return int_to_tag(result);
 }
 
-static void add_integers_reuse(int64_t left, int64_t right, Tag *out) {
+static Tag add_i64_reuse(int64_t left, int64_t right, Tag out) {
   int64_t result;
   if (i64_add_over(left, right, &result)) {
-    tag_free_ptr(*out);
-    *out = error("addition overflows");
-    return;
+    tag_free_ptr(out);
+    return error("addition overflows");
   }
   if (I49_MIN <= result && result <= I49_MAX) {
-    tag_free_ptr(*out);
-    i49_to_tag(result);
-    return;
+    tag_free_ptr(out);
+    return i49_to_tag(result);
   }
-  *tag_to_i64(*out) = result;
+  *tag_to_i64(out) = result;
+  return out;
 }
 
-// summing two i49s can't overflow
-#define ADD_I49(a, b) (int_to_tag((a) + (b)))
-#define ADD_DOUBLE(a, b) (double_to_tag((a) + (b)))
+static Tag add_i49(int64_t left, int64_t right) {
+  // can't oveflow
+  return int_to_tag(left + right);
+}
+
+static Tag add_double(double left, double right) {
+  return double_to_tag(left + right);
+}
 
 Tag tag_add(Tag left, Tag right) {
   switch (tag_type(left)) {
-    BINARY_MATH(add_integers_reuse, add_integers, ADD_I49, ADD_DOUBLE)
+    BINARY_MATH(add_i64_reuse, add_i64, add_i49, add_double)
   case TYPE_SLICE: {
     Slice *l = tag_to_slice(left);
     switch (tag_type(right)) {
     case TYPE_SLICE: {
-      Tag result = string_to_tag(slice_concat_slice(l, tag_to_slice(right)));
+      Slice *r = tag_to_slice(right);
+      Tag result = string_to_tag(str_concat(l->c, l->len, r->c, r->len));
       tag_free(left);
       tag_free(right);
       return result;
     }
     case TYPE_STRING: {
-      Tag result = string_to_tag(slice_concat_string(l, tag_to_string(right)));
+      String *r = tag_to_string(right);
+      Tag result = string_to_tag(str_concat(l->c, l->len, r->c, r->len));
       tag_free(left);
       tag_free(right);
       return result;
@@ -409,7 +411,7 @@ Tag tag_add(Tag left, Tag right) {
       if (tag_is_own(left)) {
         result = string_append(l, r->c, r->len);
       } else {
-        result = string_concat_slice(l, r);
+        result = str_concat(l->c, l->len, r->c, r->len);
         // tag_free(left) -- not owned
       }
       tag_free(right);
@@ -421,7 +423,7 @@ Tag tag_add(Tag left, Tag right) {
       if (tag_is_own(left)) {
         result = string_append(l, r->c, r->len);
       } else {
-        result = string_concat_string(l, r);
+        result = str_concat(l->c, l->len, r->c, r->len);
         // tag_free(left) -- not owned
       }
       tag_free(right);
@@ -442,7 +444,7 @@ Tag tag_add(Tag left, Tag right) {
   return error("cannot add %s to %s", left_type, right_type);
 }
 
-static Tag mul_integers(int64_t left, int64_t right) {
+static Tag mul_i64(int64_t left, int64_t right) {
   int64_t result;
   if (i64_mul_over(left, right, &result)) {
     return error("multiplication overflows");
@@ -450,26 +452,27 @@ static Tag mul_integers(int64_t left, int64_t right) {
   return int_to_tag(result);
 }
 
-static void mul_integers_reuse(int64_t left, int64_t right, Tag *out) {
+static Tag mul_i64_reuse(int64_t left, int64_t right, Tag out) {
   int64_t result;
   if (i64_mul_over(left, right, &result)) {
-    tag_free_ptr(*out);
-    *out = error("multiplication overflows");
-    return;
+    tag_free_ptr(out);
+    return error("multiplication overflows");
   }
   if (I49_MIN <= result && result <= I49_MAX) {
-    tag_free_ptr(*out);
-    i49_to_tag(result);
-    return;
+    tag_free_ptr(out);
+    return i49_to_tag(result);
   }
-  *tag_to_i64(*out) = result;
+  *tag_to_i64(out) = result;
+  return out;
 }
 
-#define MUL_DOUBLE(a, b) (double_to_tag((a) * (b)))
+static Tag mul_double(double left, double right) {
+  return double_to_tag(left * right);
+}
 
 Tag tag_mul(Tag left, Tag right) {
   switch (tag_type(left)) {
-    BINARY_MATH(mul_integers_reuse, mul_integers, mul_integers, MUL_DOUBLE)
+    BINARY_MATH(mul_i64_reuse, mul_i64, mul_i64, mul_double)
   default:
     break;
   }
@@ -480,7 +483,7 @@ Tag tag_mul(Tag left, Tag right) {
   return error("cannot multiply %s to %s", left_type, right_type);
 }
 
-static Tag div_integers(int64_t left, int64_t right) {
+static Tag div_i64(int64_t left, int64_t right) {
   int64_t result;
   if (i64_div_over(left, right, &result)) {
     return error(right == 0 ? "division by zero" : "division overflows");
@@ -488,30 +491,32 @@ static Tag div_integers(int64_t left, int64_t right) {
   return int_to_tag(result);
 }
 
-static void div_integers_reuse(int64_t left, int64_t right, Tag *out) {
+static Tag div_i64_reuse(int64_t left, int64_t right, Tag out) {
   int64_t result;
   if (i64_div_over(left, right, &result)) {
-    tag_free_ptr(*out);
-    *out = error(right == 0 ? "division by zero" : "division overflows");
-    return;
+    tag_free_ptr(out);
+    return error(right == 0 ? "division by zero" : "division overflows");
   }
   if (I49_MIN <= result && result <= I49_MAX) {
-    tag_free_ptr(*out);
-    i49_to_tag(result);
-    return;
+    tag_free_ptr(out);
+    return i49_to_tag(result);
   }
-  *tag_to_i64(*out) = result;
+  *tag_to_i64(out) = result;
+  return out;
 }
 
 static Tag div_i49(int64_t left, int64_t right) {
+  // can't oveflow
   return right == 0 ? error("division by zero") : i49_to_tag(left / right);
 }
 
-#define DIV_DOUBLE(a, b) (double_to_tag((a) / (b)))
+static Tag div_double(double left, double right) {
+  return right == 0 ? error("division by zero") : double_to_tag(left / right);
+}
 
 Tag tag_div(Tag left, Tag right) {
   switch (tag_type(left)) {
-    BINARY_MATH(div_integers_reuse, div_integers, div_i49, DIV_DOUBLE)
+    BINARY_MATH(div_i64_reuse, div_i64, div_i49, div_double)
   default:
     break;
   }
@@ -522,7 +527,7 @@ Tag tag_div(Tag left, Tag right) {
   return error("cannot divide %s to %s", left_type, right_type);
 }
 
-static Tag mod_integers(int64_t left, int64_t right) {
+static Tag mod_i64(int64_t left, int64_t right) {
   int64_t result;
   if (i64_mod_over(left, right, &result)) {
     return error(right == 0 ? "division by zero" : "division overflows");
@@ -530,30 +535,32 @@ static Tag mod_integers(int64_t left, int64_t right) {
   return int_to_tag(result);
 }
 
-static void mod_integers_reuse(int64_t left, int64_t right, Tag *out) {
+static Tag mod_i64_reuse(int64_t left, int64_t right, Tag out) {
   int64_t result;
   if (i64_mod_over(left, right, &result)) {
-    tag_free_ptr(*out);
-    *out = error(right == 0 ? "division by zero" : "division overflows");
-    return;
+    tag_free_ptr(out);
+    return error(right == 0 ? "division by zero" : "division overflows");
   }
   if (I49_MIN <= result && result <= I49_MAX) {
-    tag_free_ptr(*out);
-    i49_to_tag(result);
-    return;
+    tag_free_ptr(out);
+    return i49_to_tag(result);
   }
-  *tag_to_i64(*out) = result;
+  *tag_to_i64(out) = result;
+  return out;
 }
 
 static Tag mod_i49(int64_t left, int64_t right) {
   return right == 0 ? error("division by zero") : i49_to_tag(left % right);
 }
 
-#define MOD_DOUBLE(a, b) (double_to_tag(fmod((a), (b))))
+static Tag mod_double(double left, double right) {
+  return right == 0 ? error("division by zero")
+                    : double_to_tag(fmod(left, right));
+}
 
 Tag tag_mod(Tag left, Tag right) {
   switch (tag_type(left)) {
-    BINARY_MATH(mod_integers_reuse, mod_integers, mod_i49, MOD_DOUBLE)
+    BINARY_MATH(mod_i64_reuse, mod_i64, mod_i49, mod_double)
   default:
     break;
   }
@@ -565,20 +572,20 @@ Tag tag_mod(Tag left, Tag right) {
   return error("cannot divide %s to %s", left_type, right_type);
 }
 
-#define STR_CMP(CMP_TO_TAG)                                                    \
+#define STR_CMP(cmpf)                                                          \
   case TYPE_STRING: {                                                          \
     String *l = tag_to_string(left);                                           \
     switch (tag_type(right)) {                                                 \
     case TYPE_STRING: {                                                        \
       String *r = tag_to_string(right);                                        \
-      Tag result = CMP_TO_TAG(string_cmp_string(l, r));                        \
+      Tag result = cmpf(l->c, l->len, r->c, r->len);                           \
       tag_free(left);                                                          \
       tag_free(right);                                                         \
       return result;                                                           \
     }                                                                          \
     case TYPE_SLICE: {                                                         \
       Slice *r = tag_to_slice(right);                                          \
-      Tag result = CMP_TO_TAG(string_cmp_slice(l, r));                         \
+      Tag result = cmpf(l->c, l->len, r->c, r->len);                           \
       tag_free(left);                                                          \
       tag_free(right);                                                         \
       return result;                                                           \
@@ -593,14 +600,14 @@ Tag tag_mod(Tag left, Tag right) {
     switch (tag_type(right)) {                                                 \
     case TYPE_STRING: {                                                        \
       String *r = tag_to_string(right);                                        \
-      Tag result = CMP_TO_TAG(slice_cmp_string(l, r));                         \
+      Tag result = cmpf(l->c, l->len, r->c, r->len);                           \
       tag_free(left);                                                          \
       tag_free(right);                                                         \
       return result;                                                           \
     }                                                                          \
     case TYPE_SLICE: {                                                         \
       Slice *r = tag_to_slice(right);                                          \
-      Tag result = CMP_TO_TAG(slice_cmp_slice(l, r));                          \
+      Tag result = cmpf(l->c, l->len, r->c, r->len);                           \
       tag_free(left);                                                          \
       tag_free(right);                                                         \
       return result;                                                           \
@@ -611,20 +618,27 @@ Tag tag_mod(Tag left, Tag right) {
     break;                                                                     \
   }
 
-#define LESS_I_OR_D(a, b) ((a) < (b) ? TAG_TRUE : TAG_FALSE)
-
-static Tag less_integers_reuse(int64_t left, int64_t right, Tag *out) {
-  tag_free(*out);
-  return LESS_I_OR_D(left, right);
+static Tag less_i64(int64_t left, int64_t right) {
+  return left < right ? TAG_TRUE : TAG_FALSE;
 }
 
-#define STR_LESS(R) ((R) < 0 ? TAG_TRUE : TAG_FALSE)
+static Tag less_i64_reuse(int64_t left, int64_t right, Tag out) {
+  tag_free(out);
+  return less_i64(left, right);
+}
 
-// TODO: add list comparison
+static Tag less_double(double left, double right) {
+  return left < right ? TAG_TRUE : TAG_FALSE;
+}
+
+static Tag less_str(const char *l, size_t l_len, const char *r, size_t r_len) {
+  return str_cmp(l, l_len, r, r_len) < 0 ? TAG_TRUE : TAG_FALSE;
+}
+
 Tag tag_less(Tag left, Tag right) {
   switch (tag_type(left)) {
-    BINARY_MATH(less_integers_reuse, LESS_I_OR_D, LESS_I_OR_D, LESS_I_OR_D)
-    STR_CMP(STR_LESS)
+    BINARY_MATH(less_i64_reuse, less_i64, less_i64, less_double)
+    STR_CMP(less_str)
   default:
     break;
   }
@@ -635,20 +649,28 @@ Tag tag_less(Tag left, Tag right) {
   return error("cannot compare %s to %s", left_type, right_type);
 }
 
-#define GREATER_I_OR_D(a, b) ((a) > (b) ? TAG_TRUE : TAG_FALSE)
-
-static Tag greater_integers_reuse(int64_t left, int64_t right, Tag *out) {
-  tag_free(*out);
-  return GREATER_I_OR_D(left, right);
+static Tag greater_i64(int64_t left, int64_t right) {
+  return left > right ? TAG_TRUE : TAG_FALSE;
 }
 
-#define STR_GREATER(R) ((R) > 0 ? TAG_TRUE : TAG_FALSE)
+static Tag greater_i64_reuse(int64_t left, int64_t right, Tag out) {
+  tag_free(out);
+  return greater_i64(left, right);
+}
+
+static Tag greater_double(double left, double right) {
+  return left > right ? TAG_TRUE : TAG_FALSE;
+}
+
+static Tag greater_str(const char *l, size_t l_len, const char *r,
+                       size_t r_len) {
+  return str_cmp(l, l_len, r, r_len) > 0 ? TAG_TRUE : TAG_FALSE;
+}
 
 Tag tag_greater(Tag left, Tag right) {
   switch (tag_type(left)) {
-    BINARY_MATH(greater_integers_reuse, GREATER_I_OR_D, GREATER_I_OR_D,
-                GREATER_I_OR_D)
-    STR_CMP(STR_GREATER)
+    BINARY_MATH(greater_i64_reuse, greater_i64, greater_i64, greater_double)
+    STR_CMP(greater_str)
   default:
     break;
   }

@@ -82,45 +82,11 @@ inline size_t slice_hash(Slice *s) { STR_HASH; }
 inline bool string_eq_string(const String *a, const String *b) { STR_EQ_STR; }
 inline bool string_eq_slice(const String *a, const Slice *b) { STR_EQ_STR; }
 inline bool slice_eq_slice(const Slice *a, const Slice *b) { STR_EQ_STR; }
-inline bool slice_eq_string(const Slice *a, const String *b) { STR_EQ_STR; }
+inline bool slice_eq_string(const Slice *a, const String *b) { return string_eq_slice(b, a); }
 #undef STR_EQ_STR
 
-#define STR_CMP_STR                                                            \
-  size_t min_len = a->len;                                                     \
-  if (b->len < min_len) {                                                      \
-    min_len = b->len;                                                          \
-  }                                                                            \
-  int result = memcmp(a->c, b->c, min_len);                                    \
-  if (result != 0) {                                                           \
-    return result;                                                             \
-  }                                                                            \
-  if (a->len < b->len) {                                                       \
-    return -1;                                                                 \
-  }                                                                            \
-  if (a->len > b->len) {                                                       \
-    return 1;                                                                  \
-  }                                                                            \
-  return 0
-inline int string_cmp_string(const String *a, const String *b) { STR_CMP_STR; }
-inline int string_cmp_slice(const String *a, const Slice *b) { STR_CMP_STR; }
-inline int slice_cmp_slice(const Slice *a, const Slice *b) { STR_CMP_STR; }
-inline int slice_cmp_string(const Slice *a, const String *b) { STR_CMP_STR; }
-#undef STR_CMP_STR
-
+int str_cmp(const char *, size_t, const char *, size_t);
 String *string_append(String *, const char *, size_t);
-
 String *str_concat(const char *, size_t, const char *, size_t);
-inline String *string_concat_string(const String *l, const String *r) {
-  return str_concat(l->c, l->len, r->c, r->len);
-}
-inline String *string_concat_slice(const String *l, const Slice *r) {
-  return str_concat(l->c, l->len, r->c, r->len);
-}
-inline String *slice_concat_string(const Slice *l, const String *r) {
-  return str_concat(l->c, l->len, r->c, r->len);
-}
-inline String *slice_concat_slice(const Slice *l, const Slice *r) {
-  return str_concat(l->c, l->len, r->c, r->len);
-}
 
 #endif
