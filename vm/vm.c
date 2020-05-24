@@ -140,7 +140,8 @@ static bool run(VM *vm) {
       break;
     }
     case OP_LOOP: {
-      // NB: moves back n bytes from this opcode (not counting the operand)
+      // NB: moves back n bytes from this opcode (not counting the operand's
+      // size which can be variable)
       size_t ip = vm->ip; // don't advance IP
       size_t pos = chunk_read_operator(vm->chunk, &ip);
       assert(vm->ip >= pos && "loop before start");
