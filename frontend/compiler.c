@@ -58,7 +58,7 @@ static void compiler_destroy(Compiler *c) {
 }
 
 static void error_print(const Token *t, const char *msg) {
-  fprintf(stderr, "[line %zu] error", t->line);
+  fprintf(stderr, "[line %zu] error", t->line + 1);
   switch (t->type) {
   case TOKEN_EOF:
     fprintf(stderr, " at end of file: ");
@@ -336,13 +336,15 @@ static void compile_if_statement(Compiler *c) {
 }
 
 static void compile_while_statement(Compiler *c) {
-  consume(c, TOKEN_LEFT_BRACE, "missing paren before while condition");
+  size_t start = chunk_len(c->chunk);
+  consume(c, TOKEN_LEFT_PAREN, "missing paren before while condition");
   compile_expression(c);
-  consume(c, TOKEN_RIGHT_BRACE, "missing paren after while condition");
+  consume(c, TOKEN_RIGHT_PAREN, "missing paren after while condition");
   size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
   compile_statement(c);
-  chunk_patch_unary(c->chunk, jump_if_false, OP_LOOP);
+  chunk_write_unary(c->chunk, c->prev.line, OP_LOOP, chunk_len(c->chunk) - start);
+  chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
 }
 

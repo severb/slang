@@ -124,6 +124,29 @@ static bool run(VM *vm) {
       return true;
     case OP_NOOP:
       break;
+    case OP_JUMP_IF_TRUE:
+    case OP_JUMP_IF_FALSE: {
+      size_t pos = chunk_read_operator(vm->chunk, &vm->ip);
+      Tag t = top(vm);
+      bool is_true = tag_is_true(t);
+      if (is_true == (opcode == OP_JUMP_IF_TRUE)) {
+        vm->ip += pos;
+      }
+      break;
+    }
+    case OP_JUMP: {
+      size_t pos = chunk_read_operator(vm->chunk, &vm->ip);
+      vm->ip += pos;
+      break;
+    }
+    case OP_LOOP: {
+      // NB: moves back n bytes from this opcode (not counting the operand)
+      size_t ip = vm->ip; // don't advance IP
+      size_t pos = chunk_read_operator(vm->chunk, &ip);
+      assert(vm->ip >= pos && "loop before start");
+      vm->ip -= pos;
+      break;
+    }
     }
   }
 }
