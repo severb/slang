@@ -2,8 +2,9 @@
 
 #include "bytecode.h" // Chunk, chunk_*
 #include "list.h"     // List, list_*
+#include "str.h"      // slice
 #include "table.h"    // Table, table_*
-#include "tag.h"      // Tag, tag_*
+#include "tag.h"      // Tag, tag_*, TAG_NIL
 
 #include <stdint.h>
 #include <stdio.h>
@@ -23,11 +24,24 @@ static void destroy(VM *vm) {
   *vm = (VM){0};
 }
 
-static void print_runtime_error(VM *vm, Tag error) {
+static void print_runtime_error(VM *vm, Tag error, Tag var) {
   size_t line = chunk_lines_delta(vm->chunk, 0, vm->ip);
   fprintf(stderr, "[line %zu] runtime ", line + 1);
   tag_printf(stderr, error);
-  fputc('\n', stderr);
+  if (!tag_biteq(var, TAG_NIL)) {
+    putc('"', stderr);
+    tag_printf(stderr, var);
+    putc('"', stderr);
+  }
+  putc('\n', stderr);
+}
+
+static void print_undefined_variable(VM *vm, Tag var) {
+  const char msg[] = "undefined variable ";
+  Slice s = slice(msg, msg + sizeof(msg) - 1);
+  Tag s_tag = slice_to_tag(&s);
+  Tag err = error_to_tag(&s_tag);
+  print_runtime_error(vm, err, var);
 }
 
 static inline void push(VM *vm, Tag t) { list_append(&vm->stack, t); }
@@ -42,7 +56,7 @@ static inline void replace_top(VM *vm, Tag t) { *list_last(&vm->stack) = t; }
     Tag result = (func)(left, right);                                          \
     replace_top(vm, result);                                                   \
     if (tag_is_error(result)) {                                                \
-      print_runtime_error(vm, result);                                         \
+      print_runtime_error(vm, result, TAG_NIL);                                \
       /* tag_free(result) -- don't free the error, leave it on the  stack */   \
       return false;                                                            \
     }                                                                          \
@@ -148,6 +162,31 @@ static bool run(VM *vm) {
       size_t pos = chunk_read_operator(vm->chunk, &ip);
       assert(vm->ip >= pos && "loop before start");
       vm->ip -= pos;
+      break;
+    }
+    case OP_SET_GLOBAL: {
+      size_t idx = chunk_read_operator(vm->chunk, &vm->ip);
+      Tag var = chunk_get_const(vm->chunk, idx);
+      if (tag_is_ptr(var)) {
+        var = tag_to_ref(var);
+      }
+      Tag val = top(vm);
+      table_set(&vm->globals, var, val);
+      break;
+    }
+    case OP_GET_GLOBAL: {
+      size_t idx = chunk_read_operator(vm->chunk, &vm->ip);
+      Tag var = chunk_get_const(vm->chunk, idx);
+      Tag val;
+      if (table_get(&vm->globals, var, &val)) {
+        if (tag_is_own(val)) {
+          val = tag_to_ref(val);
+        }
+        push(vm, val);
+      } else {
+        print_undefined_variable(vm, var);
+        return false;
+      }
       break;
     }
     case OP_SET_LOCAL: {

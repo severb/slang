@@ -345,7 +345,8 @@ static void compile_while_statement(Compiler *c) {
   size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
   compile_statement(c);
-  chunk_write_unary(c->chunk, c->prev.line, OP_LOOP, chunk_len(c->chunk) - start);
+  chunk_write_unary(c->chunk, c->prev.line, OP_LOOP,
+                    chunk_len(c->chunk) - start);
   chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
 }
@@ -575,7 +576,7 @@ static CompileRule rules[] = {
     {0, 0, PREC_NONE},                          // TOKEN_SEMICOLON
     {0, compile_binary, PREC_FACTOR},           // TOKEN_SLASH
     {0, compile_binary, PREC_FACTOR},           // TOKEN_STAR
-    {0, compile_binary, PREC_FACTOR},           // TOKEN_STAR
+    {0, compile_binary, PREC_FACTOR},           // TOKEN_PERCENT
     {compile_unary, 0, PREC_NONE},              // TOKEN_BANG
     {0, compile_binary, PREC_EQUALITY},         // TOKEN_BANG_EQUAL
     {0, 0, PREC_NONE},                          // TOKEN_EQUAL
