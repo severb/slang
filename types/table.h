@@ -26,7 +26,7 @@ void table_destroy(Table *);
 void table_free(Table *);
 void table_printf(FILE *, const Table *);
 inline void table_print(const Table *t) { table_printf(stdout, t); }
-void table_set(Table *, Tag key, Tag val);
+bool table_set(Table *, Tag key, Tag val);
 bool table_get(const Table *, Tag key, Tag *val);
 bool table_del(Table *, Tag);
 

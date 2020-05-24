@@ -36,12 +36,22 @@ static void print_runtime_error(VM *vm, Tag error, Tag var) {
   putc('\n', stderr);
 }
 
-static void print_undefined_variable(VM *vm, Tag var) {
-  const char msg[] = "undefined variable ";
-  Slice s = slice(msg, msg + sizeof(msg) - 1);
+static const char undef_var_error[] = "undefined variable ";
+static const char glob_redef_error[] = "global variable redefinition ";
+
+static void print_var_error(VM *vm, const char *msg, size_t len, Tag var) {
+  Slice s = slice(msg, msg + len);
   Tag s_tag = slice_to_tag(&s);
   Tag err = error_to_tag(&s_tag);
   print_runtime_error(vm, err, var);
+}
+
+static void print_bad_opcode(VM *vm) {
+  const char msg[] = "bad opcode";
+  Slice s = slice(msg, msg + sizeof(msg) - 1);
+  Tag s_tag = slice_to_tag(&s);
+  Tag err = error_to_tag(&s_tag);
+  print_runtime_error(vm, err, TAG_NIL);
 }
 
 static inline void push(VM *vm, Tag t) { list_append(&vm->stack, t); }
@@ -64,9 +74,12 @@ static inline void replace_top(VM *vm, Tag t) { *list_last(&vm->stack) = t; }
 
 static bool run(VM *vm) {
   for (;;) {
-    uint8_t opcode = chunk_read_opcode(vm->chunk, vm->ip);
+    OpCode opcode = chunk_read_opcode(vm->chunk, vm->ip);
     vm->ip++;
     switch (opcode) {
+    case OP_POP:
+      pop(vm);
+      break;
     case OP_ADD: {
       BINARY_MATH(tag_add);
       break;
@@ -156,14 +169,15 @@ static bool run(VM *vm) {
       break;
     }
     case OP_LOOP: {
-      // NB: moves back n bytes from this opcode (not counting the operand's
-      // size which can be variable)
+      // NB: moves back n bytes from before this opcode (not counting the
+      // operand's size which can be variable)
       size_t ip = vm->ip; // don't advance IP
       size_t pos = chunk_read_operator(vm->chunk, &ip);
-      assert(vm->ip >= pos && "loop before start");
-      vm->ip -= pos;
+      assert(vm->ip > pos && "loop before start");
+      vm->ip -= pos + 1; // +1 for the opcode itself
       break;
     }
+    case OP_DEF_GLOBAL:
     case OP_SET_GLOBAL: {
       size_t idx = chunk_read_operator(vm->chunk, &vm->ip);
       Tag var = chunk_get_const(vm->chunk, idx);
@@ -171,7 +185,26 @@ static bool run(VM *vm) {
         var = tag_to_ref(var);
       }
       Tag val = top(vm);
-      table_set(&vm->globals, var, val);
+      if (tag_is_own(val)) {
+        list_append(&vm->temps, val);
+        val = tag_to_ref(val);
+        replace_top(vm, val);
+      }
+      // table_set returns true on new entries
+      if (table_set(&vm->globals, var, val) != (opcode == OP_DEF_GLOBAL)) {
+        if (opcode == OP_DEF_GLOBAL) {
+          // TODO: make global redefinition a compile-time error
+          print_var_error(vm, glob_redef_error, sizeof(glob_redef_error) - 1,
+                          var);
+        } else {
+          print_var_error(vm, undef_var_error, sizeof(undef_var_error) - 1,
+                          var);
+        }
+        return false;
+      }
+      if (opcode == OP_DEF_GLOBAL) {
+        pop(vm);
+      }
       break;
     }
     case OP_GET_GLOBAL: {
@@ -184,22 +217,21 @@ static bool run(VM *vm) {
         }
         push(vm, val);
       } else {
-        print_undefined_variable(vm, var);
+        print_var_error(vm, undef_var_error, sizeof(undef_var_error) - 1, var);
         return false;
       }
       break;
     }
     case OP_SET_LOCAL: {
-      // TODO: set a reference!
-      Tag t = top(vm);
-      if (tag_is_own(t)) {
-        list_append(&vm->temps, t);
-        replace_top(vm, tag_to_ref(t));
+      Tag val = top(vm);
+      if (tag_is_own(val)) {
+        list_append(&vm->temps, val);
+        replace_top(vm, tag_to_ref(val));
       }
       size_t pos = chunk_read_operator(vm->chunk, &vm->ip);
       if (pos + 1 != list_len(&vm->stack)) {
         // assignment
-        *list_get(&vm->stack, pos) = pop(vm);
+        *list_get(&vm->stack, pos) = top(vm);
       } else {
         // declaration
         // when a new variable is declared, it calls OP_SET_LOCAL with the same
@@ -212,6 +244,9 @@ static bool run(VM *vm) {
       push(vm, *list_get(&vm->stack, pos));
       break;
     }
+    default:
+      print_bad_opcode(vm);
+      return false;
     }
   }
 }
@@ -219,6 +254,17 @@ static bool run(VM *vm) {
 bool interpret(const Chunk *chunk) {
   VM vm = (VM){.chunk = chunk};
   bool result = run(&vm);
+#ifdef SLANG_DEBUG
+  fputs("temps: ", stdout);
+  list_print(&vm.temps);
+  putchar('\n');
+  fputs("stack: ", stdout);
+  list_print(&vm.stack);
+  putchar('\n');
+  fputs("globals: ", stdout);
+  table_print(&vm.globals);
+  putchar('\n');
+#endif
   destroy(&vm);
   return result;
 }

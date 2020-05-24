@@ -122,7 +122,7 @@ static void grow(Table *t) {
   }
 }
 
-void table_set(Table *t, Tag key, Tag val) {
+bool table_set(Table *t, Tag key, Tag val) {
   assert(!is_unset(key) && "table keys cannot be user symbols 0 or 1");
   size_t len = dynarray_len(Entry)(&t->array);
   size_t cap = dynarray_cap(Entry)(&t->array);
@@ -133,18 +133,22 @@ void table_set(Table *t, Tag key, Tag val) {
     len = dynarray_len(Entry)(&t->array); // len changes when tombstones clear
   }
   Entry *entry = find_entry(t, key);
+  bool new = false;
   if (tag_biteq(entry->key, TOMBSTONE_KEY)) {
     entry->key = key;
     t->real_len++;
+    new = true;
   } else if (tag_biteq(entry->key, EMPTY_KEY)) {
     entry->key = key;
     dynarray_trunc(Entry)(&t->array, len + 1);
     t->real_len++;
+    new = true;
   } else {
     tag_free(entry->val);
     tag_free(key);
   }
   entry->val = val;
+  return new;
 }
 
 bool table_get(const Table *t, Tag key, Tag *val) {
@@ -209,9 +213,9 @@ void table_printf(FILE *f, const Table *t) {
       continue;
     }
     remaining--;
-    tag_printf(f, entry->key);
+    tag_reprf(f, entry->key);
     fputs(": ", f);
-    tag_printf(f, entry->val);
+    tag_reprf(f, entry->val);
     if (remaining > 0) {
       fputs(", ", f);
     }

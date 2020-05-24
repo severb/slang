@@ -39,7 +39,9 @@ int main(int argc, char *argv[]) {
     char *src = read_file(argv[1]);
     Chunk c = {0};
     if (compile(src, &c)) {
+#ifdef SLANG_DEBUG
       chunk_disassamble_src(&c, src);
+#endif
       success = interpret(&c);
     }
     chunk_destroy(&c);
