@@ -339,7 +339,7 @@ start:
   if (match(c, TOKEN_COMMA)) {
     goto start;
   }
-  consume(c, TOKEN_SEMICOLON, "semicolon missing after print");
+  consume(c, TOKEN_SEMICOLON, "missing semicolon after print");
   chunk_write_operation(c->chunk, c->prev.line, OP_PRINT_NL);
 }
 
@@ -379,7 +379,7 @@ static void compile_for_statement(Compiler *c) {
 
 static void compile_expression_statement(Compiler *c) {
   compile_expression(c);
-  consume(c, TOKEN_SEMICOLON, "semicolon missing after expression statement");
+  consume(c, TOKEN_SEMICOLON, "micolon missing semicolon after expression statement");
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
 }
 
@@ -387,7 +387,7 @@ static void compile_block(Compiler *c) {
   while (!match(c, TOKEN_RIGHT_BRACE)) {
     compile_declaration(c);
     if (match(c, TOKEN_EOF)) {
-      err_at_current(c, "closing brace missing after block");
+      err_at_current(c, "missing closing brace missing after block");
       return;
     }
   }
@@ -424,7 +424,7 @@ Tag var_from_token(Token t) {
 
 static void compile_var_declaration(Compiler *c) {
 start:
-  consume(c, TOKEN_IDENTIFIER, "variable name is missing");
+  consume(c, TOKEN_IDENTIFIER, "missing variable name");
   Tag var = var_from_token(c->prev);
   if (in_scope(c)) {
     if (!declare_local(c, var)) {
@@ -450,7 +450,7 @@ start:
   if (match(c, TOKEN_COMMA)) {
     goto start;
   }
-  consume(c, TOKEN_SEMICOLON, "semicolon missing after variable declaration");
+  consume(c, TOKEN_SEMICOLON, "missing semicolon after variable declaration");
 }
 
 static void compile_declaration(Compiler *c) {
@@ -576,6 +576,21 @@ static void compile_grouping(Compiler *c, bool _) {
   consume(c, TOKEN_RIGHT_PAREN, "missing paren after expression");
 }
 
+static void compile_dict(Compiler *c, bool _) {
+  (void)_; // unused
+  chunk_write_operation(c->chunk, c->prev.line, OP_DICT);
+  while (!match(c, TOKEN_RIGHT_BRACE)) {
+    compile_expression(c);
+    consume(c, TOKEN_COLON, "missing colon between key and value");
+    compile_expression(c);
+    chunk_write_operation(c->chunk, c->prev.line, OP_DICT_SET);
+    if (!match(c, TOKEN_COMMA)) {
+      consume(c, TOKEN_RIGHT_BRACE, "missing right brace at dictionary end");
+      break;
+    }
+  }
+}
+
 bool compile(const char *src, Chunk *chunk) {
   Compiler c = {.chunk = chunk, .lex = lex(src)};
   advance(&c);
@@ -592,12 +607,13 @@ bool compile(const char *src, Chunk *chunk) {
 static CompileRule rules[] = {
     {compile_grouping, 0, PREC_NONE},           // TOKEN_LEFT_PAREN
     {0, 0, PREC_NONE},                          // TOKEN_RIGHT_PAREN
-    {0, 0, PREC_NONE},                          // TOKEN_LEFT_BRACE
+    {compile_dict, 0, PREC_NONE},               // TOKEN_LEFT_BRACE
     {0, 0, PREC_NONE},                          // TOKEN_RIGHT_BRACE
     {0, 0, PREC_NONE},                          // TOKEN_COMMA
     {0, 0, PREC_NONE},                          // TOKEN_DOT
     {compile_unary, compile_binary, PREC_TERM}, // TOKEN_MINUS
     {0, compile_binary, PREC_TERM},             // TOKEN_PLUS
+    {0, 0, PREC_NONE},                          // TOKEN_COLON
     {0, 0, PREC_NONE},                          // TOKEN_SEMICOLON
     {0, compile_binary, PREC_FACTOR},           // TOKEN_SLASH
     {0, compile_binary, PREC_FACTOR},           // TOKEN_STAR

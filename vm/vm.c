@@ -2,6 +2,7 @@
 
 #include "bytecode.h" // Chunk, chunk_*
 #include "list.h"     // List, list_*
+#include "mem.h"      // mem_allocate
 #include "str.h"      // slice
 #include "table.h"    // Table, table_*
 #include "tag.h"      // Tag, tag_*, TAG_NIL
@@ -243,6 +244,30 @@ static bool run(VM *vm) {
     case OP_GET_LOCAL: {
       size_t pos = chunk_read_operator(vm->chunk, &vm->ip);
       push(vm, *list_get(&vm->stack, pos));
+      break;
+    }
+    case OP_DICT: {
+      Table *tab = mem_allocate(sizeof(*tab));
+      *tab = (Table){0};
+      Tag tag = table_to_tag(tab);
+      list_append(&vm->temps, tag);
+      push(vm, tag_to_ref(tag));
+      break;
+    }
+    case OP_DICT_SET: {
+      Tag val = pop(vm);
+      if (tag_is_own(val)) {
+        list_append(&vm->temps, val);
+        val = tag_to_ref(val);
+      }
+      Tag key = pop(vm);
+      if (tag_is_own(key)) {
+        list_append(&vm->temps, key);
+        key = tag_to_ref(key);
+      }
+      Tag dict = top(vm);
+      Table *t = tag_to_table(dict);
+      table_set(t, key, val);
       break;
     }
     default:
