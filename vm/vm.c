@@ -231,7 +231,7 @@ static bool run(VM *vm) {
       size_t pos = chunk_read_operator(vm->chunk, &vm->ip);
       if (pos + 1 != list_len(&vm->stack)) {
         // assignment
-        *list_get(&vm->stack, pos) = top(vm);
+        *list_get(&vm->stack, pos) = pop(vm);
       } else {
         // declaration
         // when a new variable is declared, it calls OP_SET_LOCAL with the same
