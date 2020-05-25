@@ -145,7 +145,17 @@ static bool match(Compiler *c, TokenType type) {
 
 static void compile_int(Compiler *c, bool _) {
   (void)_; // unused
-  long long i = strtoll(c->prev.start, /*str_end*/ 0, /*base*/ 0);
+  Token token = c->prev;
+  char buf[token.end - token.start + 1];
+  char *b = buf;
+  for (const char *c = token.start; c < token.end; c++) {
+    if (*c != '_') {
+      *b = *c;
+      b++;
+    }
+  }
+  *b = '\0';
+  long long i = strtoll(buf, /*str_end*/ 0, /*base*/ 0);
   if (errno == ERANGE) {
     err_at_prev(c, "integer constant out of range");
     return;
@@ -163,7 +173,17 @@ static void compile_int(Compiler *c, bool _) {
 
 static void compile_float(Compiler *c, bool _) {
   (void)_; // unused
-  double d = strtod(c->prev.start, 0);
+  Token token = c->prev;
+  char buf[token.end - token.start + 1];
+  char *b = buf;
+  for (const char *c = token.start; c < token.end; c++) {
+    if (*c != '_') {
+      *b = *c;
+      b++;
+    }
+  }
+  *b = '\0';
+  double d = strtod(buf, 0);
   if (errno == ERANGE) {
     err_at_prev(c, "float constant out of range");
     return;

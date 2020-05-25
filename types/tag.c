@@ -104,7 +104,7 @@ static void print(FILE *f, Tag t, bool is_repr) {
     break;
   case TYPE_DOUBLE: {
     double d = tag_to_double(t);
-    fprintf(f, ceil(d) == d ? "%.1f" : "%g", d);
+    fprintf(f, floor(d) == d ? "%.1f" : "%.16g", d);
     break;
   }
   case TYPE_SYMBOL: {

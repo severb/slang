@@ -105,13 +105,13 @@ static void string(Lexer *lex, Token *t, char type) {
 
 static void number(Lexer *lex, Token *t) {
   char c;
-  while (is_digit(c = peek(lex))) {
+  while (is_digit(c = peek(lex)) || c == '_') {
     advance(lex);
   }
   if (c == '.' && is_digit(peek_next(lex))) {
     advance(lex); // dot
     advance(lex); // 1st digit after dot
-    while (is_digit(peek(lex))) {
+    while (is_digit(c = peek(lex)) || c == '_') {
       advance(lex);
     }
     token(lex, TOKEN_FLOAT, t);
