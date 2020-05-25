@@ -216,7 +216,9 @@ static bool in_scope(const Compiler *c) { return list_len(&c->scopes) > 0; }
 static void exit_scope(Compiler *c) {
   assert(in_scope(c) && "not in a scope");
   tag_free(list_pop(&c->scopes));
-  tag_free(list_pop(&c->uninitialized));
+  Tag u = list_pop(&c->uninitialized);
+  assert(!tag_is_true(u) && "uninitialized vars in block");
+  tag_free(u);
 }
 
 static List *top_scope_list(Compiler *c) {
@@ -368,6 +370,9 @@ static void compile_block(Compiler *c) {
       err_at_current(c, "closing brace missing after block");
       return;
     }
+  }
+  for (size_t i = 0; i < list_len(top_scope_list(c)); i++) {
+    chunk_write_operation(c->chunk, c->prev.line, OP_POP);
   }
 }
 

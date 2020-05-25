@@ -75,10 +75,13 @@ static inline void replace_top(VM *vm, Tag t) { *list_last(&vm->stack) = t; }
 static bool run(VM *vm) {
   for (;;) {
     OpCode opcode = chunk_read_opcode(vm->chunk, vm->ip);
+    // printf("%zu: ", vm->ip);
+    // list_print(&vm->stack);
+    // putchar('\n');
     vm->ip++;
     switch (opcode) {
     case OP_POP:
-      pop(vm);
+      tag_free(pop(vm));
       break;
     case OP_ADD: {
       BINARY_MATH(tag_add);
@@ -231,7 +234,7 @@ static bool run(VM *vm) {
       size_t pos = chunk_read_operator(vm->chunk, &vm->ip);
       if (pos + 1 != list_len(&vm->stack)) {
         // assignment
-        *list_get(&vm->stack, pos) = pop(vm);
+        *list_get(&vm->stack, pos) = top(vm);
       } else {
         // declaration
         // when a new variable is declared, it calls OP_SET_LOCAL with the same
