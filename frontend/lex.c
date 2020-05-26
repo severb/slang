@@ -227,6 +227,12 @@ void lex_consume(Lexer *lex, Token *t) {
   case '}':
     token(lex, TOKEN_RIGHT_BRACE, t);
     return;
+  case '[':
+    token(lex, TOKEN_LEFT_BRACKET, t);
+    return;
+  case ']':
+    token(lex, TOKEN_RIGHT_BRACKET, t);
+    return;
   case ':':
     token(lex, TOKEN_COLON, t);
     return;

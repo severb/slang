@@ -25,34 +25,35 @@ static void destroy(VM *vm) {
   *vm = (VM){0};
 }
 
-static void print_runtime_error(VM *vm, Tag error, Tag var) {
+static void runtime_err_header(VM *vm) {
   size_t line = chunk_lines_delta(vm->chunk, 0, vm->ip);
-  fprintf(stderr, "[line %zu] runtime ", line + 1);
-  tag_printf(stderr, error);
-  if (!tag_biteq(var, TAG_NIL)) {
+  fprintf(stderr, "[line %zu] runtime error: ", line + 1);
+}
+
+static void runtime_err(VM *vm, const char *err, const char *detail) {
+  runtime_err_header(vm);
+  fputs(err, stderr);
+  if (detail) {
     putc('"', stderr);
-    tag_printf(stderr, var);
+    fputs(detail, stderr);
     putc('"', stderr);
   }
   putc('\n', stderr);
 }
 
-static const char undef_var_error[] = "undefined variable ";
-static const char glob_redef_error[] = "global variable redefinition ";
-
-static void print_var_error(VM *vm, const char *msg, size_t len, Tag var) {
-  Slice s = slice(msg, msg + len);
-  Tag s_tag = slice_to_tag(&s);
-  Tag err = error_to_tag(&s_tag);
-  print_runtime_error(vm, err, var);
+static void runtime_err_tag(VM *vm, const char *err, Tag tag) {
+  runtime_err_header(vm);
+  fputs(err, stderr);
+  tag_printf(stderr, tag);
+  putc('\n', stderr);
 }
 
-static void print_bad_opcode(VM *vm) {
-  const char msg[] = "bad opcode";
-  Slice s = slice(msg, msg + sizeof(msg) - 1);
-  Tag s_tag = slice_to_tag(&s);
-  Tag err = error_to_tag(&s_tag);
-  print_runtime_error(vm, err, TAG_NIL);
+static void runtime_tag(VM *vm, Tag error) {
+  assert(tag_is_error(error));
+  runtime_err_header(vm);
+  Tag tag = *tag_to_error(error);
+  tag_printf(stderr, tag);
+  putc('\n', stderr);
 }
 
 static inline void push(VM *vm, Tag t) { list_append(&vm->stack, t); }
@@ -67,7 +68,7 @@ static inline void replace_top(VM *vm, Tag t) { *list_last(&vm->stack) = t; }
     Tag result = (func)(left, right);                                          \
     replace_top(vm, result);                                                   \
     if (tag_is_error(result)) {                                                \
-      print_runtime_error(vm, result, TAG_NIL);                                \
+      runtime_tag(vm, result);                                                 \
       /* tag_free(result) -- don't free the error, leave it on the  stack */   \
       return false;                                                            \
     }                                                                          \
@@ -196,11 +197,9 @@ static bool run(VM *vm) {
       if (table_set(&vm->globals, var, val) != (opcode == OP_DEF_GLOBAL)) {
         if (opcode == OP_DEF_GLOBAL) {
           // TODO: make global redefinition a compile-time error
-          print_var_error(vm, glob_redef_error, sizeof(glob_redef_error) - 1,
-                          var);
+          runtime_err_tag(vm, "global variable redefinition ", var);
         } else {
-          print_var_error(vm, undef_var_error, sizeof(undef_var_error) - 1,
-                          var);
+          runtime_err_tag(vm, "undefined variable ", var);
         }
         return false;
       }
@@ -219,7 +218,7 @@ static bool run(VM *vm) {
         }
         push(vm, val);
       } else {
-        print_var_error(vm, undef_var_error, sizeof(undef_var_error) - 1, var);
+        runtime_err_tag(vm, "undefined variable ", var);
         return false;
       }
       break;
@@ -254,7 +253,8 @@ static bool run(VM *vm) {
       push(vm, tag_to_ref(tag));
       break;
     }
-    case OP_DICT_SET: {
+    case OP_DICT_SET:
+    case OP_SET: {
       Tag val = pop(vm);
       if (tag_is_own(val)) {
         list_append(&vm->temps, val);
@@ -268,10 +268,30 @@ static bool run(VM *vm) {
       Tag dict = top(vm);
       Table *t = tag_to_table(dict);
       table_set(t, key, val);
+      if (opcode == OP_SET) {
+        replace_top(vm, val);
+      }
+      break;
+    }
+    case OP_GET: {
+      Tag key = pop(vm);
+      Tag dict = top(vm);
+      if (!tag_is_table(dict)) {
+        runtime_err(vm, "cannot index type ", tag_type_str(tag_type(dict)));
+        return false;
+      }
+      Table *table = tag_to_table(dict);
+      Tag val;
+      if (!table_get(table, key, &val)) {
+        runtime_err_tag(vm, "key not found ", key);
+        return false;
+      };
+      replace_top(vm, val);
+      tag_free(key);
       break;
     }
     default:
-      print_bad_opcode(vm);
+      runtime_err(vm, "bad opcode", 0);
       return false;
     }
   }

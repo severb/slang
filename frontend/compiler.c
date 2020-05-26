@@ -318,7 +318,7 @@ static void compile_precedence(Compiler *c, Precedence p) {
   while (p <= rules[c->current.type].precedence) {
     advance(c);
     CompileFn infix_rule = rules[c->prev.type].infix;
-    assert(infix_rule);
+    assert(infix_rule && "precedence set but infix function missing");
     infix_rule(c, can_assign);
   }
   // assignment is handled in rules, if we see an assignment here it's an err
@@ -379,7 +379,7 @@ static void compile_for_statement(Compiler *c) {
 
 static void compile_expression_statement(Compiler *c) {
   compile_expression(c);
-  consume(c, TOKEN_SEMICOLON, "micolon missing semicolon after expression statement");
+  consume(c, TOKEN_SEMICOLON, "missing semicolon after expression statement");
   chunk_write_operation(c->chunk, c->prev.line, OP_POP);
 }
 
@@ -406,6 +406,7 @@ static void compile_statement(Compiler *c) {
   } else if (match(c, TOKEN_FOR)) {
     compile_for_statement(c);
   } else if (match(c, TOKEN_LEFT_BRACE)) {
+    // TODO: consider checking if it's a dictionary literal
     enter_scope(c);
     compile_block(c);
     exit_scope(c);
@@ -585,9 +586,21 @@ static void compile_dict(Compiler *c, bool _) {
     compile_expression(c);
     chunk_write_operation(c->chunk, c->prev.line, OP_DICT_SET);
     if (!match(c, TOKEN_COMMA)) {
-      consume(c, TOKEN_RIGHT_BRACE, "missing right brace at dictionary end");
+      consume(c, TOKEN_RIGHT_BRACE,
+              "missing right brace after dictionary literal");
       break;
     }
+  }
+}
+
+static void compile_item(Compiler *c, bool can_assign) {
+  compile_expression(c);
+  consume(c, TOKEN_RIGHT_BRACKET, "missing right bracket");
+  if (can_assign && match(c, TOKEN_EQUAL)) { // an assignment
+    compile_expression(c);
+    chunk_write_operation(c->chunk, c->prev.line, OP_SET);
+  } else {
+    chunk_write_operation(c->chunk, c->prev.line, OP_GET);
   }
 }
 
@@ -609,6 +622,8 @@ static CompileRule rules[] = {
     {0, 0, PREC_NONE},                          // TOKEN_RIGHT_PAREN
     {compile_dict, 0, PREC_NONE},               // TOKEN_LEFT_BRACE
     {0, 0, PREC_NONE},                          // TOKEN_RIGHT_BRACE
+    {0, compile_item, PREC_PRIMARY},            // TOKEN_LEFT_BRACKET
+    {0, 0, PREC_NONE},                          // TOKEN_RIGHT_BRACKET
     {0, 0, PREC_NONE},                          // TOKEN_COMMA
     {0, 0, PREC_NONE},                          // TOKEN_DOT
     {compile_unary, compile_binary, PREC_TERM}, // TOKEN_MINUS
