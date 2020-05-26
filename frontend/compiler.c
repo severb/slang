@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static_assert(SIZE_MAX <= UINT64_MAX, "operand size too small for indexes");
+
 typedef struct {
   Token current;
   Token prev;
@@ -584,10 +586,24 @@ static void compile_dict(Compiler *c, bool _) {
     compile_expression(c);
     consume(c, TOKEN_COLON, "missing colon between key and value");
     compile_expression(c);
-    chunk_write_operation(c->chunk, c->prev.line, OP_DICT_SET);
+    chunk_write_operation(c->chunk, c->prev.line, OP_DICT_INIT);
     if (!match(c, TOKEN_COMMA)) {
       consume(c, TOKEN_RIGHT_BRACE,
               "missing right brace after dictionary literal");
+      break;
+    }
+  }
+}
+
+static void compile_list(Compiler *c, bool _) {
+  (void)_; // unused
+  chunk_write_operation(c->chunk, c->prev.line, OP_LIST);
+  while (!match(c, TOKEN_RIGHT_BRACKET)) {
+    compile_expression(c);
+    chunk_write_operation(c->chunk, c->prev.line, OP_LIST_INIT);
+    if (!match(c, TOKEN_COMMA)) {
+      consume(c, TOKEN_RIGHT_BRACKET,
+              "missing right bracket after list literal");
       break;
     }
   }
@@ -622,7 +638,7 @@ static CompileRule rules[] = {
     {0, 0, PREC_NONE},                          // TOKEN_RIGHT_PAREN
     {compile_dict, 0, PREC_NONE},               // TOKEN_LEFT_BRACE
     {0, 0, PREC_NONE},                          // TOKEN_RIGHT_BRACE
-    {0, compile_item, PREC_PRIMARY},            // TOKEN_LEFT_BRACKET
+    {compile_list, compile_item, PREC_PRIMARY}, // TOKEN_LEFT_BRACKET
     {0, 0, PREC_NONE},                          // TOKEN_RIGHT_BRACKET
     {0, 0, PREC_NONE},                          // TOKEN_COMMA
     {0, 0, PREC_NONE},                          // TOKEN_DOT

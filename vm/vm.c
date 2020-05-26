@@ -44,7 +44,7 @@ static void runtime_err(VM *vm, const char *err, const char *detail) {
 static void runtime_err_tag(VM *vm, const char *err, Tag tag) {
   runtime_err_header(vm);
   fputs(err, stderr);
-  tag_printf(stderr, tag);
+  tag_reprf(stderr, tag);
   putc('\n', stderr);
 }
 
@@ -197,9 +197,9 @@ static bool run(VM *vm) {
       if (table_set(&vm->globals, var, val) != (opcode == OP_DEF_GLOBAL)) {
         if (opcode == OP_DEF_GLOBAL) {
           // TODO: make global redefinition a compile-time error
-          runtime_err_tag(vm, "global variable redefinition ", var);
+          runtime_err_tag(vm, "global variable redefinition: ", var);
         } else {
-          runtime_err_tag(vm, "undefined variable ", var);
+          runtime_err_tag(vm, "undefined variable: ", var);
         }
         return false;
       }
@@ -218,7 +218,7 @@ static bool run(VM *vm) {
         }
         push(vm, val);
       } else {
-        runtime_err_tag(vm, "undefined variable ", var);
+        runtime_err_tag(vm, "undefined variable: ", var);
         return false;
       }
       break;
@@ -253,7 +253,25 @@ static bool run(VM *vm) {
       push(vm, tag_to_ref(tag));
       break;
     }
-    case OP_DICT_SET:
+    case OP_LIST: {
+      List *list = mem_allocate(sizeof(*list));
+      *list = (List){0};
+      Tag tag = list_to_tag(list);
+      list_append(&vm->temps, tag);
+      push(vm, tag_to_ref(tag));
+      break;
+    }
+    case OP_LIST_INIT: {
+      Tag val = pop(vm);
+      if (tag_is_own(val)) {
+        list_append(&vm->temps, val);
+        val = tag_to_ref(val);
+      }
+      List *l = tag_to_list(top(vm));
+      list_append(l, val);
+      break;
+    }
+    case OP_DICT_INIT:
     case OP_SET: {
       Tag val = pop(vm);
       if (tag_is_own(val)) {
@@ -261,33 +279,91 @@ static bool run(VM *vm) {
         val = tag_to_ref(val);
       }
       Tag key = pop(vm);
-      if (tag_is_own(key)) {
-        list_append(&vm->temps, key);
-        key = tag_to_ref(key);
+      Tag obj = top(vm);
+      if (tag_is_table(obj)) {
+        if (tag_is_own(key)) {
+          list_append(&vm->temps, key);
+          key = tag_to_ref(key);
+        }
+        Table *t = tag_to_table(obj);
+        table_set(t, key, val);
+      } else if (tag_is_list(obj)) {
+        int64_t idx;
+        if (tag_is_i49(key)) {
+          idx = tag_to_i49(key);
+        } else if (tag_is_i64(key)) {
+          idx = *tag_to_i64(key);
+          tag_free(key);
+        } else {
+          runtime_err_tag(vm, "list index is non-integer: ", key);
+          tag_free(key);
+          return false;
+        }
+        List *l = tag_to_list(obj);
+        if (idx < 0) {
+          runtime_err_tag(vm, "negative index: ", key);
+          return false;
+        }
+        if ((uint64_t)idx > list_len(l)) {
+          runtime_err_tag(vm, "list index out of bounds: ", key);
+          return false;
+        }
+        if ((uint64_t)idx == list_len(l)) { // TODO: temporary workaround until methods
+          list_append(l, val);
+        } else {
+          *list_get(l, (uint64_t)idx) = val;
+        }
+      } else {
+        runtime_err(vm, "non indexable type: ", tag_type_str(tag_type(obj)));
+        return false;
       }
-      Tag dict = top(vm);
-      Table *t = tag_to_table(dict);
-      table_set(t, key, val);
       if (opcode == OP_SET) {
         replace_top(vm, val);
       }
       break;
     }
     case OP_GET: {
+      // TODO: refactor list index handling between getting and setting
+      // TODO: compare idx to MAX_SIZE
       Tag key = pop(vm);
-      Tag dict = top(vm);
-      if (!tag_is_table(dict)) {
-        runtime_err(vm, "cannot index type ", tag_type_str(tag_type(dict)));
+      Tag obj = top(vm);
+      Tag val;
+      if (tag_is_table(obj)) {
+        Table *t = tag_to_table(obj);
+        if (!table_get(t, key, &val)) {
+          runtime_err_tag(vm, "key not found: ", key);
+          tag_free(key);
+          return false;
+        };
+        tag_free(key);
+      } else if(tag_is_list(obj)) {
+        int64_t idx;
+        if (tag_is_i49(key)) {
+          idx = tag_to_i49(key);
+        } else if (tag_is_i64(key)) {
+          idx = *tag_to_i64(key);
+          tag_free(key);
+        } else {
+          runtime_err_tag(vm, "list index is non-integer: ", key);
+          tag_free(key);
+          return false;
+        }
+        List *l = tag_to_list(obj);
+        if (idx < 0) {
+          runtime_err_tag(vm, "negative index: ", key);
+          return false;
+        }
+        if ((uint64_t)idx >= list_len(l)) {
+          runtime_err_tag(vm, "list index out of bounds: ", key);
+          return false;
+        }
+        val = *list_get(l, (uint64_t)idx);
+      } else {
+        runtime_err(vm, "cannot index type: ", tag_type_str(tag_type(obj)));
+        tag_free(key);
         return false;
       }
-      Table *table = tag_to_table(dict);
-      Tag val;
-      if (!table_get(table, key, &val)) {
-        runtime_err_tag(vm, "key not found ", key);
-        return false;
-      };
       replace_top(vm, val);
-      tag_free(key);
       break;
     }
     default:
