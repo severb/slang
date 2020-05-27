@@ -271,6 +271,22 @@ static bool run(VM *vm) {
       list_append(l, val);
       break;
     }
+    case OP_APPEND: {
+      Tag val = pop(vm);
+      if (tag_is_own(val)) {
+        list_append(&vm->temps, val);
+        val = tag_to_ref(val);
+      }
+      Tag list = top(vm);
+      if (!tag_is_list(list)) {
+        runtime_err(vm, "non appendable type: ", tag_type_str(tag_type(list)));
+        return false;
+      }
+      List *l = tag_to_list(list);
+      list_append(l, val);
+      replace_top(vm, val);
+      break;
+    }
     case OP_DICT_INIT:
     case OP_SET: {
       Tag val = pop(vm);
@@ -304,15 +320,11 @@ static bool run(VM *vm) {
           runtime_err_tag(vm, "negative index: ", key);
           return false;
         }
-        if ((uint64_t)idx > list_len(l)) {
+        if ((uint64_t)idx >= list_len(l)) {
           runtime_err_tag(vm, "list index out of bounds: ", key);
           return false;
         }
-        if ((uint64_t)idx == list_len(l)) { // TODO: temporary workaround until methods
-          list_append(l, val);
-        } else {
-          *list_get(l, (uint64_t)idx) = val;
-        }
+        *list_get(l, (uint64_t)idx) = val;
       } else {
         runtime_err(vm, "non indexable type: ", tag_type_str(tag_type(obj)));
         return false;

@@ -610,6 +610,16 @@ static void compile_list(Compiler *c, bool _) {
 }
 
 static void compile_item(Compiler *c, bool can_assign) {
+  if (match(c, TOKEN_RIGHT_BRACKET)) {
+    if (!can_assign) {
+      err_at_prev(c, "unexpected append operator");
+      return;
+    }
+    consume(c, TOKEN_EQUAL, "missing append assignment");
+    compile_expression(c);
+    chunk_write_operation(c->chunk, c->prev.line, OP_APPEND);
+    return;
+  }
   compile_expression(c);
   consume(c, TOKEN_RIGHT_BRACKET, "missing right bracket");
   if (can_assign && match(c, TOKEN_EQUAL)) { // an assignment
