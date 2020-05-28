@@ -76,6 +76,7 @@ static inline void replace_top(VM *vm, Tag t) { *list_last(&vm->stack) = t; }
 
 static bool run(VM *vm) {
   // TODO: use computed gotos
+  // TODO: add break and continue
   for (;;) {
     OpCode opcode = chunk_read_opcode(vm->chunk, vm->ip);
     vm->ip++;
