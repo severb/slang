@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static_assert(SIZE_MAX <= UINT64_MAX, "operand size too small for indexes");
+static_assert(SIZE_MAX <= UINT64_MAX, "cannot cast size_t to uint64_t VM operands");
 
 typedef struct {
   Token current;

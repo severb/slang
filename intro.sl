@@ -58,7 +58,7 @@ print 10 == 10 and 20 < 30 and 100 >= 50; // the usual comparison operators
         var2 = "two";
         print var2; // prints "two"
     }
-    print va1, ", ", var2; // prints "1, 2"
+    print var1, ", ", var2; // prints "1, 2"
 } // var1 and var2 are out of scope after the block
 
 var i = 0;
@@ -74,6 +74,5 @@ while (i < 10) { // a while statement followed by a block (like the one above)
 if (i == 10) { // a conditional statement
     print "i is ten";
 } else {
-    print "i is no ten"
+    print "i is no ten";
 }
-

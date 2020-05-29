@@ -7,6 +7,7 @@
 #include "table.h"    // Table, table_*
 #include "tag.h"      // Tag, tag_*, TAG_NIL
 
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -73,6 +74,8 @@ static inline void replace_top(VM *vm, Tag t) { *list_last(&vm->stack) = t; }
       return false;                                                            \
     }                                                                          \
   } while (0)
+
+static_assert(SIZE_MAX >= UINT64_MAX, "cannot cast uint64_t VM operands to size_t");
 
 static bool run(VM *vm) {
   // TODO: use computed gotos
