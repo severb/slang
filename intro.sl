@@ -40,7 +40,7 @@ print 10.5 % 1.7; // remainder also works on floats
 print 1 + 2 * 3 - 2 / (2 - 1); // the usual (mathematical) operand precedence
 
 print 1 * -2 * -3; // unary negation
-print !10;         // unary not, the result is a boolean
+print !10;         // unary not, the result is a boolean, !!x is basically bool(x)
 
 // logical operators short-circuit or return the last value
 print 0 or [] or {} or "" or nil or false or "everything is false";
@@ -52,14 +52,7 @@ print 10 == 10 and 20 < 30 and 100 >= 50; // the usual comparison operators
  // variables defined in a block are temporary, local to the block, and shadow
  // other existing variables.
 {
-    // Random thing to know: locals are faster than globals, because globals are
-    // looked up at runtime (late binding) whereas locals are statically
-    // assigned stack positions. That's why in languages like Python it's common
-    // to assign a function to a local variable if it's called in a tight loop.
-    // As for why globals are dynamic, it's to avoid forward declarations which
-    // make writing recursive (or doubly recursive) functions a bit awkward;
-    // although I have some ideas that I want to experiment with in Slang.
-    var var1 = 1, var2 = 2; 
+    var var1 = 1, var2 = 2; // locals are faster than late binding globals
     {
         var var2;
         var2 = "two";
@@ -77,3 +70,10 @@ while (i < 10) { // a while statement followed by a block (like the one above)
     print i;
     i = i + 1;
 }
+
+if (i == 10) { // a conditional statement
+    print "i is ten";
+} else {
+    print "i is no ten"
+}
+

@@ -648,7 +648,7 @@ static CompileRule rules[] = {
     {0, 0, PREC_NONE},                          // TOKEN_RIGHT_PAREN
     {compile_dict, 0, PREC_NONE},               // TOKEN_LEFT_BRACE
     {0, 0, PREC_NONE},                          // TOKEN_RIGHT_BRACE
-    {compile_list, compile_item, PREC_PRIMARY}, // TOKEN_LEFT_BRACKET
+    {compile_list, compile_item, PREC_CALL},    // TOKEN_LEFT_BRACKET
     {0, 0, PREC_NONE},                          // TOKEN_RIGHT_BRACKET
     {0, 0, PREC_NONE},                          // TOKEN_COMMA
     {0, 0, PREC_NONE},                          // TOKEN_DOT
