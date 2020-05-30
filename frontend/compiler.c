@@ -16,36 +16,36 @@
 static_assert(SIZE_MAX <= UINT64_MAX, "cannot cast size_t to uint64_t VM operands");
 
 typedef struct {
-  Token current;
-  Token prev;
-  Lexer lex;
-  Chunk *chunk;
-  bool had_error;
-  bool panic_mode;
-  List scopes;
-  List uninitialized;
+    Token current;
+    Token prev;
+    Lexer lex;
+    Chunk *chunk;
+    bool had_error;
+    bool panic_mode;
+    List scopes;
+    List uninitialized;
 } Compiler;
 
 typedef enum {
-  PREC_NONE,
-  PREC_ASSIGNMENT, // =
-  PREC_OR,         // or
-  PREC_AND,        // and
-  PREC_EQUALITY,   // == !=
-  PREC_COMPARISON, // < > <= >=
-  PREC_TERM,       // + -
-  PREC_FACTOR,     // * /
-  PREC_UNARY,      // ! -
-  PREC_CALL,       // . () []
-  PREC_PRIMARY,
+    PREC_NONE,
+    PREC_ASSIGNMENT, // =
+    PREC_OR,         // or
+    PREC_AND,        // and
+    PREC_EQUALITY,   // == !=
+    PREC_COMPARISON, // < > <= >=
+    PREC_TERM,       // + -
+    PREC_FACTOR,     // * /
+    PREC_UNARY,      // ! -
+    PREC_CALL,       // . () []
+    PREC_PRIMARY,
 } Precedence;
 
 typedef void (*CompileFn)(Compiler *, bool can_assign);
 
 typedef struct {
-  CompileFn prefix;
-  CompileFn infix;
-  Precedence precedence;
+    CompileFn prefix;
+    CompileFn infix;
+    Precedence precedence;
 } CompileRule;
 
 static CompileRule rules[TOKEN__COUNT];
@@ -54,592 +54,582 @@ static void compile_statement(Compiler *c);
 static void compile_declaration(Compiler *c);
 
 static void compiler_destroy(Compiler *c) {
-  list_destroy(&c->scopes);
-  list_destroy(&c->uninitialized);
-  *c = (Compiler){0};
+    list_destroy(&c->scopes);
+    list_destroy(&c->uninitialized);
+    *c = (Compiler){0};
 }
 
 static void error_print(const Token *t, const char *msg) {
-  fprintf(stderr, "[line %zu] error", t->line + 1);
-  switch (t->type) {
-  case TOKEN_EOF:
-    fprintf(stderr, " at end of file: ");
-    break;
-  case TOKEN_ERROR:
-    fprintf(stderr, ": ");
-    break;
-  default:
-    // TODO: avoid int cast
-    fprintf(stderr, " at '%.*s': ", (int)(t->end - t->start), t->start);
-    break;
-  }
-  fprintf(stderr, "%s\n", (t->type == TOKEN_ERROR) ? t->start : msg);
+    fprintf(stderr, "[line %zu] error", t->line + 1);
+    switch (t->type) {
+    case TOKEN_EOF:
+        fprintf(stderr, " at end of file: ");
+        break;
+    case TOKEN_ERROR:
+        fprintf(stderr, ": ");
+        break;
+    default:
+        // TODO: avoid int cast
+        fprintf(stderr, " at '%.*s': ", (int)(t->end - t->start), t->start);
+        break;
+    }
+    fprintf(stderr, "%s\n", (t->type == TOKEN_ERROR) ? t->start : msg);
 }
 
 static void err_at_token(Compiler *c, const Token *t, const char *msg) {
-  if (c->panic_mode) {
-    return;
-  }
-  c->panic_mode = true;
-  c->had_error = true;
-  error_print(t, msg);
+    if (c->panic_mode) {
+        return;
+    }
+    c->panic_mode = true;
+    c->had_error = true;
+    error_print(t, msg);
 }
 
-static void err_at_current(Compiler *c, const char *msg) {
-  err_at_token(c, &c->current, msg);
-}
+static void err_at_current(Compiler *c, const char *msg) { err_at_token(c, &c->current, msg); }
 
-static void err_at_prev(Compiler *c, const char *msg) {
-  err_at_token(c, &c->prev, msg);
-}
+static void err_at_prev(Compiler *c, const char *msg) { err_at_token(c, &c->prev, msg); }
 
 static void advance(Compiler *c) {
-  c->prev = c->current;
-  for (;;) {
-    lex_consume(&c->lex, &c->current);
-    if (c->current.type != TOKEN_ERROR) {
-      break;
+    c->prev = c->current;
+    for (;;) {
+        lex_consume(&c->lex, &c->current);
+        if (c->current.type != TOKEN_ERROR) {
+            break;
+        }
+        err_at_current(c, 0);
     }
-    err_at_current(c, 0);
-  }
 }
 
 static void synchronize(Compiler *c) {
-  if (!c->panic_mode) {
-    return;
-  }
-  c->panic_mode = false;
-  while (c->current.type != TOKEN_EOF) {
-    if (c->prev.type == TOKEN_SEMICOLON) {
-      return;
+    if (!c->panic_mode) {
+        return;
     }
-    switch (c->current.type) {
-    case TOKEN_CLASS:
-    case TOKEN_FUN:
-    case TOKEN_VAR:
-    case TOKEN_FOR:
-    case TOKEN_IF:
-    case TOKEN_WHILE:
-    case TOKEN_PRINT:
-    case TOKEN_RETURN:
-      return;
-    default:;
+    c->panic_mode = false;
+    while (c->current.type != TOKEN_EOF) {
+        if (c->prev.type == TOKEN_SEMICOLON) {
+            return;
+        }
+        switch (c->current.type) {
+        case TOKEN_CLASS:
+        case TOKEN_FUN:
+        case TOKEN_VAR:
+        case TOKEN_FOR:
+        case TOKEN_IF:
+        case TOKEN_WHILE:
+        case TOKEN_PRINT:
+        case TOKEN_RETURN:
+            return;
+        default:;
+        }
+        advance(c);
     }
-    advance(c);
-  }
 }
 
 static void consume(Compiler *c, TokenType type, const char *msg) {
-  if (c->current.type == type) {
-    advance(c);
-    return;
-  }
-  err_at_current(c, msg);
+    if (c->current.type == type) {
+        advance(c);
+        return;
+    }
+    err_at_current(c, msg);
 }
 
 static bool match(Compiler *c, TokenType type) {
-  if (c->current.type == type) {
-    advance(c);
-    return true;
-  }
-  return false;
+    if (c->current.type == type) {
+        advance(c);
+        return true;
+    }
+    return false;
 }
 
 static void compile_int(Compiler *c, bool _) {
-  (void)_; // unused
-  Token token = c->prev;
-  char buf[token.end - token.start + 1];
-  char *b = buf;
-  for (const char *c = token.start; c < token.end; c++) {
-    if (*c != '_') {
-      *b = *c;
-      b++;
+    (void)_; // unused
+    Token token = c->prev;
+    char buf[token.end - token.start + 1];
+    char *b = buf;
+    for (const char *c = token.start; c < token.end; c++) {
+        if (*c != '_') {
+            *b = *c;
+            b++;
+        }
     }
-  }
-  *b = '\0';
-  long long i = strtoll(buf, /*str_end*/ 0, /*base*/ 0);
-  if (errno == ERANGE) {
-    err_at_prev(c, "integer constant out of range");
+    *b = '\0';
+    long long i = strtoll(buf, /*str_end*/ 0, /*base*/ 0);
+    if (errno == ERANGE) {
+        err_at_prev(c, "integer constant out of range");
+        return;
+    }
+    assert(i >= 0 && "tokenizer returned negative integer");
+    if (i > INT64_MAX) {
+        err_at_prev(c, "integer constant out of range");
+        return;
+    }
+    Tag t = int_to_tag(i);
+    size_t idx = chunk_record_const(c->chunk, t);
+    chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
     return;
-  }
-  assert(i >= 0 && "tokenizer returned negative integer");
-  if (i > INT64_MAX) {
-    err_at_prev(c, "integer constant out of range");
-    return;
-  }
-  Tag t = int_to_tag(i);
-  size_t idx = chunk_record_const(c->chunk, t);
-  chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
-  return;
 }
 
 static void compile_float(Compiler *c, bool _) {
-  (void)_; // unused
-  Token token = c->prev;
-  char buf[token.end - token.start + 1];
-  char *b = buf;
-  for (const char *c = token.start; c < token.end; c++) {
-    if (*c != '_') {
-      *b = *c;
-      b++;
+    (void)_; // unused
+    Token token = c->prev;
+    char buf[token.end - token.start + 1];
+    char *b = buf;
+    for (const char *c = token.start; c < token.end; c++) {
+        if (*c != '_') {
+            *b = *c;
+            b++;
+        }
     }
-  }
-  *b = '\0';
-  double d = strtod(buf, 0);
-  if (errno == ERANGE) {
-    err_at_prev(c, "float constant out of range");
-    return;
-  }
-  assert(d >= 0 && "tokenizer returend negative foalt");
-  size_t idx = chunk_record_const(c->chunk, double_to_tag(d));
-  chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
+    *b = '\0';
+    double d = strtod(buf, 0);
+    if (errno == ERANGE) {
+        err_at_prev(c, "float constant out of range");
+        return;
+    }
+    assert(d >= 0 && "tokenizer returend negative foalt");
+    size_t idx = chunk_record_const(c->chunk, double_to_tag(d));
+    chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
 }
 
 static void compile_string(Compiler *c, bool _) {
-  (void)_; // unused
-  // TODO: use a memory pool
-  Slice *s = mem_allocate(sizeof(*s));
-  *s = slice(c->prev.start + 1 /*skip 1st quote */,
-             c->prev.end - 1 /* skip last quotes */);
-  size_t idx = chunk_record_const(c->chunk, slice_to_tag(s));
-  chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
+    (void)_; // unused
+    // TODO: use a memory pool
+    Slice *s = mem_allocate(sizeof(*s));
+    *s = slice(c->prev.start + 1 /*skip 1st quote */, c->prev.end - 1 /* skip last quotes */);
+    size_t idx = chunk_record_const(c->chunk, slice_to_tag(s));
+    chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
 }
 
 static void compile_literal(Compiler *c, bool _) {
-  (void)_; // unused
-  TokenType lit = c->prev.type;
-  switch (lit) {
-  case TOKEN_FALSE:
-    chunk_write_operation(c->chunk, c->prev.line, OP_FALSE);
-    break;
-  case TOKEN_NIL:
-    chunk_write_operation(c->chunk, c->prev.line, OP_NIL);
-    break;
-  case TOKEN_TRUE:
-    chunk_write_operation(c->chunk, c->prev.line, OP_TRUE);
-    break;
-  default:
-    assert(0 && "unknown literal");
-  }
+    (void)_; // unused
+    TokenType lit = c->prev.type;
+    switch (lit) {
+    case TOKEN_FALSE:
+        chunk_write_operation(c->chunk, c->prev.line, OP_FALSE);
+        break;
+    case TOKEN_NIL:
+        chunk_write_operation(c->chunk, c->prev.line, OP_NIL);
+        break;
+    case TOKEN_TRUE:
+        chunk_write_operation(c->chunk, c->prev.line, OP_TRUE);
+        break;
+    default:
+        assert(0 && "unknown literal");
+    }
 }
 
 static void enter_scope(Compiler *c) {
-  // TODO: use a memory pool
-  List *scopes = mem_allocate(sizeof(*scopes));
-  *scopes = (List){0};
-  list_append(&c->scopes, list_to_tag(scopes));
-  List *uninitialized = mem_allocate(sizeof(*uninitialized));
-  *uninitialized = (List){0};
-  list_append(&c->uninitialized, list_to_tag(uninitialized));
+    // TODO: use a memory pool
+    List *scopes = mem_allocate(sizeof(*scopes));
+    *scopes = (List){0};
+    list_append(&c->scopes, list_to_tag(scopes));
+    List *uninitialized = mem_allocate(sizeof(*uninitialized));
+    *uninitialized = (List){0};
+    list_append(&c->uninitialized, list_to_tag(uninitialized));
 }
 
 static bool in_scope(const Compiler *c) { return list_len(&c->scopes) > 0; }
 
 static void exit_scope(Compiler *c) {
-  assert(in_scope(c) && "not in a scope");
-  tag_free(list_pop(&c->scopes));
-  Tag u = list_pop(&c->uninitialized);
-  assert(!tag_is_true(u) && "uninitialized vars in block");
-  tag_free(u);
+    assert(in_scope(c) && "not in a scope");
+    tag_free(list_pop(&c->scopes));
+    Tag u = list_pop(&c->uninitialized);
+    assert(!tag_is_true(u) && "uninitialized vars in block");
+    tag_free(u);
 }
 
 static List *top_scope_list(Compiler *c) {
-  assert(in_scope(c) && "not in a scope");
-  Tag scope = *list_last(&c->scopes);
-  return tag_to_list(scope);
+    assert(in_scope(c) && "not in a scope");
+    Tag scope = *list_last(&c->scopes);
+    return tag_to_list(scope);
 }
 
 static List *top_uninitialized_list(Compiler *c) {
-  assert(in_scope(c) && "not in a scope");
-  Tag uninitialized = *list_last(&c->uninitialized);
-  return tag_to_list(uninitialized);
+    assert(in_scope(c) && "not in a scope");
+    Tag uninitialized = *list_last(&c->uninitialized);
+    return tag_to_list(uninitialized);
 }
 
 static bool declare_local(Compiler *c, Tag var) {
-  List *top_scope = top_scope_list(c);
-  if (list_find_from(top_scope, var, 0)) {
-    tag_free(var);
-    err_at_prev(c, "variable already defined");
-    return false;
-  }
-  List *top_uninitialized = top_uninitialized_list(c);
-  list_append(top_scope, var);
-  list_append(top_uninitialized, tag_to_ref(var)); // just a ref
-  return true;
+    List *top_scope = top_scope_list(c);
+    if (list_find_from(top_scope, var, 0)) {
+        tag_free(var);
+        err_at_prev(c, "variable already defined");
+        return false;
+    }
+    List *top_uninitialized = top_uninitialized_list(c);
+    list_append(top_scope, var);
+    list_append(top_uninitialized, tag_to_ref(var)); // just a ref
+    return true;
 }
 
 static void initialize_local(Compiler *c, Tag var) {
-  List *top_uninitialized = top_uninitialized_list(c);
-  size_t idx = 0;
-  bool found = list_find_from(top_uninitialized, var, &idx);
-  (void)found;
-  assert(found && "cannot initialize an undefined variable");
-  // replace the initialized var with the last uninitialized
-  Tag last = list_pop(top_uninitialized);
-  if (idx < list_len(top_uninitialized)) {
-    *list_get(top_uninitialized, idx) = last;
-  }
-  // NB: no need to free the tag, it's only a reference
+    List *top_uninitialized = top_uninitialized_list(c);
+    size_t idx = 0;
+    bool found = list_find_from(top_uninitialized, var, &idx);
+    (void)found;
+    assert(found && "cannot initialize an undefined variable");
+    // replace the initialized var with the last uninitialized
+    Tag last = list_pop(top_uninitialized);
+    if (idx < list_len(top_uninitialized)) {
+        *list_get(top_uninitialized, idx) = last;
+    }
+    // NB: no need to free the tag, it's only a reference
 }
 
 static bool resolve_local(Compiler *c, Tag var, size_t *idx) {
-  List *top_uninitialized = top_uninitialized_list(c);
-  if (list_find_from(top_uninitialized, var, 0)) {
-    err_at_prev(c, "local variable used in its own initializer");
-    return false;
-  }
-  // traverse the scopes in reverse order and look for var
-  // if found, sum its index with the size of all remaining bottom scopes
-  for (size_t i = list_len(&c->scopes); i > 0; i--) {
-    size_t ii = i - 1;
-    Tag scope_val = *list_get(&c->scopes, ii);
-    List *scope_list = tag_to_list(scope_val);
-    *idx = 0;
-    if (list_find_from(scope_list, var, idx)) {
-      for (size_t j = ii; j > 0; j--) {
-        size_t jj = j - 1;
-        Tag parent_scope_val = *list_get(&c->scopes, jj);
-        List *parent_scope_list = tag_to_list(parent_scope_val);
-        *idx += list_len(parent_scope_list);
-      }
-      return true;
+    List *top_uninitialized = top_uninitialized_list(c);
+    if (list_find_from(top_uninitialized, var, 0)) {
+        err_at_prev(c, "local variable used in its own initializer");
+        return false;
     }
-  }
-  return false;
+    // traverse the scopes in reverse order and look for var
+    // if found, sum its index with the size of all remaining bottom scopes
+    for (size_t i = list_len(&c->scopes); i > 0; i--) {
+        size_t ii = i - 1;
+        Tag scope_val = *list_get(&c->scopes, ii);
+        List *scope_list = tag_to_list(scope_val);
+        *idx = 0;
+        if (list_find_from(scope_list, var, idx)) {
+            for (size_t j = ii; j > 0; j--) {
+                size_t jj = j - 1;
+                Tag parent_scope_val = *list_get(&c->scopes, jj);
+                List *parent_scope_list = tag_to_list(parent_scope_val);
+                *idx += list_len(parent_scope_list);
+            }
+            return true;
+        }
+    }
+    return false;
 }
 
 static void compile_precedence(Compiler *c, Precedence p) {
-  advance(c);
-  CompileFn prefix_rule = rules[c->prev.type].prefix;
-  if (prefix_rule == 0) {
-    err_at_prev(c, "invalid expression");
-    return;
-  }
-  bool can_assign = p <= PREC_ASSIGNMENT;
-  prefix_rule(c, can_assign);
-  while (p <= rules[c->current.type].precedence) {
     advance(c);
-    CompileFn infix_rule = rules[c->prev.type].infix;
-    assert(infix_rule && "precedence set but infix function missing");
-    infix_rule(c, can_assign);
-  }
-  // assignment is handled in rules, if we see an assignment here it's an err
-  if (can_assign && match(c, TOKEN_EQUAL)) {
-    err_at_current(c, "invalid target assignment");
-    return;
-  }
+    CompileFn prefix_rule = rules[c->prev.type].prefix;
+    if (prefix_rule == 0) {
+        err_at_prev(c, "invalid expression");
+        return;
+    }
+    bool can_assign = p <= PREC_ASSIGNMENT;
+    prefix_rule(c, can_assign);
+    while (p <= rules[c->current.type].precedence) {
+        advance(c);
+        CompileFn infix_rule = rules[c->prev.type].infix;
+        assert(infix_rule && "precedence set but infix function missing");
+        infix_rule(c, can_assign);
+    }
+    // assignment is handled in rules, if we see an assignment here it's an err
+    if (can_assign && match(c, TOKEN_EQUAL)) {
+        err_at_current(c, "invalid target assignment");
+        return;
+    }
 }
 
-static void compile_expression(Compiler *c) {
-  compile_precedence(c, PREC_ASSIGNMENT);
-}
+static void compile_expression(Compiler *c) { compile_precedence(c, PREC_ASSIGNMENT); }
 
 static void compile_print_statement(Compiler *c) {
 start:
-  compile_expression(c);
-  chunk_write_operation(c->chunk, c->prev.line, OP_PRINT);
-  if (match(c, TOKEN_COMMA)) {
-    goto start;
-  }
-  consume(c, TOKEN_SEMICOLON, "missing semicolon after print");
-  chunk_write_operation(c->chunk, c->prev.line, OP_PRINT_NL);
+    compile_expression(c);
+    chunk_write_operation(c->chunk, c->prev.line, OP_PRINT);
+    if (match(c, TOKEN_COMMA)) {
+        goto start;
+    }
+    consume(c, TOKEN_SEMICOLON, "missing semicolon after print");
+    chunk_write_operation(c->chunk, c->prev.line, OP_PRINT_NL);
 }
 
 static void compile_if_statement(Compiler *c) {
-  consume(c, TOKEN_LEFT_PAREN, "missing paren before if condition");
-  compile_expression(c);
-  consume(c, TOKEN_RIGHT_PAREN, "missing paren after if condition");
-  size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
-  chunk_write_operation(c->chunk, c->prev.line, OP_POP);
-  compile_statement(c);
-  size_t jump_after_else = chunk_reserve_unary(c->chunk, c->prev.line);
-  chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
-  chunk_write_operation(c->chunk, c->prev.line, OP_POP);
-  if (match(c, TOKEN_ELSE)) {
+    consume(c, TOKEN_LEFT_PAREN, "missing paren before if condition");
+    compile_expression(c);
+    consume(c, TOKEN_RIGHT_PAREN, "missing paren after if condition");
+    size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
+    chunk_write_operation(c->chunk, c->prev.line, OP_POP);
     compile_statement(c);
-  }
-  chunk_patch_unary(c->chunk, jump_after_else, OP_JUMP);
+    size_t jump_after_else = chunk_reserve_unary(c->chunk, c->prev.line);
+    chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
+    chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+    if (match(c, TOKEN_ELSE)) {
+        compile_statement(c);
+    }
+    chunk_patch_unary(c->chunk, jump_after_else, OP_JUMP);
 }
 
 static void compile_while_statement(Compiler *c) {
-  size_t start = chunk_len(c->chunk);
-  consume(c, TOKEN_LEFT_PAREN, "missing paren before while condition");
-  compile_expression(c);
-  consume(c, TOKEN_RIGHT_PAREN, "missing paren after while condition");
-  size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
-  chunk_write_operation(c->chunk, c->prev.line, OP_POP);
-  compile_statement(c);
-  chunk_write_unary(c->chunk, c->prev.line, OP_LOOP,
-                    chunk_len(c->chunk) - start);
-  chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
-  chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+    size_t start = chunk_len(c->chunk);
+    consume(c, TOKEN_LEFT_PAREN, "missing paren before while condition");
+    compile_expression(c);
+    consume(c, TOKEN_RIGHT_PAREN, "missing paren after while condition");
+    size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
+    chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+    compile_statement(c);
+    chunk_write_unary(c->chunk, c->prev.line, OP_LOOP, chunk_len(c->chunk) - start);
+    chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
+    chunk_write_operation(c->chunk, c->prev.line, OP_POP);
 }
 
 static void compile_for_statement(Compiler *c) {
-  (void)c; // TODO: compile for
+    (void)c; // TODO: compile for
 }
 
 static void compile_expression_statement(Compiler *c) {
-  compile_expression(c);
-  consume(c, TOKEN_SEMICOLON, "missing semicolon after expression statement");
-  chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+    compile_expression(c);
+    consume(c, TOKEN_SEMICOLON, "missing semicolon after expression statement");
+    chunk_write_operation(c->chunk, c->prev.line, OP_POP);
 }
 
 static void compile_block(Compiler *c) {
-  while (!match(c, TOKEN_RIGHT_BRACE)) {
-    compile_declaration(c);
-    if (match(c, TOKEN_EOF)) {
-      err_at_current(c, "missing closing brace missing after block");
-      return;
+    while (!match(c, TOKEN_RIGHT_BRACE)) {
+        compile_declaration(c);
+        if (match(c, TOKEN_EOF)) {
+            err_at_current(c, "missing closing brace missing after block");
+            return;
+        }
     }
-  }
-  for (size_t i = 0; i < list_len(top_scope_list(c)); i++) {
-    chunk_write_operation(c->chunk, c->prev.line, OP_POP);
-  }
+    for (size_t i = 0; i < list_len(top_scope_list(c)); i++) {
+        chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+    }
 }
 
 static void compile_statement(Compiler *c) {
-  if (match(c, TOKEN_PRINT)) {
-    compile_print_statement(c);
-  } else if (match(c, TOKEN_IF)) {
-    compile_if_statement(c);
-  } else if (match(c, TOKEN_WHILE)) {
-    compile_while_statement(c);
-  } else if (match(c, TOKEN_FOR)) {
-    compile_for_statement(c);
-  } else if (match(c, TOKEN_LEFT_BRACE)) {
-    // TODO: consider checking if it's a dictionary literal
-    enter_scope(c);
-    compile_block(c);
-    exit_scope(c);
-  } else {
-    compile_expression_statement(c);
-  }
+    if (match(c, TOKEN_PRINT)) {
+        compile_print_statement(c);
+    } else if (match(c, TOKEN_IF)) {
+        compile_if_statement(c);
+    } else if (match(c, TOKEN_WHILE)) {
+        compile_while_statement(c);
+    } else if (match(c, TOKEN_FOR)) {
+        compile_for_statement(c);
+    } else if (match(c, TOKEN_LEFT_BRACE)) {
+        // TODO: consider checking if it's a dictionary literal
+        enter_scope(c);
+        compile_block(c);
+        exit_scope(c);
+    } else {
+        compile_expression_statement(c);
+    }
 }
 
 Tag var_from_token(Token t) {
-  // TODO: use a static slice in the caller instead of allways allocating
-  // TODO: use a memory pool
-  Slice *s = mem_allocate(sizeof(*s));
-  *s = slice(t.start, t.end);
-  return slice_to_tag(s);
+    // TODO: use a static slice in the caller instead of allways allocating
+    // TODO: use a memory pool
+    Slice *s = mem_allocate(sizeof(*s));
+    *s = slice(t.start, t.end);
+    return slice_to_tag(s);
 }
 
 static void compile_var_declaration(Compiler *c) {
 start:
-  consume(c, TOKEN_IDENTIFIER, "missing variable name");
-  Tag var = var_from_token(c->prev);
-  if (in_scope(c)) {
-    if (!declare_local(c, var)) {
-      return;
-    };
-  }
-  if (match(c, TOKEN_EQUAL)) {
-    compile_expression(c);
-  } else {
-    chunk_write_operation(c->chunk, c->prev.line, OP_NIL);
-  }
-  if (in_scope(c)) {
-    initialize_local(c, var);
-    size_t idx;
-    bool found = resolve_local(c, var, &idx);
-    (void)found;
-    assert(found && "cannot resolve local variable during declaration");
-    chunk_write_unary(c->chunk, c->prev.line, OP_SET_LOCAL, idx);
-  } else {
-    size_t idx = chunk_record_const(c->chunk, var);
-    chunk_write_unary(c->chunk, c->prev.line, OP_DEF_GLOBAL, idx);
-  }
-  if (match(c, TOKEN_COMMA)) {
-    goto start;
-  }
-  consume(c, TOKEN_SEMICOLON, "missing semicolon after variable declaration");
+    consume(c, TOKEN_IDENTIFIER, "missing variable name");
+    Tag var = var_from_token(c->prev);
+    if (in_scope(c)) {
+        if (!declare_local(c, var)) {
+            return;
+        };
+    }
+    if (match(c, TOKEN_EQUAL)) {
+        compile_expression(c);
+    } else {
+        chunk_write_operation(c->chunk, c->prev.line, OP_NIL);
+    }
+    if (in_scope(c)) {
+        initialize_local(c, var);
+        size_t idx;
+        bool found = resolve_local(c, var, &idx);
+        (void)found;
+        assert(found && "cannot resolve local variable during declaration");
+        chunk_write_unary(c->chunk, c->prev.line, OP_SET_LOCAL, idx);
+    } else {
+        size_t idx = chunk_record_const(c->chunk, var);
+        chunk_write_unary(c->chunk, c->prev.line, OP_DEF_GLOBAL, idx);
+    }
+    if (match(c, TOKEN_COMMA)) {
+        goto start;
+    }
+    consume(c, TOKEN_SEMICOLON, "missing semicolon after variable declaration");
 }
 
 static void compile_declaration(Compiler *c) {
-  if (match(c, TOKEN_VAR)) {
-    compile_var_declaration(c);
-  } else {
-    compile_statement(c);
-  }
-  synchronize(c);
+    if (match(c, TOKEN_VAR)) {
+        compile_var_declaration(c);
+    } else {
+        compile_statement(c);
+    }
+    synchronize(c);
 }
 
 static void compile_unary(Compiler *c, bool _) {
-  (void)_; // unused
-  Token t = c->prev;
-  compile_precedence(c, PREC_UNARY);
-  switch (t.type) {
-  case TOKEN_MINUS:
-    chunk_write_operation(c->chunk, t.line, OP_NEGATE);
-    break;
-  case TOKEN_BANG:
-    chunk_write_operation(c->chunk, t.line, OP_NOT);
-    break;
-  default:
-    assert(0 && "unknown unary token");
-  }
+    (void)_; // unused
+    Token t = c->prev;
+    compile_precedence(c, PREC_UNARY);
+    switch (t.type) {
+    case TOKEN_MINUS:
+        chunk_write_operation(c->chunk, t.line, OP_NEGATE);
+        break;
+    case TOKEN_BANG:
+        chunk_write_operation(c->chunk, t.line, OP_NOT);
+        break;
+    default:
+        assert(0 && "unknown unary token");
+    }
 }
 
 static void compile_binary(Compiler *c, bool _) {
-  (void)_; // unused
-  Token t = c->prev;
-  compile_precedence(c, rules[t.type].precedence + 1);
-  switch (t.type) {
-  case TOKEN_BANG_EQUAL:
-    chunk_write_operation(c->chunk, t.line, OP_NOT);
-    break;
-  case TOKEN_EQUAL_EQUAL:
-    chunk_write_operation(c->chunk, t.line, OP_EQUAL);
-    break;
-  case TOKEN_GREATER:
-    chunk_write_operation(c->chunk, t.line, OP_GREATER);
-    break;
-  case TOKEN_GREATER_EQUAL:
-    chunk_write_operation(c->chunk, t.line, OP_LESS);
-    chunk_write_operation(c->chunk, t.line, OP_NOT);
-    break;
-  case TOKEN_LESS:
-    chunk_write_operation(c->chunk, t.line, OP_LESS);
-    break;
-  case TOKEN_LESS_EQUAL:
-    chunk_write_operation(c->chunk, t.line, OP_GREATER);
-    chunk_write_operation(c->chunk, t.line, OP_NOT);
-    break;
-  case TOKEN_MINUS:
-    chunk_write_operation(c->chunk, t.line, OP_NEGATE);
-    chunk_write_operation(c->chunk, t.line, OP_ADD);
-    break;
-  case TOKEN_PLUS:
-    chunk_write_operation(c->chunk, t.line, OP_ADD);
-    break;
-  case TOKEN_SLASH:
-    chunk_write_operation(c->chunk, t.line, OP_DIVIDE);
-    break;
-  case TOKEN_STAR:
-    chunk_write_operation(c->chunk, t.line, OP_MULTIPLY);
-    break;
-  case TOKEN_PERCENT:
-    chunk_write_operation(c->chunk, t.line, OP_REMAINDER);
-    break;
-  default:
-    assert(0 && "unknown binary token");
-  }
+    (void)_; // unused
+    Token t = c->prev;
+    compile_precedence(c, rules[t.type].precedence + 1);
+    switch (t.type) {
+    case TOKEN_BANG_EQUAL:
+        chunk_write_operation(c->chunk, t.line, OP_NOT);
+        break;
+    case TOKEN_EQUAL_EQUAL:
+        chunk_write_operation(c->chunk, t.line, OP_EQUAL);
+        break;
+    case TOKEN_GREATER:
+        chunk_write_operation(c->chunk, t.line, OP_GREATER);
+        break;
+    case TOKEN_GREATER_EQUAL:
+        chunk_write_operation(c->chunk, t.line, OP_LESS);
+        chunk_write_operation(c->chunk, t.line, OP_NOT);
+        break;
+    case TOKEN_LESS:
+        chunk_write_operation(c->chunk, t.line, OP_LESS);
+        break;
+    case TOKEN_LESS_EQUAL:
+        chunk_write_operation(c->chunk, t.line, OP_GREATER);
+        chunk_write_operation(c->chunk, t.line, OP_NOT);
+        break;
+    case TOKEN_MINUS:
+        chunk_write_operation(c->chunk, t.line, OP_NEGATE);
+        chunk_write_operation(c->chunk, t.line, OP_ADD);
+        break;
+    case TOKEN_PLUS:
+        chunk_write_operation(c->chunk, t.line, OP_ADD);
+        break;
+    case TOKEN_SLASH:
+        chunk_write_operation(c->chunk, t.line, OP_DIVIDE);
+        break;
+    case TOKEN_STAR:
+        chunk_write_operation(c->chunk, t.line, OP_MULTIPLY);
+        break;
+    case TOKEN_PERCENT:
+        chunk_write_operation(c->chunk, t.line, OP_REMAINDER);
+        break;
+    default:
+        assert(0 && "unknown binary token");
+    }
 }
 
 static void compile_variable(Compiler *c, bool can_assign) {
-  Tag var = var_from_token(c->prev);
-  if (can_assign && match(c, TOKEN_EQUAL)) { // an assignment
-    compile_expression(c);
-    if (in_scope(c)) { // in local scope
-      size_t idx;
-      if (resolve_local(c, var, &idx)) {
-        tag_free(var);
-        chunk_write_unary(c->chunk, c->prev.line, OP_SET_LOCAL, idx);
-        return;
-      }
+    Tag var = var_from_token(c->prev);
+    if (can_assign && match(c, TOKEN_EQUAL)) { // an assignment
+        compile_expression(c);
+        if (in_scope(c)) { // in local scope
+            size_t idx;
+            if (resolve_local(c, var, &idx)) {
+                tag_free(var);
+                chunk_write_unary(c->chunk, c->prev.line, OP_SET_LOCAL, idx);
+                return;
+            }
+        }
+        // in global scope or no local variable found in local and parent scopes
+        size_t idx = chunk_record_const(c->chunk, var);
+        chunk_write_unary(c->chunk, c->prev.line, OP_SET_GLOBAL, idx);
+    } else {               // not an assignment
+        if (in_scope(c)) { // in local scope
+            size_t idx;
+            if (resolve_local(c, var, &idx)) {
+                tag_free(var);
+                chunk_write_unary(c->chunk, c->prev.line, OP_GET_LOCAL, idx);
+                return;
+            }
+        }
+        // in global scope or no local variable found in local and parent scopes
+        size_t idx = chunk_record_const(c->chunk, var);
+        chunk_write_unary(c->chunk, c->prev.line, OP_GET_GLOBAL, idx);
     }
-    // in global scope or no local variable found in local and parent scopes
-    size_t idx = chunk_record_const(c->chunk, var);
-    chunk_write_unary(c->chunk, c->prev.line, OP_SET_GLOBAL, idx);
-  } else {             // not an assignment
-    if (in_scope(c)) { // in local scope
-      size_t idx;
-      if (resolve_local(c, var, &idx)) {
-        tag_free(var);
-        chunk_write_unary(c->chunk, c->prev.line, OP_GET_LOCAL, idx);
-        return;
-      }
-    }
-    // in global scope or no local variable found in local and parent scopes
-    size_t idx = chunk_record_const(c->chunk, var);
-    chunk_write_unary(c->chunk, c->prev.line, OP_GET_GLOBAL, idx);
-  }
 }
 
 static void compile_and(Compiler *c, bool _) {
-  (void)_; // unused
-  size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
-  chunk_write_operation(c->chunk, c->prev.line, OP_POP);
-  compile_precedence(c, PREC_AND);
-  chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
+    (void)_; // unused
+    size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
+    chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+    compile_precedence(c, PREC_AND);
+    chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
 }
 
 static void compile_or(Compiler *c, bool _) {
-  (void)_; // unused
-  size_t jump_if_true = chunk_reserve_unary(c->chunk, c->prev.line);
-  chunk_write_operation(c->chunk, c->prev.line, OP_POP);
-  compile_precedence(c, PREC_OR);
-  chunk_patch_unary(c->chunk, jump_if_true, OP_JUMP_IF_TRUE);
+    (void)_; // unused
+    size_t jump_if_true = chunk_reserve_unary(c->chunk, c->prev.line);
+    chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+    compile_precedence(c, PREC_OR);
+    chunk_patch_unary(c->chunk, jump_if_true, OP_JUMP_IF_TRUE);
 }
 
 static void compile_grouping(Compiler *c, bool _) {
-  (void)_; // unused
-  compile_expression(c);
-  consume(c, TOKEN_RIGHT_PAREN, "missing paren after expression");
+    (void)_; // unused
+    compile_expression(c);
+    consume(c, TOKEN_RIGHT_PAREN, "missing paren after expression");
 }
 
 static void compile_dict(Compiler *c, bool _) {
-  (void)_; // unused
-  chunk_write_operation(c->chunk, c->prev.line, OP_DICT);
-  while (!match(c, TOKEN_RIGHT_BRACE)) {
-    compile_expression(c);
-    consume(c, TOKEN_COLON, "missing colon between key and value");
-    compile_expression(c);
-    chunk_write_operation(c->chunk, c->prev.line, OP_DICT_INIT);
-    if (!match(c, TOKEN_COMMA)) {
-      consume(c, TOKEN_RIGHT_BRACE,
-              "missing right brace after dictionary literal");
-      break;
+    (void)_; // unused
+    chunk_write_operation(c->chunk, c->prev.line, OP_DICT);
+    while (!match(c, TOKEN_RIGHT_BRACE)) {
+        compile_expression(c);
+        consume(c, TOKEN_COLON, "missing colon between key and value");
+        compile_expression(c);
+        chunk_write_operation(c->chunk, c->prev.line, OP_DICT_INIT);
+        if (!match(c, TOKEN_COMMA)) {
+            consume(c, TOKEN_RIGHT_BRACE, "missing right brace after dictionary literal");
+            break;
+        }
     }
-  }
 }
 
 static void compile_list(Compiler *c, bool _) {
-  (void)_; // unused
-  chunk_write_operation(c->chunk, c->prev.line, OP_LIST);
-  while (!match(c, TOKEN_RIGHT_BRACKET)) {
-    compile_expression(c);
-    chunk_write_operation(c->chunk, c->prev.line, OP_LIST_INIT);
-    if (!match(c, TOKEN_COMMA)) {
-      consume(c, TOKEN_RIGHT_BRACKET,
-              "missing right bracket after list literal");
-      break;
+    (void)_; // unused
+    chunk_write_operation(c->chunk, c->prev.line, OP_LIST);
+    while (!match(c, TOKEN_RIGHT_BRACKET)) {
+        compile_expression(c);
+        chunk_write_operation(c->chunk, c->prev.line, OP_LIST_INIT);
+        if (!match(c, TOKEN_COMMA)) {
+            consume(c, TOKEN_RIGHT_BRACKET, "missing right bracket after list literal");
+            break;
+        }
     }
-  }
 }
 
 static void compile_item(Compiler *c, bool can_assign) {
-  if (match(c, TOKEN_RIGHT_BRACKET)) {
-    if (!can_assign) {
-      err_at_prev(c, "unexpected append operator");
-      return;
+    if (match(c, TOKEN_RIGHT_BRACKET)) {
+        if (!can_assign) {
+            err_at_prev(c, "unexpected append operator");
+            return;
+        }
+        consume(c, TOKEN_EQUAL, "missing append assignment");
+        compile_expression(c);
+        chunk_write_operation(c->chunk, c->prev.line, OP_APPEND);
+        return;
     }
-    consume(c, TOKEN_EQUAL, "missing append assignment");
     compile_expression(c);
-    chunk_write_operation(c->chunk, c->prev.line, OP_APPEND);
-    return;
-  }
-  compile_expression(c);
-  consume(c, TOKEN_RIGHT_BRACKET, "missing right bracket");
-  if (can_assign && match(c, TOKEN_EQUAL)) { // an assignment
-    compile_expression(c);
-    chunk_write_operation(c->chunk, c->prev.line, OP_SET);
-  } else {
-    chunk_write_operation(c->chunk, c->prev.line, OP_GET);
-  }
+    consume(c, TOKEN_RIGHT_BRACKET, "missing right bracket");
+    if (can_assign && match(c, TOKEN_EQUAL)) { // an assignment
+        compile_expression(c);
+        chunk_write_operation(c->chunk, c->prev.line, OP_SET);
+    } else {
+        chunk_write_operation(c->chunk, c->prev.line, OP_GET);
+    }
 }
 
 bool compile(const char *src, Chunk *chunk) {
-  Compiler c = {.chunk = chunk, .lex = lex(src)};
-  advance(&c);
-  while (!match(&c, TOKEN_EOF)) {
-    compile_declaration(&c);
-  }
-  chunk_write_operation(chunk, c.current.line, OP_RETURN);
-  bool had_error = c.had_error;
-  compiler_destroy(&c);
-  return !had_error;
+    Compiler c = {.chunk = chunk, .lex = lex(src)};
+    advance(&c);
+    while (!match(&c, TOKEN_EOF)) {
+        compile_declaration(&c);
+    }
+    chunk_write_operation(chunk, c.current.line, OP_RETURN);
+    bool had_error = c.had_error;
+    compiler_destroy(&c);
+    return !had_error;
 }
 
 // This table matches token's enum definition order

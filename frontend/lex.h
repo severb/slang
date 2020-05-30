@@ -10,21 +10,19 @@ typedef enum {
 #undef TOKEN
 
 typedef struct {
-  char const *start;
-  char const *current;
-  size_t line;
+    char const *start;
+    char const *current;
+    size_t line;
 } Lexer;
 
 typedef struct {
-  char const *start;
-  char const *end;
-  size_t line;
-  TokenType type;
+    char const *start;
+    char const *end;
+    size_t line;
+    TokenType type;
 } Token;
 
-inline Lexer lex(char const *c) {
-  return (Lexer){.start = c, .current = c};
-}
+inline Lexer lex(char const *c) { return (Lexer){.start = c, .current = c}; }
 void lex_consume(Lexer *, Token *);
 void lex_print(const Lexer *);
 

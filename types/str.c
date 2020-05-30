@@ -9,59 +9,59 @@
 #include <string.h>
 
 size_t str_hash(const char *c, size_t len) {
-  uint64_t res = UINT64_C(2166136261);
-  for (size_t i = 0; i < len; i++) {
-    res ^= c[i];
-    res *= UINT64_C(16777619);
-  }
-  if (res == 0) { // avoid zero-hashes because 0 indicates no hash is cached
-    res = UINT64_C(0x1337);
-  }
-  return res;
+    uint64_t res = UINT64_C(2166136261);
+    for (size_t i = 0; i < len; i++) {
+        res ^= c[i];
+        res *= UINT64_C(16777619);
+    }
+    if (res == 0) { // avoid zero-hashes because 0 indicates no hash is cached
+        res = UINT64_C(0x1337);
+    }
+    return res;
 }
 
 String *string_append(String *s, const char *c, size_t len) {
-  size_t new_size;
-  if (size_t_add_over(s->len, len, &new_size)) {
-    mem_error("string size too large");
-    return 0;
-  }
-  s = mem_resize_flex(s, sizeof(*s), sizeof(s->c[0]), s->len, new_size);
-  memcpy(s->c + s->len, c, len);
-  s->len = new_size;
-  return s;
+    size_t new_size;
+    if (size_t_add_over(s->len, len, &new_size)) {
+        mem_error("string size too large");
+        return 0;
+    }
+    s = mem_resize_flex(s, sizeof(*s), sizeof(s->c[0]), s->len, new_size);
+    memcpy(s->c + s->len, c, len);
+    s->len = new_size;
+    return s;
 }
 
 String *str_concat(const char *l, size_t l_len, const char *r, size_t r_len) {
-  size_t new_size;
-  if (size_t_add_over(l_len, r_len, &new_size)) {
-    mem_error("string size too large");
-    return 0;
-  }
-  String *s = mem_allocate_flex(sizeof(*s), sizeof(s->c[0]), new_size);
-  s->len = new_size;
-  s->hash = 0;
-  memcpy(s->c, l, l_len);
-  memcpy(s->c + l_len, r, r_len);
-  return s;
+    size_t new_size;
+    if (size_t_add_over(l_len, r_len, &new_size)) {
+        mem_error("string size too large");
+        return 0;
+    }
+    String *s = mem_allocate_flex(sizeof(*s), sizeof(s->c[0]), new_size);
+    s->len = new_size;
+    s->hash = 0;
+    memcpy(s->c, l, l_len);
+    memcpy(s->c + l_len, r, r_len);
+    return s;
 }
 
 int str_cmp(const char *l, size_t l_len, const char *r, size_t r_len) {
-  size_t min_len = l_len;
-  if (r_len < min_len) {
-    min_len = r_len;
-  }
-  int result = memcmp(l, r, min_len);
-  if (result != 0) {
-    return result;
-  }
-  if (l_len < r_len) {
-    return -1;
-  }
-  if (l_len > r_len) {
-    return 1;
-  }
-  return 0;
+    size_t min_len = l_len;
+    if (r_len < min_len) {
+        min_len = r_len;
+    }
+    int result = memcmp(l, r, min_len);
+    if (result != 0) {
+        return result;
+    }
+    if (l_len < r_len) {
+        return -1;
+    }
+    if (l_len > r_len) {
+        return 1;
+    }
+    return 0;
 }
 
 extern inline String *string_new(const char *, size_t);
