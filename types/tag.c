@@ -688,7 +688,7 @@ Tag tag_negate(Tag t) {
       *tag_to_i64(t) *= -1;
       return t;
     } else {
-      // assume it can't fit an i49
+      // expect the negation to not fit an i49
       return i64_new(-*tag_to_i64(t));
       // free_tag(t) -- not owned
     }

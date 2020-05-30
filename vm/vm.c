@@ -57,6 +57,34 @@ static void runtime_tag(VM *vm, Tag error) {
   putc('\n', stderr);
 }
 
+static inline bool list_key_to_idx(VM *vm, const List *l, Tag key,
+                                   size_t *idx) {
+  int64_t i;
+  if (tag_is_i49(key)) {
+    i = tag_to_i49(key);
+  } else if (tag_is_i64(key)) {
+    i = *tag_to_i64(key);
+    // tag_free(key); can't free here because of the errors below
+  } else {
+    runtime_err_tag(vm, "list index is non-integer: ", key);
+    tag_free(key);
+    return false;
+  }
+  if (i < 0) {
+    runtime_err_tag(vm, "negative index: ", key);
+    tag_free(key);
+    return false;
+  }
+  if ((size_t)i >= list_len(l)) {
+    runtime_err_tag(vm, "list index out of bounds: ", key);
+    tag_free(key);
+    return false;
+  }
+  tag_free(key);
+  *idx = (size_t)i;
+  return true;
+}
+
 static inline void push(VM *vm, Tag t) { list_append(&vm->stack, t); }
 static inline Tag pop(VM *vm) { return list_pop(&vm->stack); }
 static inline Tag top(VM *vm) { return *list_last(&vm->stack); }
@@ -75,7 +103,9 @@ static inline void replace_top(VM *vm, Tag t) { *list_last(&vm->stack) = t; }
     }                                                                          \
   } while (0)
 
-static_assert(SIZE_MAX >= UINT64_MAX, "cannot cast uint64_t VM operands to size_t");
+// This can be less restrictive if checked at runtime
+static_assert(SIZE_MAX >= UINT64_MAX,
+              "cannot cast uint64_t VM operands to size_t");
 
 static bool run(VM *vm) {
   // TODO: use computed gotos
@@ -144,7 +174,9 @@ static bool run(VM *vm) {
     case OP_EQUAL: {
       Tag right = pop(vm);
       Tag left = top(vm);
-      replace_top(vm, tag_equals(left, right));
+      replace_top(vm, tag_eq(left, right) ? TAG_TRUE : TAG_FALSE);
+      tag_free(left);
+      tag_free(right);
       break;
     }
     case OP_PRINT: {
@@ -176,8 +208,8 @@ static bool run(VM *vm) {
       break;
     }
     case OP_LOOP: {
-      // NB: moves back n bytes from before this opcode (not counting the
-      // operand's size which can be variable)
+      // NB: moves back n bytes counting from BEFORE this opcode
+      // (this is because the operand's size is variable)
       size_t ip = vm->ip; // don't advance IP
       size_t pos = chunk_read_operator(vm->chunk, &ip);
       assert(vm->ip > pos && "loop before start");
@@ -186,6 +218,9 @@ static bool run(VM *vm) {
     }
     case OP_DEF_GLOBAL:
     case OP_SET_GLOBAL: {
+      // TODO: make globals redefinition a compile-time error
+      // TODO: make globals more like locals and remove late binding
+      // the var's name is stored as a string constant, idx is it's index
       size_t idx = chunk_read_operator(vm->chunk, &vm->ip);
       Tag var = chunk_get_const(vm->chunk, idx);
       if (tag_is_ptr(var)) {
@@ -200,10 +235,10 @@ static bool run(VM *vm) {
       // table_set returns true on new entries
       if (table_set(&vm->globals, var, val) != (opcode == OP_DEF_GLOBAL)) {
         if (opcode == OP_DEF_GLOBAL) {
-          // TODO: make global redefinition a compile-time error
           runtime_err_tag(vm, "global variable redefinition: ", var);
         } else {
-          runtime_err_tag(vm, "undefined variable: ", var);
+          // setting a global variable that hasn't yet been defined
+          runtime_err_tag(vm, "undefined global variable: ", var);
         }
         return false;
       }
@@ -213,16 +248,16 @@ static bool run(VM *vm) {
       break;
     }
     case OP_GET_GLOBAL: {
+      // the var's name is stored as a string constant, idx is it's index
       size_t idx = chunk_read_operator(vm->chunk, &vm->ip);
       Tag var = chunk_get_const(vm->chunk, idx);
+      // is OK for var to be owned, we're using it just for table lookup
       Tag val;
       if (table_get(&vm->globals, var, &val)) {
-        if (tag_is_own(val)) {
-          val = tag_to_ref(val);
-        }
+        assert(!tag_is_own(val)); // only refs are set as globals
         push(vm, val);
       } else {
-        runtime_err_tag(vm, "undefined variable: ", var);
+        runtime_err_tag(vm, "undefined global variable: ", var);
         return false;
       }
       break;
@@ -231,46 +266,49 @@ static bool run(VM *vm) {
       Tag val = top(vm);
       if (tag_is_own(val)) {
         list_append(&vm->temps, val);
-        replace_top(vm, tag_to_ref(val));
+        val = tag_to_ref(val);
+        replace_top(vm, val);
       }
       size_t pos = chunk_read_operator(vm->chunk, &vm->ip);
-      if (pos + 1 != list_len(&vm->stack)) {
-        // assignment
-        *list_get(&vm->stack, pos) = top(vm);
-      } else {
-        // declaration
+      if (pos + 1 == list_len(&vm->stack)) {
+        // local declaration
         // when a new variable is declared, it calls OP_SET_LOCAL with the same
         // position as the top of the stack where its initial value is
+      } else {
+        // local assignment
+        *list_get(&vm->stack, pos) = val;
       }
       break;
     }
     case OP_GET_LOCAL: {
       size_t pos = chunk_read_operator(vm->chunk, &vm->ip);
-      push(vm, *list_get(&vm->stack, pos));
+      Tag val = *list_get(&vm->stack, pos);
+      assert(!tag_is_own(val)); // only refs are set as locals
+      push(vm, val);
       break;
     }
     case OP_DICT: {
       Table *tab = mem_allocate(sizeof(*tab));
       *tab = (Table){0};
       Tag tag = table_to_tag(tab);
-      list_append(&vm->temps, tag);
-      push(vm, tag_to_ref(tag));
+      push(vm, tag);
       break;
     }
     case OP_LIST: {
       List *list = mem_allocate(sizeof(*list));
       *list = (List){0};
       Tag tag = list_to_tag(list);
-      list_append(&vm->temps, tag);
-      push(vm, tag_to_ref(tag));
+      push(vm, tag);
       break;
     }
     case OP_LIST_INIT: {
+      // leave the list on top of the stack
       Tag val = pop(vm);
       if (tag_is_own(val)) {
         list_append(&vm->temps, val);
         val = tag_to_ref(val);
       }
+      // conversion should always succeed unless this is bad bytecode
       List *l = tag_to_list(top(vm));
       list_append(l, val);
       break;
@@ -283,11 +321,12 @@ static bool run(VM *vm) {
       }
       Tag list = top(vm);
       if (!tag_is_list(list)) {
-        runtime_err(vm, "non appendable type: ", tag_type_str(tag_type(list)));
+        runtime_err(vm, "non-appendable type: ", tag_type_str(tag_type(list)));
         return false;
       }
       List *l = tag_to_list(list);
       list_append(l, val);
+      tag_free(top(vm)); // [] []= 1;
       replace_top(vm, val);
       break;
     }
@@ -308,39 +347,24 @@ static bool run(VM *vm) {
         Table *t = tag_to_table(obj);
         table_set(t, key, val);
       } else if (tag_is_list(obj)) {
-        int64_t idx;
-        if (tag_is_i49(key)) {
-          idx = tag_to_i49(key);
-        } else if (tag_is_i64(key)) {
-          idx = *tag_to_i64(key);
-          tag_free(key);
-        } else {
-          runtime_err_tag(vm, "list index is non-integer: ", key);
-          tag_free(key);
-          return false;
-        }
         List *l = tag_to_list(obj);
-        if (idx < 0) {
-          runtime_err_tag(vm, "negative index: ", key);
+        size_t idx;
+        if (!list_key_to_idx(vm, l, key, &idx)) {
           return false;
         }
-        if ((uint64_t)idx >= list_len(l)) {
-          runtime_err_tag(vm, "list index out of bounds: ", key);
-          return false;
-        }
-        *list_get(l, (uint64_t)idx) = val;
+        *list_get(l, idx) = val;
       } else {
         runtime_err(vm, "non indexable type: ", tag_type_str(tag_type(obj)));
         return false;
       }
       if (opcode == OP_SET) {
+        tag_free(top(vm)); // ({})[0] = 0;
         replace_top(vm, val);
       }
       break;
     }
     case OP_GET: {
       // TODO: refactor list index handling between getting and setting
-      // TODO: compare idx to MAX_SIZE
       Tag key = pop(vm);
       Tag obj = top(vm);
       Tag val;
@@ -352,33 +376,19 @@ static bool run(VM *vm) {
           return false;
         };
         tag_free(key);
-      } else if(tag_is_list(obj)) {
-        int64_t idx;
-        if (tag_is_i49(key)) {
-          idx = tag_to_i49(key);
-        } else if (tag_is_i64(key)) {
-          idx = *tag_to_i64(key);
-          tag_free(key);
-        } else {
-          runtime_err_tag(vm, "list index is non-integer: ", key);
-          tag_free(key);
-          return false;
-        }
+      } else if (tag_is_list(obj)) {
         List *l = tag_to_list(obj);
-        if (idx < 0) {
-          runtime_err_tag(vm, "negative index: ", key);
+        size_t idx;
+        if (!list_key_to_idx(vm, l, key, &idx)) {
           return false;
         }
-        if ((uint64_t)idx >= list_len(l)) {
-          runtime_err_tag(vm, "list index out of bounds: ", key);
-          return false;
-        }
-        val = *list_get(l, (uint64_t)idx);
+        val = *list_get(l, idx);
       } else {
         runtime_err(vm, "cannot index type: ", tag_type_str(tag_type(obj)));
         tag_free(key);
         return false;
       }
+      tag_free(top(vm)); // ([1,2,3])[0];
       replace_top(vm, val);
       break;
     }

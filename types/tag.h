@@ -314,12 +314,6 @@ inline void tag_repr(Tag t) { tag_reprf(stdout, t); }
 size_t tag_hash(Tag);
 
 bool tag_eq(Tag, Tag);
-inline Tag tag_equals(Tag a, Tag b) {
-  Tag result = tag_eq(a, b) ? TAG_TRUE : TAG_FALSE;
-  tag_free(a);
-  tag_free(b);
-  return result;
-}
 
 bool tag_is_true(Tag);
 inline Tag tag_to_bool(Tag t) {
