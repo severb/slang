@@ -50,8 +50,10 @@ typedef struct {
 
 static CompileRule rules[TOKEN__COUNT];
 
-static void compile_statement(Compiler *c);
-static void compile_declaration(Compiler *c);
+// a few forward declarations
+static void compile_statement(Compiler *);
+static void compile_declaration(Compiler *);
+static void compile_var_declaration(Compiler *);
 
 static void compiler_destroy(Compiler *c) {
     list_destroy(&c->scopes);
@@ -218,25 +220,7 @@ static void compile_literal(Compiler *c, bool _) {
     }
 }
 
-static void enter_scope(Compiler *c) {
-    // TODO: use a memory pool
-    List *scopes = mem_allocate(sizeof(*scopes));
-    *scopes = (List){0};
-    list_append(&c->scopes, list_to_tag(scopes));
-    List *uninitialized = mem_allocate(sizeof(*uninitialized));
-    *uninitialized = (List){0};
-    list_append(&c->uninitialized, list_to_tag(uninitialized));
-}
-
 static bool in_scope(const Compiler *c) { return list_len(&c->scopes) > 0; }
-
-static void exit_scope(Compiler *c) {
-    assert(in_scope(c) && "not in a scope");
-    tag_free(list_pop(&c->scopes));
-    Tag u = list_pop(&c->uninitialized);
-    assert(!tag_is_true(u) && "uninitialized vars in block");
-    tag_free(u);
-}
 
 static List *top_scope_list(Compiler *c) {
     assert(in_scope(c) && "not in a scope");
@@ -248,6 +232,27 @@ static List *top_uninitialized_list(Compiler *c) {
     assert(in_scope(c) && "not in a scope");
     Tag uninitialized = *list_last(&c->uninitialized);
     return tag_to_list(uninitialized);
+}
+
+static void enter_scope(Compiler *c) {
+    // TODO: use a memory pool
+    List *scopes = mem_allocate(sizeof(*scopes));
+    *scopes = (List){0};
+    list_append(&c->scopes, list_to_tag(scopes));
+    List *uninitialized = mem_allocate(sizeof(*uninitialized));
+    *uninitialized = (List){0};
+    list_append(&c->uninitialized, list_to_tag(uninitialized));
+}
+
+static void exit_scope(Compiler *c) {
+    assert(in_scope(c) && "not in a scope");
+    for (size_t i = 0; i < list_len(top_scope_list(c)); i++) {
+        chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+    }
+    tag_free(list_pop(&c->scopes));
+    Tag u = list_pop(&c->uninitialized);
+    assert(!tag_is_true(u) && "uninitialized vars in block");
+    tag_free(u);
 }
 
 static bool declare_local(Compiler *c, Tag var) {
@@ -367,14 +372,69 @@ static void compile_while_statement(Compiler *c) {
     chunk_write_operation(c->chunk, c->prev.line, OP_POP);
 }
 
-static void compile_for_statement(Compiler *c) {
-    (void)c; // TODO: compile for
-}
-
 static void compile_expression_statement(Compiler *c) {
     compile_expression(c);
     consume(c, TOKEN_SEMICOLON, "missing semicolon after expression statement");
     chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+}
+
+// this loop:
+// if (var a = 10; a < 10; a++) {
+//     <body>
+//
+// is compiled as if it was written like:
+// {
+//     var a = 10;
+// condition:
+//     if (!(a < 10))
+//         goto end;
+//     goto body;
+// increment:
+//     a = a + 1;
+//     goto condition;
+// body:
+//     <body>
+//     goto inc;
+// end:
+// }
+
+static void compile_for_statement(Compiler *c) {
+    consume(c, TOKEN_LEFT_PAREN, "missing paren after for");
+    enter_scope(c);
+    if (match(c, TOKEN_SEMICOLON)) {
+        // no initializer
+    } else if (match(c, TOKEN_VAR)) {
+        compile_var_declaration(c);
+    } else {
+        compile_expression_statement(c);
+    }
+    size_t condition = chunk_len(c->chunk);
+    if (match(c, TOKEN_SEMICOLON)) {
+        // no condition
+        chunk_write_operation(c->chunk, c->prev.line, OP_TRUE);
+    } else {
+        // can't use complie_expression_statement() as it pop the value
+        compile_expression(c);
+        consume(c, TOKEN_SEMICOLON, "missing semicolon after for condition");
+    }
+    size_t jump_if_false_to_end = chunk_reserve_unary(c->chunk, c->prev.line);
+    chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+    size_t jump_to_body = chunk_reserve_unary(c->chunk, c->prev.line);
+    size_t increment = chunk_len(c->chunk);
+    if (match(c, TOKEN_RIGHT_PAREN)) {
+        // no increment
+    } else {
+        compile_expression(c);
+        consume(c, TOKEN_RIGHT_PAREN, "missing paren after for");
+        chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+    }
+    chunk_write_unary(c->chunk, c->prev.line, OP_LOOP, chunk_len(c->chunk) - condition);
+    chunk_patch_unary(c->chunk, jump_to_body, OP_JUMP);
+    compile_statement(c); // the body
+    chunk_write_unary(c->chunk, c->prev.line, OP_LOOP, chunk_len(c->chunk) - increment);
+    chunk_patch_unary(c->chunk, jump_if_false_to_end, OP_JUMP_IF_FALSE);
+    chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+    exit_scope(c);
 }
 
 static void compile_block(Compiler *c) {
@@ -384,9 +444,6 @@ static void compile_block(Compiler *c) {
             err_at_current(c, "missing closing brace missing after block");
             return;
         }
-    }
-    for (size_t i = 0; i < list_len(top_scope_list(c)); i++) {
-        chunk_write_operation(c->chunk, c->prev.line, OP_POP);
     }
 }
 
