@@ -1,8 +1,8 @@
 // Slang is a tiny work-in-progress language implemented in C that only depends
-// on libc. It has only a few statements and operators and lacks functions,
-// structures and classes. It's comparable in speed with other (non-JIT
+// on libc. It has just a few statements and operators, and lacks functions,
+// structures, and classes. It's comparable in speed with other (non-JIT
 // compiled) dynamic languages like Python and features a one-pass compiler that
-// outputs bytecode for a compact VM.
+// generates bytecode for a compact VM.
 
 // since there are no functions yet, print is a statement!
 print "Hello, World!";
@@ -71,8 +71,12 @@ while (i < 10) { // a while statement followed by a block (like the one above)
     i = i + 1;
 }
 
-if (i == 10) { // a conditional statement
+if (i == 10) { // a conditional statement with an else clause
     print "i is ten";
 } else {
     print "i is no ten";
 }
+
+for (var i = 0; i < 10; i = i + 1) { // like in C, for can define local variables
+    print i;
+} // i is out of scope after the block ends
