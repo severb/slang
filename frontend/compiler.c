@@ -1,6 +1,7 @@
 #include "compiler.h"
 
 #include "bytecode.h" // Chunk
+#include "dynarray.h" // dynarray_*, DynamicArray
 #include "lex.h"      // Lexer, lex_consume
 #include "list.h"     // List, list_*
 #include "mem.h"      // mem_allocate
@@ -16,14 +17,34 @@
 static_assert(SIZE_MAX <= UINT64_MAX, "cannot cast size_t to uint64_t VM operands");
 
 typedef struct {
+    size_t pop_bookmark;  // bookmark to the pop statement
+    size_t jump_bookmark; // bookmark to the jump statement
+    size_t levels;        // the number of loops to break
+    size_t locals;        // the number of locals to pop
+} Break;                  // information about a break statement
+
+dynarray_declare(Break);
+dynarray_define(Break);
+
+typedef struct {
+    size_t continue_label;      // if it's a loop
+    List locals;                // list of locals
+    DynamicArray(Break) breaks; // list of break statements
+    Tag uninitialized;          // a var that's currently being initialized (used for var a = a;)
+    bool is_loop;
+} Block;
+
+dynarray_declare(Block);
+dynarray_define(Block);
+
+typedef struct {
     Token current;
     Token prev;
     Lexer lex;
     Chunk *chunk;
     bool had_error;
     bool panic_mode;
-    List scopes;
-    List uninitialized;
+    DynamicArray(Block) block_queue;
 } Compiler;
 
 typedef enum {
@@ -56,8 +77,12 @@ static void compile_declaration(Compiler *);
 static void compile_var_declaration(Compiler *);
 
 static void compiler_destroy(Compiler *c) {
-    list_destroy(&c->scopes);
-    list_destroy(&c->uninitialized);
+    for (size_t i = 0; i < dynarray_len(Block)(&c->block_queue); i++) {
+        Block *b = dynarray_get(Block)(&c->block_queue, i);
+        dynarray_destroy(Break)(&b->breaks);
+        list_destroy(&b->locals);
+    }
+    dynarray_destroy(Block)(&c->block_queue);
     *c = (Compiler){0};
 }
 
@@ -220,87 +245,84 @@ static void compile_literal(Compiler *c, bool _) {
     }
 }
 
-static bool in_scope(const Compiler *c) { return list_len(&c->scopes) > 0; }
-
-static List *top_scope_list(Compiler *c) {
-    assert(in_scope(c) && "not in a scope");
-    Tag scope = *list_last(&c->scopes);
-    return tag_to_list(scope);
+static void enter_block(Compiler *c, bool is_loop) {
+    Block block = (Block){.uninitialized = TAG_NIL, .is_loop = is_loop};
+    dynarray_append(Block)(&c->block_queue, &block);
 }
 
-static List *top_uninitialized_list(Compiler *c) {
-    assert(in_scope(c) && "not in a scope");
-    Tag uninitialized = *list_last(&c->uninitialized);
-    return tag_to_list(uninitialized);
+static bool in_block(const Compiler *c) { return dynarray_len(Block)(&c->block_queue) > 0; }
+
+static Block *top_block(Compiler *c) {
+    assert(in_block(c) && "not in a block");
+    size_t len = dynarray_len(Block)(&c->block_queue);
+    return dynarray_get(Block)(&c->block_queue, len - 1);
 }
 
-static void enter_scope(Compiler *c) {
-    // TODO: use a memory pool
-    List *scopes = mem_allocate(sizeof(*scopes));
-    *scopes = (List){0};
-    list_append(&c->scopes, list_to_tag(scopes));
-    List *uninitialized = mem_allocate(sizeof(*uninitialized));
-    *uninitialized = (List){0};
-    list_append(&c->uninitialized, list_to_tag(uninitialized));
+static Block *top_loop_block(Compiler *c) {
+    for (size_t i = dynarray_len(Block)(&c->block_queue); i > 0; i--) {
+        Block *b = dynarray_get(Block)(&c->block_queue, i - 1);
+        if (b->is_loop) {
+            return b;
+        }
+    }
+    return 0;
 }
 
-static void exit_scope(Compiler *c) {
-    assert(in_scope(c) && "not in a scope");
-    for (size_t i = 0; i < list_len(top_scope_list(c)); i++) {
+static bool in_loop(Compiler *c) { return top_loop_block(c) != 0; }
+
+static void set_continue_label(Compiler *c) {
+    Block *top = top_block(c);
+    assert(top->is_loop && "set continue in non-loop block");
+    top->continue_label = chunk_label(c->chunk);
+}
+
+static void exit_block(Compiler *c) {
+    assert(in_block(c) && "not in a block");
+    Block *top = top_block(c);
+    for (size_t i = 0; i < list_len(&top->locals); i++) {
         chunk_write_operation(c->chunk, c->prev.line, OP_POP);
     }
-    tag_free(list_pop(&c->scopes));
-    Tag u = list_pop(&c->uninitialized);
-    assert(!tag_is_true(u) && "uninitialized vars in block");
-    tag_free(u);
+    dynarray_destroy(Break)(&top->breaks);
+    list_destroy(&top->locals);
+    assert(tag_eq(top->uninitialized, TAG_NIL) && "uninitialized vars at block end");
+    size_t len = dynarray_len(Block)(&c->block_queue);
+    dynarray_trunc(Block)(&c->block_queue, len - 1);
 }
 
 static bool declare_local(Compiler *c, Tag var) {
-    List *top_scope = top_scope_list(c);
-    if (list_find_from(top_scope, var, 0)) {
+    Block *top = top_block(c);
+    if (list_find_from(&top->locals, var, 0)) {
         tag_free(var);
         err_at_prev(c, "variable already defined");
         return false;
     }
-    List *top_uninitialized = top_uninitialized_list(c);
-    list_append(top_scope, var);
-    list_append(top_uninitialized, tag_to_ref(var)); // just a ref
+    list_append(&top->locals, var);
+    top->uninitialized = var;
     return true;
 }
 
-static void initialize_local(Compiler *c, Tag var) {
-    List *top_uninitialized = top_uninitialized_list(c);
-    size_t idx = 0;
-    bool found = list_find_from(top_uninitialized, var, &idx);
-    (void)found;
-    assert(found && "cannot initialize an undefined variable");
-    // replace the initialized var with the last uninitialized
-    Tag last = list_pop(top_uninitialized);
-    if (idx < list_len(top_uninitialized)) {
-        *list_get(top_uninitialized, idx) = last;
-    }
-    // NB: no need to free the tag, it's only a reference
+static void initialize_local(Compiler *c) {
+    Block *top = top_block(c);
+    top->uninitialized = TAG_NIL;
 }
 
 static bool resolve_local(Compiler *c, Tag var, size_t *idx) {
-    List *top_uninitialized = top_uninitialized_list(c);
-    if (list_find_from(top_uninitialized, var, 0)) {
+    Block *top = top_block(c);
+    if (tag_eq(top->uninitialized, var)) {
         err_at_prev(c, "local variable used in its own initializer");
         return false;
     }
-    // traverse the scopes in reverse order and look for var
-    // if found, sum its index with the size of all remaining bottom scopes
-    for (size_t i = list_len(&c->scopes); i > 0; i--) {
+    // traverse the blocks in reverse order and look for var
+    // if found, sum its index with the number of locals in the remaining blocks
+    for (size_t i = dynarray_len(Block)(&c->block_queue); i > 0; i--) {
         size_t ii = i - 1;
-        Tag scope_val = *list_get(&c->scopes, ii);
-        List *scope_list = tag_to_list(scope_val);
+        Block *b = dynarray_get(Block)(&c->block_queue, ii);
         *idx = 0;
-        if (list_find_from(scope_list, var, idx)) {
+        if (list_find_from(&b->locals, var, idx)) {
             for (size_t j = ii; j > 0; j--) {
                 size_t jj = j - 1;
-                Tag parent_scope_val = *list_get(&c->scopes, jj);
-                List *parent_scope_list = tag_to_list(parent_scope_val);
-                *idx += list_len(parent_scope_list);
+                Block *parent_block = dynarray_get(Block)(&c->block_queue, jj);
+                *idx += list_len(&parent_block->locals);
             }
             return true;
         }
@@ -400,7 +422,7 @@ static void compile_expression_statement(Compiler *c) {
 
 static void compile_for_statement(Compiler *c) {
     consume(c, TOKEN_LEFT_PAREN, "missing paren after for");
-    enter_scope(c);
+    enter_block(c, true);
     if (match(c, TOKEN_SEMICOLON)) {
         // no initializer
     } else if (match(c, TOKEN_VAR)) {
@@ -421,6 +443,7 @@ static void compile_for_statement(Compiler *c) {
     chunk_write_operation(c->chunk, c->prev.line, OP_POP);
     size_t jump_to_body = chunk_reserve_unary(c->chunk, c->prev.line);
     size_t increment = chunk_label(c->chunk);
+    set_continue_label(c);
     if (match(c, TOKEN_RIGHT_PAREN)) {
         // no increment
     } else {
@@ -434,7 +457,7 @@ static void compile_for_statement(Compiler *c) {
     chunk_loop_to_label(c->chunk, c->prev.line, increment);
     chunk_patch_unary(c->chunk, jump_if_false_to_end, OP_JUMP_IF_FALSE);
     chunk_write_operation(c->chunk, c->prev.line, OP_POP);
-    exit_scope(c);
+    exit_block(c);
 }
 
 static void compile_block(Compiler *c) {
@@ -447,6 +470,30 @@ static void compile_block(Compiler *c) {
     }
 }
 
+static void compile_continue_statement(Compiler *c) {
+    if (!in_loop(c)) {
+        err_at_prev(c, "cannot continue outside of a loop");
+        return;
+    }
+    consume(c, TOKEN_SEMICOLON, "missing semicolon after continue");
+    Block *b = top_loop_block(c);
+    chunk_loop_to_label(c->chunk, c->prev.line, b->continue_label);
+}
+
+static void compile_break_statement(Compiler *c) {
+    // TODO: fix local vairable popping
+    if (!in_loop(c)) {
+        err_at_prev(c, "cannot break outside of a loop");
+        return;
+    }
+    consume(c, TOKEN_SEMICOLON, "missing semicolon after break");
+    Block *b = top_loop_block(c);
+    size_t pop_bookmark = chunk_reserve_unary(c->chunk, c->prev.line);
+    size_t jump_bookmark = chunk_reserve_unary(c->chunk, c->prev.line);
+    Break brk = (Break){.pop_bookmark = pop_bookmark, .jump_bookmark = jump_bookmark, .levels = 1};
+    dynarray_append(Break)(&b->breaks, &brk);
+}
+
 static void compile_statement(Compiler *c) {
     if (match(c, TOKEN_PRINT)) {
         compile_print_statement(c);
@@ -457,14 +504,14 @@ static void compile_statement(Compiler *c) {
     } else if (match(c, TOKEN_FOR)) {
         compile_for_statement(c);
     } else if (match(c, TOKEN_CONTINUE)) {
-        // compile_continue_statement(c);
+        compile_continue_statement(c);
     } else if (match(c, TOKEN_BREAK)) {
-        // compile_break_statement(c);
+        compile_break_statement(c);
     } else if (match(c, TOKEN_LEFT_BRACE)) {
         // TODO: consider checking if it's a dictionary literal
-        enter_scope(c);
+        enter_block(c, false);
         compile_block(c);
-        exit_scope(c);
+        exit_block(c);
     } else {
         compile_expression_statement(c);
     }
@@ -482,7 +529,7 @@ static void compile_var_declaration(Compiler *c) {
 start:
     consume(c, TOKEN_IDENTIFIER, "missing variable name");
     Tag var = var_from_token(c->prev);
-    if (in_scope(c)) {
+    if (in_block(c)) {
         if (!declare_local(c, var)) {
             return;
         };
@@ -492,8 +539,8 @@ start:
     } else {
         chunk_write_operation(c->chunk, c->prev.line, OP_NIL);
     }
-    if (in_scope(c)) {
-        initialize_local(c, var);
+    if (in_block(c)) {
+        initialize_local(c);
         size_t idx;
         bool found = resolve_local(c, var, &idx);
         (void)found;
@@ -584,7 +631,7 @@ static void compile_variable(Compiler *c, bool can_assign) {
     Tag var = var_from_token(c->prev);
     if (can_assign && match(c, TOKEN_EQUAL)) { // an assignment
         compile_expression(c);
-        if (in_scope(c)) { // in local scope
+        if (in_block(c)) { // in local scope
             size_t idx;
             if (resolve_local(c, var, &idx)) {
                 tag_free(var);
@@ -596,7 +643,7 @@ static void compile_variable(Compiler *c, bool can_assign) {
         size_t idx = chunk_record_const(c->chunk, var);
         chunk_write_unary(c->chunk, c->prev.line, OP_SET_GLOBAL, idx);
     } else {               // not an assignment
-        if (in_scope(c)) { // in local scope
+        if (in_block(c)) { // in local scope
             size_t idx;
             if (resolve_local(c, var, &idx)) {
                 tag_free(var);
