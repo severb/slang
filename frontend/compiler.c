@@ -360,14 +360,14 @@ static void compile_if_statement(Compiler *c) {
 }
 
 static void compile_while_statement(Compiler *c) {
-    size_t start = chunk_len(c->chunk);
+    size_t start = chunk_label(c->chunk);
     consume(c, TOKEN_LEFT_PAREN, "missing paren before while condition");
     compile_expression(c);
     consume(c, TOKEN_RIGHT_PAREN, "missing paren after while condition");
     size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
     chunk_write_operation(c->chunk, c->prev.line, OP_POP);
     compile_statement(c);
-    chunk_write_unary(c->chunk, c->prev.line, OP_LOOP, chunk_len(c->chunk) - start);
+    chunk_loop_to_label(c->chunk, c->prev.line, start);
     chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
     chunk_write_operation(c->chunk, c->prev.line, OP_POP);
 }
@@ -408,7 +408,7 @@ static void compile_for_statement(Compiler *c) {
     } else {
         compile_expression_statement(c);
     }
-    size_t condition = chunk_len(c->chunk);
+    size_t condition = chunk_label(c->chunk);
     if (match(c, TOKEN_SEMICOLON)) {
         // no condition
         chunk_write_operation(c->chunk, c->prev.line, OP_TRUE);
@@ -420,7 +420,7 @@ static void compile_for_statement(Compiler *c) {
     size_t jump_if_false_to_end = chunk_reserve_unary(c->chunk, c->prev.line);
     chunk_write_operation(c->chunk, c->prev.line, OP_POP);
     size_t jump_to_body = chunk_reserve_unary(c->chunk, c->prev.line);
-    size_t increment = chunk_len(c->chunk);
+    size_t increment = chunk_label(c->chunk);
     if (match(c, TOKEN_RIGHT_PAREN)) {
         // no increment
     } else {
@@ -428,10 +428,10 @@ static void compile_for_statement(Compiler *c) {
         consume(c, TOKEN_RIGHT_PAREN, "missing paren after for");
         chunk_write_operation(c->chunk, c->prev.line, OP_POP);
     }
-    chunk_write_unary(c->chunk, c->prev.line, OP_LOOP, chunk_len(c->chunk) - condition);
+    chunk_loop_to_label(c->chunk, c->prev.line, condition);
     chunk_patch_unary(c->chunk, jump_to_body, OP_JUMP);
     compile_statement(c); // the body
-    chunk_write_unary(c->chunk, c->prev.line, OP_LOOP, chunk_len(c->chunk) - increment);
+    chunk_loop_to_label(c->chunk, c->prev.line, increment);
     chunk_patch_unary(c->chunk, jump_if_false_to_end, OP_JUMP_IF_FALSE);
     chunk_write_operation(c->chunk, c->prev.line, OP_POP);
     exit_scope(c);
@@ -456,6 +456,10 @@ static void compile_statement(Compiler *c) {
         compile_while_statement(c);
     } else if (match(c, TOKEN_FOR)) {
         compile_for_statement(c);
+    } else if (match(c, TOKEN_CONTINUE)) {
+        // compile_continue_statement(c);
+    } else if (match(c, TOKEN_BREAK)) {
+        // compile_break_statement(c);
     } else if (match(c, TOKEN_LEFT_BRACE)) {
         // TODO: consider checking if it's a dictionary literal
         enter_scope(c);
@@ -734,6 +738,8 @@ static CompileRule rules[] = {
     {compile_literal, 0, PREC_NONE},            // TOKEN_TRUE
     {0, 0, PREC_NONE},                          // TOKEN_VAR
     {0, 0, PREC_NONE},                          // TOKEN_WHILE
+    {0, 0, PREC_NONE},                          // TOKEN_BREAK
+    {0, 0, PREC_NONE},                          // TOKEN_CONTINUE
     {0, 0, PREC_NONE},                          // TOKEN_ERROR
     {0, 0, PREC_NONE},                          // TOKEN_EOF
 };

@@ -139,8 +139,18 @@ static TokenType identifier_type(const Lexer *lex) {
     switch (*lex->start) {
     case 'a':
         return check_keyword(lex, 1, 2, "nd", TOKEN_AND);
+    case 'b':
+        return check_keyword(lex, 1, 4, "reak", TOKEN_BREAK);
     case 'c':
-        return check_keyword(lex, 1, 4, "lass", TOKEN_CLASS);
+        if (lex->current - lex->start > 1) {
+            switch (lex->start[1]) {
+            case 'o':
+                return check_keyword(lex, 2, 6, "ntinue", TOKEN_CONTINUE);
+            case 'l':
+                return check_keyword(lex, 2, 3, "ass", TOKEN_CLASS);
+            }
+        }
+        break;
     case 'e':
         return check_keyword(lex, 1, 3, "lse", TOKEN_ELSE);
     case 'i':

@@ -41,20 +41,23 @@ void chunk_write_unary(Chunk *c, size_t line, uint8_t op, uint64_t operand) {
     chunk_write_operand(c, line, operand);
 }
 
+// 1 op + (8 + 1) bytes (max operand size)
+#define UNARY_PATCH_SIZE 10
+
 size_t chunk_reserve_unary(Chunk *c, size_t line) {
-    size_t idx = dynarray_len(uint8_t)(&c->bytecode);
-    for (int i = 0; i < 10; i++) { // 1 op + 8 + 1 bytes max operand size
+    size_t here = chunk_label(c);
+    for (int i = 0; i < UNARY_PATCH_SIZE; i++) {
         chunk_write_operation(c, line, OP_NOOP);
     }
-    return idx;
+    return here;
 }
 
 void chunk_patch_unary(Chunk *c, size_t bookmark, uint8_t op) {
-    size_t clen = chunk_len(c);
-    assert(bookmark <= clen && "invalid bookmark");
-    uint64_t oper = clen - bookmark;
-    assert(oper >= 10 && "invalid bookmark");
-    oper -= 10;
+    size_t here = chunk_label(c);
+    assert(bookmark <= here && "invalid bookmark");
+    uint64_t oper = here - bookmark;
+    assert(oper >= UNARY_PATCH_SIZE && "invalid bookmark");
+    oper -= UNARY_PATCH_SIZE;
     *dynarray_get(uint8_t)(&c->bytecode, bookmark) = op;
     for (int i = 1; i < 9; i++) {
         *dynarray_get(uint8_t)(&c->bytecode, bookmark + i) = 0x80 | (0x7f & oper);
@@ -91,7 +94,7 @@ void chunk_destroy(Chunk *c) {
 
 void chunk_free(Chunk *c) {
     chunk_destroy(c);
-    mem_free(c, sizeof(Chunk));
+    mem_free(c, sizeof(*c));
 }
 
 #define OPCODE(STRING) #STRING,
@@ -212,3 +215,5 @@ extern inline size_t chunk_len(const Chunk *);
 extern uint8_t chunk_read_opcode(const Chunk *, size_t);
 extern uint64_t chunk_read_operator(const Chunk *, size_t *);
 extern inline Tag chunk_get_const(const Chunk *, size_t);
+extern inline size_t chunk_label(const Chunk *);
+extern inline void chunk_loop_to_label(Chunk *, size_t line, size_t label);

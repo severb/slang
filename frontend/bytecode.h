@@ -22,13 +22,24 @@ typedef struct {
 
 void chunk_write_operation(Chunk *, size_t line, uint8_t op);
 void chunk_write_unary(Chunk *, size_t line, uint8_t op, uint64_t operand);
+
 size_t chunk_reserve_unary(Chunk *, size_t line);
 void chunk_patch_unary(Chunk *, size_t bookmark, uint8_t op);
+
+inline size_t chunk_label(const Chunk *c) { return dynarray_len(uint8_t)(&c->bytecode); }
+inline void chunk_loop_to_label(Chunk *c, size_t line, size_t label) {
+    size_t here = chunk_label(c);
+    assert(here >= label);
+    chunk_write_unary(c, line, OP_LOOP, chunk_label(c) - label);
+}
+
 size_t chunk_record_const(Chunk *, Tag);
 inline Tag chunk_get_const(const Chunk *c, size_t idx) { return *list_get(&c->consts, idx); }
+
 void chunk_seal(Chunk *);
 void chunk_destroy(Chunk *);
 void chunk_free(Chunk *);
+
 size_t chunk_lines_delta(const Chunk *, size_t current_line, size_t offset);
 
 void chunk_disassamble(const Chunk *);
