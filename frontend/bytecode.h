@@ -24,6 +24,7 @@ void chunk_write_operation(Chunk *, size_t line, uint8_t op);
 void chunk_write_unary(Chunk *, size_t line, uint8_t op, uint64_t operand);
 
 size_t chunk_reserve_unary(Chunk *, size_t line);
+void chunk_patch_unary_operand(Chunk *, size_t bookmark, uint8_t op, uint64_t operand);
 void chunk_patch_unary(Chunk *, size_t bookmark, uint8_t op);
 
 inline size_t chunk_label(const Chunk *c) { return dynarray_len(uint8_t)(&c->bytecode); }

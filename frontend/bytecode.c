@@ -52,18 +52,22 @@ size_t chunk_reserve_unary(Chunk *c, size_t line) {
     return here;
 }
 
-void chunk_patch_unary(Chunk *c, size_t bookmark, uint8_t op) {
-    size_t here = chunk_label(c);
-    assert(bookmark <= here && "invalid bookmark");
-    uint64_t oper = here - bookmark;
-    assert(oper >= UNARY_PATCH_SIZE && "invalid bookmark");
-    oper -= UNARY_PATCH_SIZE;
+void chunk_patch_unary_operand(Chunk *c, size_t bookmark, uint8_t op, uint64_t oper) {
     *dynarray_get(uint8_t)(&c->bytecode, bookmark) = op;
     for (int i = 1; i < 9; i++) {
         *dynarray_get(uint8_t)(&c->bytecode, bookmark + i) = 0x80 | (0x7f & oper);
         oper >>= 7;
     }
     *dynarray_get(uint8_t)(&c->bytecode, bookmark + 9) = oper;
+}
+
+void chunk_patch_unary(Chunk *c, size_t bookmark, uint8_t op) {
+    size_t here = chunk_label(c);
+    assert(bookmark <= here && "invalid bookmark");
+    uint64_t oper = here - bookmark;
+    assert(oper >= UNARY_PATCH_SIZE && "invalid bookmark");
+    oper -= UNARY_PATCH_SIZE;
+    chunk_patch_unary_operand(c, bookmark, op, oper);
 }
 
 size_t chunk_record_const(Chunk *c, Tag t) {
@@ -129,6 +133,7 @@ static size_t disassamble_op(const Chunk *chunk, size_t offset, size_t line) {
         puts(")");
         break;
     }
+    case OP_POP_N:
     case OP_SET_LOCAL:
     case OP_GET_LOCAL:
     case OP_LOOP:

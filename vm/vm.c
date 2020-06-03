@@ -115,6 +115,11 @@ static bool run(VM *vm) {
         case OP_POP:
             tag_free(pop(vm));
             break;
+        case OP_POP_N:
+            for (size_t i = chunk_read_operator(vm->chunk, &vm->ip); i; i--) {
+                tag_free(pop(vm));
+            }
+            break;
         case OP_ADD: {
             BINARY_MATH(tag_add);
             break;

@@ -14,24 +14,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static_assert(SIZE_MAX <= UINT64_MAX, "cannot cast size_t to uint64_t VM operands");
+static_assert(SIZE_MAX <= UINT64_MAX, "cannot safely cast size_t to uint64_t VM operands");
 
+// Supporting the 'break' statement requires a lot of bookkeeping in a single-pass compiler
 typedef struct {
-    size_t pop_bookmark;  // bookmark to the pop statement
-    size_t jump_bookmark; // bookmark to the jump statement
-    size_t levels;        // the number of loops to break
-    size_t locals;        // the number of locals to pop
-} Break;                  // information about a break statement
+    size_t pop_bookmark;  // bookmark to the OP_POP_N statement
+    size_t jump_bookmark; // bookmark to the OP_JUMP statement
+    uint64_t locals;      // the number of locals to pop
+} Break;
 
 dynarray_declare(Break);
 dynarray_define(Break);
 
 typedef struct {
+    bool is_loop;
     size_t continue_label;      // if it's a loop
+    size_t continue_locals;     // the numbe of locals defined before the continue label
     List locals;                // list of locals
     DynamicArray(Break) breaks; // list of break statements
     Tag uninitialized;          // a var that's currently being initialized (used for var a = a;)
-    bool is_loop;
 } Block;
 
 dynarray_declare(Block);
@@ -245,8 +246,8 @@ static void compile_literal(Compiler *c, bool _) {
     }
 }
 
-static void enter_block(Compiler *c, bool is_loop) {
-    Block block = (Block){.uninitialized = TAG_NIL, .is_loop = is_loop};
+static void enter_block(Compiler *c) {
+    Block block = (Block){.uninitialized = TAG_NIL};
     dynarray_append(Block)(&c->block_queue, &block);
 }
 
@@ -272,15 +273,43 @@ static bool in_loop(Compiler *c) { return top_loop_block(c) != 0; }
 
 static void set_continue_label(Compiler *c) {
     Block *top = top_block(c);
-    assert(top->is_loop && "set continue in non-loop block");
+    top->is_loop = true;
     top->continue_label = chunk_label(c->chunk);
+    top->continue_locals = list_len(&top->locals);
 }
 
 static void exit_block(Compiler *c) {
     assert(in_block(c) && "not in a block");
     Block *top = top_block(c);
-    for (size_t i = 0; i < list_len(&top->locals); i++) {
+    size_t brk_len = dynarray_len(Break)(&top->breaks);
+    size_t loc_len = list_len(&top->locals);
+    for (size_t i = 0; i < brk_len; i++) { // bump break locals count
+        Break *brk = dynarray_get(Break)(&top->breaks, i);
+        // TODO: use safe math for bumping locals
+        brk->locals += loc_len;
+    }
+    if (!top->is_loop && brk_len) {
+        // copy breaks in the parent block
+        assert(in_loop(c) && "breaks escaped the loop");
+        size_t blk_q_len = dynarray_len(Block)(&c->block_queue);
+        Block *toptop = dynarray_get(Block)(&c->block_queue, blk_q_len - 2);
+        for (size_t i = 0; i < brk_len; i++) {
+            Break *brk = dynarray_get(Break)(&top->breaks, i);
+            dynarray_append(Break)(&toptop->breaks, brk);
+        }
+    }
+    if (loc_len > 1) {
+        chunk_write_unary(c->chunk, c->prev.line, OP_POP_N, loc_len);
+    } else if (loc_len == 1) {
         chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+    }
+    if (top->is_loop) {
+        // patch all breaks
+        for (size_t i = 0; i < dynarray_len(Break)(&top->breaks); i++) {
+            Break *brk = dynarray_get(Break)(&top->breaks, i);
+            chunk_patch_unary_operand(c->chunk, brk->pop_bookmark, OP_POP_N, brk->locals);
+            chunk_patch_unary(c->chunk, brk->jump_bookmark, OP_JUMP);
+        }
     }
     dynarray_destroy(Break)(&top->breaks);
     list_destroy(&top->locals);
@@ -384,6 +413,8 @@ static void compile_if_statement(Compiler *c) {
 static void compile_while_statement(Compiler *c) {
     size_t start = chunk_label(c->chunk);
     consume(c, TOKEN_LEFT_PAREN, "missing paren before while condition");
+    enter_block(c);
+    set_continue_label(c);
     compile_expression(c);
     consume(c, TOKEN_RIGHT_PAREN, "missing paren after while condition");
     size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
@@ -392,6 +423,7 @@ static void compile_while_statement(Compiler *c) {
     chunk_loop_to_label(c->chunk, c->prev.line, start);
     chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
     chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+    exit_block(c);
 }
 
 static void compile_expression_statement(Compiler *c) {
@@ -422,7 +454,7 @@ static void compile_expression_statement(Compiler *c) {
 
 static void compile_for_statement(Compiler *c) {
     consume(c, TOKEN_LEFT_PAREN, "missing paren after for");
-    enter_block(c, true);
+    enter_block(c);
     if (match(c, TOKEN_SEMICOLON)) {
         // no initializer
     } else if (match(c, TOKEN_VAR)) {
@@ -476,8 +508,24 @@ static void compile_continue_statement(Compiler *c) {
         return;
     }
     consume(c, TOKEN_SEMICOLON, "missing semicolon after continue");
-    Block *b = top_loop_block(c);
-    chunk_loop_to_label(c->chunk, c->prev.line, b->continue_label);
+    size_t locals = 0;
+    Block *blk;
+    for (size_t i = dynarray_len(Block)(&c->block_queue); i > 0; i--) {
+        size_t ii = i - 1;
+        blk = dynarray_get(Block)(&c->block_queue, ii);
+        locals += list_len(&blk->locals);
+        if (blk->is_loop) {
+            break;
+        }
+    }
+    assert(locals >= blk->continue_locals && "continue locals invariant");
+    locals -= blk->continue_locals;
+    if (locals > 1) {
+        chunk_write_unary(c->chunk, c->prev.line, OP_POP_N, locals);
+    } else if (locals == 1) {
+        chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+    }
+    chunk_loop_to_label(c->chunk, c->prev.line, blk->continue_label);
 }
 
 static void compile_break_statement(Compiler *c) {
@@ -487,10 +535,10 @@ static void compile_break_statement(Compiler *c) {
         return;
     }
     consume(c, TOKEN_SEMICOLON, "missing semicolon after break");
-    Block *b = top_loop_block(c);
+    Block *b = top_block(c);
     size_t pop_bookmark = chunk_reserve_unary(c->chunk, c->prev.line);
     size_t jump_bookmark = chunk_reserve_unary(c->chunk, c->prev.line);
-    Break brk = (Break){.pop_bookmark = pop_bookmark, .jump_bookmark = jump_bookmark, .levels = 1};
+    Break brk = (Break){.pop_bookmark = pop_bookmark, .jump_bookmark = jump_bookmark};
     dynarray_append(Break)(&b->breaks, &brk);
 }
 
@@ -509,7 +557,7 @@ static void compile_statement(Compiler *c) {
         compile_break_statement(c);
     } else if (match(c, TOKEN_LEFT_BRACE)) {
         // TODO: consider checking if it's a dictionary literal
-        enter_block(c, false);
+        enter_block(c);
         compile_block(c);
         exit_block(c);
     } else {
