@@ -77,6 +77,11 @@ if (i == 10) { // a conditional statement with an else clause
     print "i is no ten";
 }
 
-for (var i = 0; i < 10; i = i + 1) { // like in C, for can define local variables
-    print i;
-} // i is out of scope after the block ends
+for (var j = 0; j < 10; j = j + 1) { // like in C, for can define local variables
+    print j;
+} // j is out of scope after the block ends
+
+for(var j = 0;;j = j + 1) { // for loops can have empty clauses
+    if (i < 10) continue;   // continue to the next iteration
+    break;                  // break the loop
+}
