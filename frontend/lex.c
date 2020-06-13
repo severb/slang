@@ -259,7 +259,7 @@ void lex_consume(Lexer *lex, Token *t) {
         token(lex, TOKEN_MINUS, t);
         return;
     case '+':
-        token(lex, TOKEN_PLUS, t);
+        token(lex, match(lex, '=') ? TOKEN_PLUS_EQUAL : TOKEN_PLUS, t);
         return;
     case '/':
         token(lex, TOKEN_SLASH, t);

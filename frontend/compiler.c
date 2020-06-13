@@ -74,6 +74,26 @@ typedef struct {
 
 static CompileRule rules[TOKEN__COUNT];
 
+void trace_enter(const char *, const Compiler *);
+void trace_exit(void);
+
+#ifdef SLANG_DEBUG
+static int indent = 0;
+void trace_enter(const char *f, const Compiler *c) {
+    for (int i = indent; i > 0; i--) {
+        fputs("  ", stderr);
+    }
+    fputs(f, stderr);
+    fputs(": ", stderr);
+    fprintf(stderr, "%.*s\n", (int)(c->prev.end - c->prev.start), c->prev.start);
+    indent++;
+}
+void trace_exit(void) { indent--; }
+#else
+void trace_enter(const char *, const Compiler *) {}
+void trace_exit(void) {}
+#endif
+
 // a few forward declarations
 static void compile_statement(Compiler *);
 static void compile_declaration(Compiler *);
@@ -173,6 +193,7 @@ static bool match(Compiler *c, TokenType type) {
 
 static void compile_int(Compiler *c, bool _) {
     (void)_; // unused
+    trace_enter("compile_int", c);
     Token token = c->prev;
     char buf[token.end - token.start + 1];
     char *b = buf;
@@ -186,21 +207,25 @@ static void compile_int(Compiler *c, bool _) {
     long long i = strtoll(buf, /*str_end*/ 0, /*base*/ 0);
     if (errno == ERANGE) {
         err_at_prev(c, "integer constant out of range");
+        trace_exit();
         return;
     }
     assert(i >= 0 && "tokenizer returned negative integer");
     if (i > INT64_MAX) {
         err_at_prev(c, "integer constant out of range");
+        trace_exit();
         return;
     }
     Tag t = int_to_tag(i);
     size_t idx = chunk_record_const(c->chunk, t);
     chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
+    trace_exit();
     return;
 }
 
 static void compile_float(Compiler *c, bool _) {
     (void)_; // unused
+    trace_enter("compile_float", c);
     Token token = c->prev;
     char buf[token.end - token.start + 1];
     char *b = buf;
@@ -214,24 +239,29 @@ static void compile_float(Compiler *c, bool _) {
     double d = strtod(buf, 0);
     if (errno == ERANGE) {
         err_at_prev(c, "float constant out of range");
+        trace_exit();
         return;
     }
     assert(d >= 0 && "tokenizer returend negative foalt");
     size_t idx = chunk_record_const(c->chunk, double_to_tag(d));
     chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
+    trace_exit();
 }
 
 static void compile_string(Compiler *c, bool _) {
     (void)_; // unused
+    trace_enter("compile_string", c);
     // TODO: use a memory pool
     Slice *s = mem_allocate(sizeof(*s));
     *s = slice(c->prev.start + 1 /*skip 1st quote */, c->prev.end - 1 /* skip last quotes */);
     size_t idx = chunk_record_const(c->chunk, slice_to_tag(s));
     chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, idx);
+    trace_exit();
 }
 
 static void compile_literal(Compiler *c, bool _) {
     (void)_; // unused
+    trace_enter("compile_literal", c);
     TokenType lit = c->prev.type;
     switch (lit) {
     case TOKEN_FALSE:
@@ -246,6 +276,7 @@ static void compile_literal(Compiler *c, bool _) {
     default:
         assert(0 && "unknown literal");
     }
+    trace_exit();
 }
 
 static void enter_block(Compiler *c) {
@@ -362,10 +393,12 @@ static bool resolve_local(Compiler *c, Tag var, size_t *idx) {
 }
 
 static void compile_precedence(Compiler *c, Precedence p) {
+    trace_enter("compile_precedence", c);
     advance(c);
     CompileFn prefix_rule = rules[c->prev.type].prefix;
     if (prefix_rule == 0) {
         err_at_prev(c, "invalid expression");
+        trace_exit();
         return;
     }
     bool can_assign = p <= PREC_ASSIGNMENT;
@@ -379,13 +412,20 @@ static void compile_precedence(Compiler *c, Precedence p) {
     // assignment is handled in rules, if we see an assignment here it's an err
     if (can_assign && match(c, TOKEN_EQUAL)) {
         err_at_current(c, "invalid target assignment");
+        trace_exit();
         return;
     }
+    trace_exit();
 }
 
-static void compile_expression(Compiler *c) { compile_precedence(c, PREC_ASSIGNMENT); }
+static void compile_expression(Compiler *c) {
+    trace_enter("compile_expression", c);
+    compile_precedence(c, PREC_ASSIGNMENT);
+    trace_exit();
+}
 
 static void compile_print_statement(Compiler *c) {
+    trace_enter("compile_print_statement", c);
 start:
     compile_expression(c);
     chunk_write_operation(c->chunk, c->prev.line, OP_PRINT);
@@ -394,9 +434,11 @@ start:
     }
     consume(c, TOKEN_SEMICOLON, "missing semicolon after print");
     chunk_write_operation(c->chunk, c->prev.line, OP_PRINT_NL);
+    trace_exit();
 }
 
 static void compile_if_statement(Compiler *c) {
+    trace_enter("compile_if_statement", c);
     consume(c, TOKEN_LEFT_PAREN, "missing paren before if condition");
     compile_expression(c);
     consume(c, TOKEN_RIGHT_PAREN, "missing paren after if condition");
@@ -410,9 +452,11 @@ static void compile_if_statement(Compiler *c) {
         compile_statement(c);
     }
     chunk_patch_unary(c->chunk, jump_after_else, OP_JUMP);
+    trace_exit();
 }
 
 static void compile_while_statement(Compiler *c) {
+    trace_enter("compile_while_statement", c);
     size_t start = chunk_label(c->chunk);
     consume(c, TOKEN_LEFT_PAREN, "missing paren before while condition");
     enter_block(c);
@@ -426,12 +470,15 @@ static void compile_while_statement(Compiler *c) {
     chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
     chunk_write_operation(c->chunk, c->prev.line, OP_POP);
     exit_block(c);
+    trace_exit();
 }
 
 static void compile_expression_statement(Compiler *c) {
+    trace_enter("compile_expression_statement", c);
     compile_expression(c);
     consume(c, TOKEN_SEMICOLON, "missing semicolon after expression statement");
     chunk_write_operation(c->chunk, c->prev.line, OP_POP);
+    trace_exit();
 }
 
 // this loop:
@@ -455,6 +502,7 @@ static void compile_expression_statement(Compiler *c) {
 // }
 
 static void compile_for_statement(Compiler *c) {
+    trace_enter("compile_for_statement", c);
     consume(c, TOKEN_LEFT_PAREN, "missing paren after for");
     enter_block(c);
     if (match(c, TOKEN_SEMICOLON)) {
@@ -492,21 +540,27 @@ static void compile_for_statement(Compiler *c) {
     chunk_patch_unary(c->chunk, jump_if_false_to_end, OP_JUMP_IF_FALSE);
     chunk_write_operation(c->chunk, c->prev.line, OP_POP);
     exit_block(c);
+    trace_exit();
 }
 
 static void compile_block(Compiler *c) {
+    trace_enter("compile_block", c);
     while (!match(c, TOKEN_RIGHT_BRACE)) {
         compile_declaration(c);
         if (match(c, TOKEN_EOF)) {
             err_at_current(c, "missing closing brace missing after block");
+            trace_exit();
             return;
         }
     }
+    trace_exit();
 }
 
 static void compile_continue_statement(Compiler *c) {
+    trace_enter("compile_continue_statement", c);
     if (!in_loop(c)) {
         err_at_prev(c, "cannot continue outside of a loop");
+        trace_exit();
         return;
     }
     consume(c, TOKEN_SEMICOLON, "missing semicolon after continue");
@@ -528,12 +582,15 @@ static void compile_continue_statement(Compiler *c) {
         chunk_write_operation(c->chunk, c->prev.line, OP_POP);
     }
     chunk_loop_to_label(c->chunk, c->prev.line, blk->continue_label);
+    trace_exit();
 }
 
 static void compile_break_statement(Compiler *c) {
+    trace_enter("compile_break_statement", c);
     // TODO: fix local vairable popping
     if (!in_loop(c)) {
         err_at_prev(c, "cannot break outside of a loop");
+        trace_exit();
         return;
     }
     consume(c, TOKEN_SEMICOLON, "missing semicolon after break");
@@ -542,9 +599,11 @@ static void compile_break_statement(Compiler *c) {
     size_t jump_bookmark = chunk_reserve_unary(c->chunk, c->prev.line);
     Break brk = (Break){.pop_bookmark = pop_bookmark, .jump_bookmark = jump_bookmark};
     dynarray_append(Break)(&b->breaks, &brk);
+    trace_exit();
 }
 
 static void compile_statement(Compiler *c) {
+    trace_enter("compile_statement", c);
     if (match(c, TOKEN_PRINT)) {
         compile_print_statement(c);
     } else if (match(c, TOKEN_IF)) {
@@ -565,6 +624,7 @@ static void compile_statement(Compiler *c) {
     } else {
         compile_expression_statement(c);
     }
+    trace_exit();
 }
 
 Tag var_from_token(Token t) {
@@ -576,11 +636,13 @@ Tag var_from_token(Token t) {
 }
 
 static void compile_var_declaration(Compiler *c) {
+    trace_enter("compile_var_declaration", c);
 start:
     consume(c, TOKEN_IDENTIFIER, "missing variable name");
     Tag var = var_from_token(c->prev);
     if (in_block(c)) {
         if (!declare_local(c, var)) {
+            trace_exit();
             return;
         };
     }
@@ -604,19 +666,23 @@ start:
         goto start;
     }
     consume(c, TOKEN_SEMICOLON, "missing semicolon after variable declaration");
+    trace_exit();
 }
 
 static void compile_declaration(Compiler *c) {
+    trace_enter("compile_declaration", c);
     if (match(c, TOKEN_VAR)) {
         compile_var_declaration(c);
     } else {
         compile_statement(c);
     }
     synchronize(c);
+    trace_exit();
 }
 
 static void compile_unary(Compiler *c, bool _) {
     (void)_; // unused
+    trace_enter("compile_unary", c);
     Token t = c->prev;
     compile_precedence(c, PREC_UNARY);
     switch (t.type) {
@@ -629,10 +695,12 @@ static void compile_unary(Compiler *c, bool _) {
     default:
         assert(0 && "unknown unary token");
     }
+    trace_exit();
 }
 
 static void compile_binary(Compiler *c, bool _) {
     (void)_; // unused
+    trace_enter("compile_binary", c);
     Token t = c->prev;
     compile_precedence(c, rules[t.type].precedence + 1);
     switch (t.type) {
@@ -675,62 +743,88 @@ static void compile_binary(Compiler *c, bool _) {
     default:
         assert(0 && "unknown binary token");
     }
+    trace_exit();
+}
+
+static void get_var(Compiler *c, Tag var) {
+    if (in_block(c)) { // in local scope
+        size_t idx;
+        if (resolve_local(c, var, &idx)) {
+            tag_free(var);
+            chunk_write_unary(c->chunk, c->prev.line, OP_GET_LOCAL, idx);
+            return;
+        }
+    }
+    // in global scope or no local variable found in local and parent scopes
+    size_t idx = chunk_record_const(c->chunk, var);
+    chunk_write_unary(c->chunk, c->prev.line, OP_GET_GLOBAL, idx);
+}
+
+static void set_var(Compiler *c, Tag var) {
+    if (in_block(c)) { // in local scope
+        size_t idx;
+        if (resolve_local(c, var, &idx)) {
+            tag_free(var);
+            chunk_write_unary(c->chunk, c->prev.line, OP_SET_LOCAL, idx);
+            return;
+        }
+    }
+    // in global scope or no local variable found in local and parent scopes
+    size_t idx = chunk_record_const(c->chunk, var);
+    chunk_write_unary(c->chunk, c->prev.line, OP_SET_GLOBAL, idx);
 }
 
 static void compile_variable(Compiler *c, bool can_assign) {
-    Tag var = var_from_token(c->prev);
-    if (can_assign && match(c, TOKEN_EQUAL)) { // an assignment
+    trace_enter(can_assign ? "compile_variable(T)" : "compile_variable(F)", c);
+    Tag var_get = var_from_token(c->prev);
+    Tag var_set = var_from_token(c->prev);
+    if (can_assign && match(c, TOKEN_EQUAL)) {
         compile_expression(c);
-        if (in_block(c)) { // in local scope
-            size_t idx;
-            if (resolve_local(c, var, &idx)) {
-                tag_free(var);
-                chunk_write_unary(c->chunk, c->prev.line, OP_SET_LOCAL, idx);
-                return;
-            }
-        }
-        // in global scope or no local variable found in local and parent scopes
-        size_t idx = chunk_record_const(c->chunk, var);
-        chunk_write_unary(c->chunk, c->prev.line, OP_SET_GLOBAL, idx);
-    } else {               // not an assignment
-        if (in_block(c)) { // in local scope
-            size_t idx;
-            if (resolve_local(c, var, &idx)) {
-                tag_free(var);
-                chunk_write_unary(c->chunk, c->prev.line, OP_GET_LOCAL, idx);
-                return;
-            }
-        }
-        // in global scope or no local variable found in local and parent scopes
-        size_t idx = chunk_record_const(c->chunk, var);
-        chunk_write_unary(c->chunk, c->prev.line, OP_GET_GLOBAL, idx);
+        tag_free(var_get);
+        set_var(c, var_set);
+    } else if (can_assign && match(c, TOKEN_PLUS_EQUAL)) {
+        get_var(c, var_get);
+        compile_expression(c);
+        chunk_write_operation(c->chunk, c->prev.line, OP_ADD);
+        set_var(c, var_set);
+    } else {
+        tag_free(var_set);
+        get_var(c, var_get);
     }
+    trace_exit();
 }
 
 static void compile_and(Compiler *c, bool _) {
     (void)_; // unused
+    trace_enter("compile_and", c);
     size_t jump_if_false = chunk_reserve_unary(c->chunk, c->prev.line);
     chunk_write_operation(c->chunk, c->prev.line, OP_POP);
     compile_precedence(c, PREC_AND);
     chunk_patch_unary(c->chunk, jump_if_false, OP_JUMP_IF_FALSE);
+    trace_exit();
 }
 
 static void compile_or(Compiler *c, bool _) {
     (void)_; // unused
+    trace_enter("compile_or", c);
     size_t jump_if_true = chunk_reserve_unary(c->chunk, c->prev.line);
     chunk_write_operation(c->chunk, c->prev.line, OP_POP);
     compile_precedence(c, PREC_OR);
     chunk_patch_unary(c->chunk, jump_if_true, OP_JUMP_IF_TRUE);
+    trace_exit();
 }
 
 static void compile_grouping(Compiler *c, bool _) {
     (void)_; // unused
+    trace_enter("compile_grouping", c);
     compile_expression(c);
     consume(c, TOKEN_RIGHT_PAREN, "missing paren after expression");
+    trace_exit();
 }
 
 static void compile_dict(Compiler *c, bool _) {
     (void)_; // unused
+    trace_enter("compile_dict", c);
     chunk_write_operation(c->chunk, c->prev.line, OP_DICT);
     while (!match(c, TOKEN_RIGHT_BRACE)) {
         compile_expression(c);
@@ -742,10 +836,12 @@ static void compile_dict(Compiler *c, bool _) {
             break;
         }
     }
+    trace_exit();
 }
 
 static void compile_list(Compiler *c, bool _) {
     (void)_; // unused
+    trace_enter("compile_list", c);
     chunk_write_operation(c->chunk, c->prev.line, OP_LIST);
     while (!match(c, TOKEN_RIGHT_BRACKET)) {
         compile_expression(c);
@@ -755,17 +851,21 @@ static void compile_list(Compiler *c, bool _) {
             break;
         }
     }
+    trace_exit();
 }
 
 static void compile_item(Compiler *c, bool can_assign) {
+    trace_enter(can_assign ? "compile_item(T)" : "compile_item(F)", c);
     if (match(c, TOKEN_RIGHT_BRACKET)) {
         if (!can_assign) {
             err_at_prev(c, "unexpected append operator");
+            trace_exit();
             return;
         }
-        consume(c, TOKEN_EQUAL, "missing append assignment");
+        consume(c, TOKEN_EQUAL, "missing assignment in append operand");
         compile_expression(c);
         chunk_write_operation(c->chunk, c->prev.line, OP_APPEND);
+        trace_exit();
         return;
     }
     compile_expression(c);
@@ -776,6 +876,7 @@ static void compile_item(Compiler *c, bool can_assign) {
     } else {
         chunk_write_operation(c->chunk, c->prev.line, OP_GET);
     }
+    trace_exit();
 }
 
 bool compile(const char *src, Chunk *chunk) {
@@ -802,6 +903,7 @@ static CompileRule rules[] = {
     {0, 0, PREC_NONE},                          // TOKEN_DOT
     {compile_unary, compile_binary, PREC_TERM}, // TOKEN_MINUS
     {0, compile_binary, PREC_TERM},             // TOKEN_PLUS
+    {0, 0, PREC_NONE},                          // TOKEN_PLUS_EQUAL
     {0, 0, PREC_NONE},                          // TOKEN_COLON
     {0, 0, PREC_NONE},                          // TOKEN_SEMICOLON
     {0, compile_binary, PREC_FACTOR},           // TOKEN_SLASH
