@@ -31,20 +31,35 @@ static char *read_file(const char *path) {
     return buffer;
 }
 
+// exported for the web
+void disassamble(const char *src) {
+    Chunk c = {0};
+    if (compile(src, &c)) {
+        chunk_disassamble_src(&c, src);
+    }
+    chunk_destroy(&c);
+}
+
+bool run(const char *src) {
+    bool success = false;
+    Chunk c = {0};
+    if (compile(src, &c)) {
+#ifdef SLANG_DEBUG
+        chunk_disassamble_src(&c, src);
+#endif
+        success = interpret(&c);
+    }
+    chunk_destroy(&c);
+    return success;
+}
+
 int main(int argc, char *argv[]) {
     bool success = false;
     if (argc == 1) {
         // repl();
     } else if (argc == 2) {
         char *src = read_file(argv[1]);
-        Chunk c = {0};
-        if (compile(src, &c)) {
-#ifdef SLANG_DEBUG
-            chunk_disassamble_src(&c, src);
-#endif
-            success = interpret(&c);
-        }
-        chunk_destroy(&c);
+        success = run(src);
         free(src);
     } else {
         fprintf(stderr, "usage: %s [path]\n", argv[0]);
@@ -54,8 +69,8 @@ int main(int argc, char *argv[]) {
     if (mem_stats.bytes != 0) {
         fprintf(stderr, "unfreed memory: %zu\n", mem_stats.bytes);
     }
-    assert(mem_stats.bytes == 0 && "unfreed memory");
 #endif
+    assert(mem_stats.bytes == 0 && "unfreed memory");
 
     if (!success) {
         exit(1);

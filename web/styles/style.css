@@ -1,0 +1,92 @@
+html {
+    box-sizing: border-box;
+    font-family: 'Fira Code';
+}
+
+*,
+*:before,
+*:after {
+    box-sizing: inherit;
+}
+
+body {
+    background-color: #1A1A23;
+    color: #EFF1ED;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: row;
+}
+
+#input {
+    display: flex;
+    height: 100vh;
+    width: 50vw;
+    padding: 1em;
+    padding-bottom: 2em;
+}
+
+#editor {
+    width: 100%;
+    height: 100%;
+}
+
+#output {
+    display: flex;
+    flex-direction: column;
+    width: 50vw;
+    padding: 1em;
+}
+
+#toolbar {
+    display: flex;
+    flex-direction: row;
+}
+
+a.buttonb,
+a.buttong,
+a.buttonr {
+    display: flex;
+    padding: .5em 1em;
+    margin: 0 0.5em 0.5em 0;
+    border-radius: 0.5em;
+    text-decoration: none;
+    color: white;
+    background-color: #79A9D1;
+    box-shadow: inset 0 -0.5em 0 -0.25em rgba(0, 0, 0, 0.5);
+    text-align: center;
+    position: relative;
+}
+
+a.buttong {
+    background-color: #23CE6B;
+}
+
+a.buttonr {
+    background-color: #66666E;
+}
+
+a.buttonb:active,
+a.buttong:active,
+a.buttonr:active {
+    top: 0.1em;
+    box-shadow: none;
+}
+
+#stdout {
+    height: 0;
+    flex: 1;
+    margin: 1em 0;
+    box-shadow: inset 0 -0.5em 0 -0.25em rgba(0, 0, 0);
+    padding: .25em 1em;
+    background-color: #FFFFFF08;
+    border-radius: .5em;
+}
+
+#viewport {
+    display: absolute;
+    height: 100%;
+    width: 100%;
+    overflow: auto;
+    font-size: 1.2em;
+}

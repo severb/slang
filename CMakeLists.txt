@@ -42,3 +42,14 @@ option(COREDUMP "don't abort execution on memory errors to cause a coredump" OFF
 if(COREDUMP)
     target_compile_definitions(mem PRIVATE SLANG_COREDUMP)
 endif(COREDUMP)
+
+option(WASM "set extra flags for Emscripten output" OFF)
+if(WASM)
+    # --pre-js is relative to where the output file is
+    set_target_properties(slang PROPERTIES COMPILE_FLAGS
+        "-s EXPORTED_FUNCTIONS=\"['_run', '_disassamble']\" -s EXTRA_EXPORTED_RUNTIME_METHODS=\"['ccall']\" --pre-js ../../web/src/pre.js"
+    )
+    set_target_properties(slang PROPERTIES LINK_FLAGS
+        "-s EXPORTED_FUNCTIONS=\"['_run', '_disassamble']\" -s EXTRA_EXPORTED_RUNTIME_METHODS=\"['ccall']\" --pre-js ../../web/src/pre.js"
+    )
+endif(WASM)

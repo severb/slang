@@ -49,7 +49,9 @@ inline void slice_printf(FILE *f, const Slice *s) { STR_PRINTF; }
 inline void string_reprf(FILE *f, const String *s) { STR_REPRF; }
 inline void slice_reprf(FILE *f, const Slice *s) {
     STR_REPRF;
+#ifdef SLANG_DEBUG
     putc('S', f);
+#endif
 }
 
 #undef STR_REPRF

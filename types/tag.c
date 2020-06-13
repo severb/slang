@@ -121,10 +121,12 @@ static void print(FILE *f, Tag t, bool is_repr) {
         fprintf(f, "%" PRId64, tag_to_i49(t));
         break;
     }
+#ifdef SLANG_DEBUG
     if (is_repr && tag_is_ptr(t)) {
         char ownership_flag = tag_is_own(t) ? 'O' : 'R';
         fputc(ownership_flag, f);
     }
+#endif
 }
 
 void tag_printf(FILE *f, Tag t) { print(f, t, false); }

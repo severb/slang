@@ -24,7 +24,9 @@ typedef struct {
 } Tag;
 
 // Tags are 64 bit long
+#ifndef NDEBUG
 static_assert(sizeof(uint64_t) == sizeof(Tag), "Tag size is not 64");
+#endif
 
 // Forward declarations of tag pointer types.
 typedef struct String String;
@@ -75,8 +77,10 @@ inline bool tag_is_data(Tag t) { return !tag_is_ptr(t); }
 // arbitrary chars in a string. We assume all pointers are at least two-byte aligned, which means we
 // can use the least significant bit as a flag. If the flag is unset, the pointer value "owns" the
 // data and is responsible for freeing it; otherwise, it's just a reference.
+#ifndef NDEBUG
 static_assert(sizeof(max_align_t) >= 2, "pointer alginment is too small");
 static_assert(UINTPTR_MAX <= UINT64_MAX, "max pointer value exceedes uint64_t");
+#endif
 
 inline bool tag_is_own(Tag t) { return (t.u & (SIGN_FLAG | TAGGED_MASK | 1)) == TAGGED_MASK; }
 
@@ -220,7 +224,10 @@ inline bool tag_is_symbol(Tag t) { return ((t.u & DISCRIMINANT_MASK) == SYMBOL_D
 
 typedef enum { SYM_FALSE, SYM_TRUE, SYM_NIL, SYM_OK, SYM__COUNT } Symbol;
 
+#ifndef NDEBUG
 static_assert(0xfff6000000000000 == SYMBOL_DISCRIMINANT, "symbol constant changed");
+#endif
+
 #define TAG_FALSE ((Tag){.u = 0xfff6000000000000 | SYM_FALSE})
 #define TAG_TRUE ((Tag){.u = (0xfff6000000000000) | SYM_TRUE})
 #define TAG_NIL ((Tag){.u = (0xfff6000000000000) | SYM_NIL})

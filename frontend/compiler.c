@@ -14,7 +14,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifndef NDEBUG
 static_assert(SIZE_MAX <= UINT64_MAX, "cannot safely cast size_t to uint64_t VM operands");
+#endif
 
 // Supporting the 'break' statement requires a lot of bookkeeping in a single-pass compiler
 typedef struct {

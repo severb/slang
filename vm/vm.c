@@ -103,7 +103,9 @@ static inline void replace_top(VM *vm, Tag t) { *list_last(&vm->stack) = t; }
     } while (0)
 
 // This can be less restrictive if checked at runtime
+#ifndef NDEBUG
 static_assert(SIZE_MAX >= UINT64_MAX, "cannot cast uint64_t VM operands to size_t");
+#endif
 
 static bool run(VM *vm) {
     // TODO: use computed gotos
