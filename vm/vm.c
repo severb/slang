@@ -383,7 +383,7 @@ static bool run(VM *vm) {
             break;
         }
         case OP_DICT_INIT:
-        case OP_SET: {
+        case OP_ITEM_SET: {
             Tag val = pop(vm);
             Tag key = pop(vm);
             Tag obj = top(vm);
@@ -397,7 +397,7 @@ static bool run(VM *vm) {
             }
             break;
         }
-        case OP_GET: {
+        case OP_ITEM_GET: {
             Tag key = pop(vm);
             Tag obj = top(vm);
             Tag val;

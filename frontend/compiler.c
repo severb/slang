@@ -872,12 +872,12 @@ static void compile_item(Compiler *c, bool can_assign) {
     consume(c, TOKEN_RIGHT_BRACKET, "missing right bracket");
     if (can_assign && match(c, TOKEN_EQUAL)) { // an assignment
         compile_expression(c);
-        chunk_write_operation(c->chunk, c->prev.line, OP_SET);
+        chunk_write_operation(c->chunk, c->prev.line, OP_ITEM_SET);
     } else if (can_assign && match(c, TOKEN_PLUS_EQUAL)) {
         compile_expression(c);
         chunk_write_operation(c->chunk, c->prev.line, OP_ITEM_SHORT_ADD);
     } else {
-        chunk_write_operation(c->chunk, c->prev.line, OP_GET);
+        chunk_write_operation(c->chunk, c->prev.line, OP_ITEM_GET);
     }
     trace_exit();
 }
