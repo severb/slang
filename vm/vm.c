@@ -391,7 +391,7 @@ static bool run(VM *vm) {
                 tag_free(val);
                 return false;
             };
-            if (opcode == OP_SET) {
+            if (opcode == OP_ITEM_SET) {
                 tag_free(obj); // ({})[0] = 0;
                 replace_top(vm, val);
             }
