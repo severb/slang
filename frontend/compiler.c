@@ -90,7 +90,10 @@ void trace_enter(const char *f, const Compiler *c) {
 }
 void trace_exit(void) { indent--; }
 #else
-void trace_enter(const char *, const Compiler *) {}
+void trace_enter(const char *f, const Compiler *c) {
+    (void)f; // unused
+    (void)c; // unused
+}
 void trace_exit(void) {}
 #endif
 
