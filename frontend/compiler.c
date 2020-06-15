@@ -897,6 +897,19 @@ static void compile_item(Compiler *c, bool can_assign) {
     } else if (can_assign && match(c, TOKEN_PLUS_EQUAL)) {
         compile_expression(c);
         chunk_write_operation(c->chunk, c->prev.line, OP_ITEM_SHORT_ADD);
+    } else if (can_assign && match(c, TOKEN_MINUS_EQUAL)) {
+        compile_expression(c);
+        chunk_write_operation(c->chunk, c->prev.line, OP_NEGATE);
+        chunk_write_operation(c->chunk, c->prev.line, OP_ITEM_SHORT_ADD);
+    } else if (can_assign && match(c, TOKEN_STAR_EQUAL)) {
+        compile_expression(c);
+        chunk_write_operation(c->chunk, c->prev.line, OP_ITEM_SHORT_MULTIPLY);
+    } else if (can_assign && match(c, TOKEN_SLASH_EQUAL)) {
+        compile_expression(c);
+        chunk_write_operation(c->chunk, c->prev.line, OP_ITEM_SHORT_DIVIDE);
+    } else if (can_assign && match(c, TOKEN_PERCENT_EQUAL)) {
+        compile_expression(c);
+        chunk_write_operation(c->chunk, c->prev.line, OP_ITEM_SHORT_REMAINDER);
     } else {
         chunk_write_operation(c->chunk, c->prev.line, OP_ITEM_GET);
     }

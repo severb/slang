@@ -181,9 +181,6 @@ static bool run(VM *vm) {
             BINARY_MATH(tag_div);
             break;
         }
-        case OP_SUBTRACT: {
-            break; // not used yet
-        }
         case OP_REMAINDER: {
             BINARY_MATH(tag_mod);
             break;
@@ -410,6 +407,9 @@ static bool run(VM *vm) {
             replace_top(vm, val);
             break;
         }
+        case OP_ITEM_SHORT_REMAINDER:
+        case OP_ITEM_SHORT_MULTIPLY:
+        case OP_ITEM_SHORT_DIVIDE:
         case OP_ITEM_SHORT_ADD: {
             Tag val = pop(vm);
             Tag key = pop(vm);
@@ -420,7 +420,23 @@ static bool run(VM *vm) {
                 tag_free(val);
                 return false;
             }
-            Tag result = tag_add(read_val, val);
+            Tag result = TAG_NIL;
+            switch (opcode) {
+            case OP_ITEM_SHORT_REMAINDER:
+                result = tag_mod(read_val, val);
+                break;
+            case OP_ITEM_SHORT_MULTIPLY:
+                result = tag_mul(read_val, val);
+                break;
+            case OP_ITEM_SHORT_DIVIDE:
+                result = tag_div(read_val, val);
+                break;
+            case OP_ITEM_SHORT_ADD:;
+                result = tag_add(read_val, val);
+                break;
+            default:
+                assert(0 && "unhandled short-hand assignment operator");
+            }
             if (tag_is_error(result)) {
                 runtime_tag(vm, result);
                 tag_free(key);
