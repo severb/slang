@@ -256,19 +256,19 @@ void lex_consume(Lexer *lex, Token *t) {
         token(lex, TOKEN_DOT, t);
         return;
     case '-':
-        token(lex, TOKEN_MINUS, t);
+        token(lex, match(lex, '=') ? TOKEN_MINUS_EQUAL : TOKEN_MINUS, t);
         return;
     case '+':
         token(lex, match(lex, '=') ? TOKEN_PLUS_EQUAL : TOKEN_PLUS, t);
         return;
     case '/':
-        token(lex, TOKEN_SLASH, t);
+        token(lex, match(lex, '=') ? TOKEN_SLASH_EQUAL : TOKEN_SLASH, t);
         return;
     case '*':
-        token(lex, TOKEN_STAR, t);
+        token(lex, match(lex, '=') ? TOKEN_STAR_EQUAL : TOKEN_STAR, t);
         return;
     case '%':
-        token(lex, TOKEN_PERCENT, t);
+        token(lex, match(lex, '=') ? TOKEN_PERCENT_EQUAL : TOKEN_PERCENT, t);
         return;
     case '!':
         token(lex, match(lex, '=') ? TOKEN_BANG_EQUAL : TOKEN_BANG, t);

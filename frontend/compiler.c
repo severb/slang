@@ -787,6 +787,27 @@ static void compile_variable(Compiler *c, bool can_assign) {
         compile_expression(c);
         chunk_write_operation(c->chunk, c->prev.line, OP_ADD);
         set_var(c, var_set);
+    } else if (can_assign && match(c, TOKEN_MINUS_EQUAL)) {
+        get_var(c, var_get);
+        compile_expression(c);
+        chunk_write_operation(c->chunk, c->prev.line, OP_NEGATE);
+        chunk_write_operation(c->chunk, c->prev.line, OP_ADD);
+        set_var(c, var_set);
+    } else if (can_assign && match(c, TOKEN_STAR_EQUAL)) {
+        get_var(c, var_get);
+        compile_expression(c);
+        chunk_write_operation(c->chunk, c->prev.line, OP_MULTIPLY);
+        set_var(c, var_set);
+    } else if (can_assign && match(c, TOKEN_SLASH_EQUAL)) {
+        get_var(c, var_get);
+        compile_expression(c);
+        chunk_write_operation(c->chunk, c->prev.line, OP_DIVIDE);
+        set_var(c, var_set);
+    } else if (can_assign && match(c, TOKEN_PERCENT_EQUAL)) {
+        get_var(c, var_get);
+        compile_expression(c);
+        chunk_write_operation(c->chunk, c->prev.line, OP_REMAINDER);
+        set_var(c, var_set);
     } else {
         tag_free(var_set);
         get_var(c, var_get);
@@ -905,13 +926,17 @@ static CompileRule rules[] = {
     {0, 0, PREC_NONE},                          // TOKEN_COMMA
     {0, 0, PREC_NONE},                          // TOKEN_DOT
     {compile_unary, compile_binary, PREC_TERM}, // TOKEN_MINUS
+    {0, 0, PREC_NONE},                          // TOKEN_MINUS_EQUAL
     {0, compile_binary, PREC_TERM},             // TOKEN_PLUS
     {0, 0, PREC_NONE},                          // TOKEN_PLUS_EQUAL
     {0, 0, PREC_NONE},                          // TOKEN_COLON
     {0, 0, PREC_NONE},                          // TOKEN_SEMICOLON
     {0, compile_binary, PREC_FACTOR},           // TOKEN_SLASH
+    {0, 0, PREC_NONE},                          // TOKEN_SLASH_EQUAL
     {0, compile_binary, PREC_FACTOR},           // TOKEN_STAR
+    {0, 0, PREC_NONE},                          // TOKEN_STAR_EQUAL
     {0, compile_binary, PREC_FACTOR},           // TOKEN_PERCENT
+    {0, 0, PREC_NONE},                          // TOKEN_PERCENT_EQUAL
     {compile_unary, 0, PREC_NONE},              // TOKEN_BANG
     {0, compile_binary, PREC_EQUALITY},         // TOKEN_BANG_EQUAL
     {0, 0, PREC_NONE},                          // TOKEN_EQUAL
