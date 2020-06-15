@@ -63,23 +63,18 @@ static inline bool list_key_to_idx(VM *vm, const List *l, Tag key, size_t *idx) 
         i = tag_to_i49(key);
     } else if (tag_is_i64(key)) {
         i = *tag_to_i64(key);
-        // tag_free(key); can't free here because of the errors below
     } else {
         runtime_err_tag(vm, "list index is non-integer: ", key);
-        tag_free(key);
         return false;
     }
     if (i < 0) {
         runtime_err_tag(vm, "negative index: ", key);
-        tag_free(key);
         return false;
     }
     if ((size_t)i >= list_len(l)) {
         runtime_err_tag(vm, "list index out of bounds: ", key);
-        tag_free(key);
         return false;
     }
-    tag_free(key);
     *idx = (size_t)i;
     return true;
 }
@@ -102,10 +97,62 @@ static inline void replace_top(VM *vm, Tag t) { *list_last(&vm->stack) = t; }
         }                                                                                          \
     } while (0)
 
-// This can be less restrictive if checked at runtime
+// This can be less restrictive if checked during compilation
 #ifndef NDEBUG
 static_assert(SIZE_MAX >= UINT64_MAX, "cannot cast uint64_t VM operands to size_t");
 #endif
+
+// obj and key don't pass ownership
+bool item_get(VM *vm, Tag obj, Tag key, Tag *val) {
+    if (tag_is_table(obj)) {
+        Table *t = tag_to_table(obj);
+        if (!table_get(t, key, val)) {
+            runtime_err_tag(vm, "key not found: ", key);
+            return false;
+        };
+    } else if (tag_is_list(obj)) {
+        List *l = tag_to_list(obj);
+        size_t idx;
+        if (!list_key_to_idx(vm, l, key, &idx)) {
+            return false;
+        }
+        *val = *list_get(l, idx);
+    } else {
+        runtime_err(vm, "cannot index type: ", tag_type_str(tag_type(obj)));
+        return false;
+    }
+    return true;
+}
+
+// key passes ownership, val is input/output
+bool item_set(VM *vm, Tag obj, Tag key, Tag *val) {
+    if (tag_is_own(*val)) {
+        list_append(&vm->temps, *val);
+        *val = tag_to_ref(*val);
+    }
+    if (tag_is_table(obj)) {
+        if (tag_is_own(key)) {
+            list_append(&vm->temps, key);
+            key = tag_to_ref(key);
+        }
+        Table *t = tag_to_table(obj);
+        table_set(t, key, *val);
+    } else if (tag_is_list(obj)) {
+        List *l = tag_to_list(obj);
+        size_t idx;
+        bool idx_success = list_key_to_idx(vm, l, key, &idx);
+        tag_free(key);
+        if (!idx_success) {
+            return false;
+        }
+        *list_get(l, idx) = *val;
+    } else {
+        tag_free(key);
+        runtime_err(vm, "non indexable type: ", tag_type_str(tag_type(obj)));
+        return false;
+    }
+    return true;
+}
 
 static bool run(VM *vm) {
     // TODO: use computed gotos
@@ -232,7 +279,7 @@ static bool run(VM *vm) {
                 var = tag_to_ref(var);
             }
             Tag val = top(vm);
-            if (tag_is_own(val)) {
+            if (tag_is_own(val)) { // convert to ref before err check to avoid leaks
                 list_append(&vm->temps, val);
                 val = tag_to_ref(val);
                 replace_top(vm, val);
@@ -320,7 +367,7 @@ static bool run(VM *vm) {
         }
         case OP_APPEND: {
             Tag val = pop(vm);
-            if (tag_is_own(val)) {
+            if (tag_is_own(val)) { // convert to ref before error check to avoid ref leak
                 list_append(&vm->temps, val);
                 val = tag_to_ref(val);
             }
@@ -331,70 +378,61 @@ static bool run(VM *vm) {
             }
             List *l = tag_to_list(list);
             list_append(l, val);
-            tag_free(top(vm)); // [] []= 1;
+            tag_free(list); // [] []= 1;
             replace_top(vm, val);
             break;
         }
         case OP_DICT_INIT:
         case OP_SET: {
             Tag val = pop(vm);
-            if (tag_is_own(val)) {
-                list_append(&vm->temps, val);
-                val = tag_to_ref(val);
-            }
             Tag key = pop(vm);
             Tag obj = top(vm);
-            if (tag_is_table(obj)) {
-                if (tag_is_own(key)) {
-                    list_append(&vm->temps, key);
-                    key = tag_to_ref(key);
-                }
-                Table *t = tag_to_table(obj);
-                table_set(t, key, val);
-            } else if (tag_is_list(obj)) {
-                List *l = tag_to_list(obj);
-                size_t idx;
-                if (!list_key_to_idx(vm, l, key, &idx)) {
-                    return false;
-                }
-                *list_get(l, idx) = val;
-            } else {
-                runtime_err(vm, "non indexable type: ", tag_type_str(tag_type(obj)));
+            if (!item_set(vm, obj, key, &val)) {
+                tag_free(val);
                 return false;
-            }
+            };
             if (opcode == OP_SET) {
-                tag_free(top(vm)); // ({})[0] = 0;
+                tag_free(obj); // ({})[0] = 0;
                 replace_top(vm, val);
             }
             break;
         }
         case OP_GET: {
-            // TODO: refactor list index handling between getting and setting
             Tag key = pop(vm);
             Tag obj = top(vm);
             Tag val;
-            if (tag_is_table(obj)) {
-                Table *t = tag_to_table(obj);
-                if (!table_get(t, key, &val)) {
-                    runtime_err_tag(vm, "key not found: ", key);
-                    tag_free(key);
-                    return false;
-                };
-                tag_free(key);
-            } else if (tag_is_list(obj)) {
-                List *l = tag_to_list(obj);
-                size_t idx;
-                if (!list_key_to_idx(vm, l, key, &idx)) {
-                    return false;
-                }
-                val = *list_get(l, idx);
-            } else {
-                runtime_err(vm, "cannot index type: ", tag_type_str(tag_type(obj)));
-                tag_free(key);
+            bool item_get_success = item_get(vm, obj, key, &val);
+            tag_free(key);
+            if (!item_get_success) {
                 return false;
             }
-            tag_free(top(vm)); // ([1,2,3])[0];
+            tag_free(obj); // ([1,2,3])[0];
             replace_top(vm, val);
+            break;
+        }
+        case OP_ITEM_SHORT_ADD: {
+            Tag val = pop(vm);
+            Tag key = pop(vm);
+            Tag obj = top(vm);
+            Tag read_val;
+            if (!item_get(vm, obj, key, &read_val)) {
+                tag_free(key);
+                tag_free(val);
+                return false;
+            }
+            Tag result = tag_add(read_val, val);
+            if (tag_is_error(result)) {
+                runtime_tag(vm, result);
+                tag_free(key);
+                tag_free(result);
+                return false;
+            }
+            if (!item_set(vm, obj, key, &result)) {
+                tag_free(result);
+                return false;
+            }
+            tag_free(obj);
+            replace_top(vm, result);
             break;
         }
         default:
