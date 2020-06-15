@@ -17,7 +17,7 @@ var a = 1, b = 1;
 
 while (a < 1_000) { // print the fibonacci sequence up to 1000
     print a;        // since there are no functions yet, print is a statement
-    b = a + b;
+    b += a;
     a = b - a;
 }
 
@@ -73,11 +73,11 @@ while (i < 100) {     // a while statement followed by a block
 }
 
 var sum = 0;
-for (var j = 0; j < 10; j = j + 1) { // like in C, for can define local variables
-    sum = sum + j;
+for (var j = 0; j < 10; j += 1) { // like in C, for can define local variables
+    sum += j;
 } // j is out of scope after the block ends
 
-for(var j = 0; ;j = j + 1) { // for loops can have empty clauses
+for(var j = 0; ;j += 1) { // for loops can have empty clauses
     if (i < 10) continue;   // continue to the next iteration
     break;                  // break the loop
 }
