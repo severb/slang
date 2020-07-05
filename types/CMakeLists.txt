@@ -1,4 +1,4 @@
-add_library(types dynarray.c list.c str.c table.c tag.c)
+add_library(types dynarray.c list.c str.c table.c tag.c fun.c)
 target_link_libraries(types
     PUBLIC mem
     PRIVATE safemath

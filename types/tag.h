@@ -33,6 +33,7 @@ typedef struct String String;
 typedef struct Table Table;
 typedef struct List List;
 typedef struct Slice Slice;
+typedef struct Fun Fun;
 
 inline bool tag_biteq(Tag a, Tag b) { return a.u == b.u; }
 
@@ -171,8 +172,18 @@ inline Slice *tag_to_slice(Tag t) {
     return (Slice *)tag_to_ptr(t);
 }
 
-// There are two pointer tags left:
-// 01111111|11111110|........|........|........|........|........|.......o
+#define FUN_DISCRIMANANT BYTES(7f, fe, 00, 00, 00, 00, 00, 00)
+inline bool tag_is_fun(Tag t) { return ((t.u & DISCRIMINANT_MASK) == FUN_DISCRIMANANT); }
+inline Tag fun_to_tag(const Fun *f) {
+    assert(((uintptr_t)f & DISCRIMINANT_MASK) == 0);
+    return (Tag){.u = (uintptr_t)f | FUN_DISCRIMANANT};
+}
+inline Fun *tag_to_fun(Tag t) {
+    assert(tag_is_fun(t));
+    return (Fun *)tag_to_ptr(t);
+}
+
+// There is one pointer tags left:
 // 01111111|11111111|........|........|........|........|........|.......o
 
 // Other than the pointer tags, we define a few data tags which embed their values directly in the
@@ -263,7 +274,8 @@ typedef enum { // careful, this order isn't trivial to figure out
     TYPE_SYMBOL,
     TYPE_ERROR = 8,
     TYPE_SLICE,
-    TYPE_DOUBLE,
+    TYPE_FUN,
+    TYPE_DOUBLE, // this comes last
 } TagType;
 
 // tag_type() returns the type discriminant
@@ -323,6 +335,7 @@ Tag tag_negate(Tag);
 #undef I64_DISCRIMINANT
 #undef ERROR_DISCRIMINANT
 #undef SLICE_DISCRIMINANT
+#undef FUN_DISCRIMANANT
 #undef I49_DISCRIMINANT
 #undef I49_SIGN
 #undef SYMBOL_DISCRIMINANT

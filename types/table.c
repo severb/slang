@@ -198,7 +198,7 @@ void table_destroy(Table *t) {
 
 void table_free(Table *t) {
     table_destroy(t);
-    mem_free(t, sizeof(Table));
+    mem_free(t, sizeof(*t));
 }
 
 void table_printf(FILE *f, const Table *t) {

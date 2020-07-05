@@ -1,5 +1,6 @@
 #include "tag.h"
 
+#include "fun.h"      // Fun, fun_*
 #include "list.h"     // List, list_*
 #include "mem.h"      // mem_*
 #include "safemath.h" // i64_*_over
@@ -50,21 +51,29 @@ void tag_free_ptr(Tag t) {
     case TYPE_LIST:
         list_free(tag_to_list(t));
         break;
-    case TYPE_I64:
-        mem_free(tag_to_i64(t), sizeof(uint64_t));
+    case TYPE_I64: {
+        int64_t *i = tag_to_i64(t);
+        mem_free(i, sizeof(*i));
         break;
+    }
     case TYPE_ERROR: {
         Tag *error = tag_to_error(t);
         t = *error;
-        mem_free(error, sizeof(Tag));
+        mem_free(error, sizeof(*error));
         tag_free(t);
         break;
     }
     case TYPE_SLICE:
         slice_free(tag_to_slice(t));
         break;
-    default:
-        assert(0 && "tag_free called on unknown tag type");
+    case TYPE_FUN:
+        fun_free(tag_to_fun(t));
+        break;
+    case TYPE_I49P:
+    case TYPE_I49N:
+    case TYPE_SYMBOL:
+    case TYPE_DOUBLE:
+        assert(0 && "free on data tags");
     }
 }
 
@@ -101,6 +110,9 @@ static void print(FILE *f, Tag t, bool is_repr) {
         } else {
             slice_printf(f, tag_to_slice(t));
         }
+        break;
+    case TYPE_FUN:
+        fun_printf(f, tag_to_fun(t));
         break;
     case TYPE_DOUBLE: {
         double d = tag_to_double(t);
@@ -146,6 +158,8 @@ size_t tag_hash(Tag t) {
         return 0xC0FFEE ^ tag_hash(*tag_to_error(t));
     case TYPE_SLICE:
         return 0xFEEDFEED ^ slice_hash(tag_to_slice(t));
+    case TYPE_FUN:
+        return 0xBAD0F00D ^ (((uintptr_t)tag_to_ptr(t)) >> sizeof(max_align_t));
     case TYPE_DOUBLE: {
         double d = tag_to_double(t);
         if (d == (int64_t)d) {
@@ -175,6 +189,8 @@ bool tag_is_true(Tag t) {
         return false;
     case TYPE_SLICE:
         return slice_len(tag_to_slice(t));
+    case TYPE_FUN:
+        return true;
     case TYPE_DOUBLE:
         return tag_to_double(t);
     case TYPE_SYMBOL:
@@ -236,6 +252,8 @@ bool tag_eq(Tag a, Tag b) {
         default:
             return false;
         }
+    case TYPE_FUN:
+        return tag_is_fun(b) && tag_to_ptr(a) == tag_to_ptr(b);
     case TYPE_DOUBLE:
         switch (tag_type(b)) {
         case TYPE_I64:
@@ -694,8 +712,8 @@ Tag tag_negate(Tag t) {
     }
 }
 
-const char *tag_type_names[] = {"String", "Table", "List",  "Integer", "Integer", "Integer",
-                                "Symbol", "",      "Error", "String",  "Float"};
+const char *tag_type_names[] = {"String", "Table", "List",  "Integer", "Integer",  "Integer",
+                                "Symbol", "",      "Error", "String",  "Function", "Float"};
 
 extern inline bool tag_biteq(Tag, Tag);
 extern inline bool tag_is_ptr(Tag);
@@ -728,6 +746,10 @@ extern inline Tag *tag_to_error(Tag);
 extern inline bool tag_is_slice(Tag);
 extern inline Tag slice_to_tag(const Slice *);
 extern inline Slice *tag_to_slice(Tag);
+
+extern inline bool tag_is_fun(Tag);
+extern inline Tag fun_to_tag(const Fun *);
+extern inline Fun *tag_to_fun(Tag);
 
 extern inline bool tag_is_i49(Tag);
 extern inline Tag i49_to_tag(int64_t);

@@ -17,7 +17,7 @@ typedef enum {
 typedef struct {
     DynamicArray(uint8_t) bytecode;
     DynamicArray(size_t) lines;
-    List consts;
+    List consts; // TODO: benchmark against a table
 } Chunk;
 
 void chunk_write_operation(Chunk *, size_t line, uint8_t op);

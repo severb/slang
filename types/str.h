@@ -35,7 +35,7 @@ inline Slice slice(const char *start, const char *end) {
     assert(start <= end);
     return (Slice){.len = end - start, .c = start};
 }
-inline void slice_free(Slice *s) { mem_free(s, sizeof(Slice)); }
+inline void slice_free(Slice *s) { mem_free(s, sizeof(*s)); }
 
 // TODO: get rid of the int cast
 #define STR_PRINTF fprintf(f, "%.*s", (int)s->len, s->c)

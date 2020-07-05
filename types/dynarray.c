@@ -56,7 +56,7 @@ void dynarray_destroy_T(DynamicArrayT *array, size_t item_size) {
 
 void dynarray_free_T(DynamicArrayT *array, size_t item_size) {
     dynarray_destroy_T(array, item_size);
-    mem_free(array, sizeof(DynamicArrayT));
+    mem_free(array, sizeof(*array));
 }
 
 void dynarray_seal_T(DynamicArrayT *array, size_t item_size) {

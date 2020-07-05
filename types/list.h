@@ -33,6 +33,10 @@ inline Tag list_pop(List *l) {
     return result;
 }
 
+inline void list_trunc(List *l, size_t len) {
+    dynarray_trunc(Tag)(&l->array, len);
+}
+
 inline Tag *list_last(const List *l) {
     size_t len = list_len(l);
     assert(len > 0 && "last on empty list");

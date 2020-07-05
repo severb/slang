@@ -2,6 +2,7 @@
 
 #include "bytecode.h" // Chunk
 #include "dynarray.h" // dynarray_*, DynamicArray
+#include "fun.h"      // Fun, fun_*
 #include "lex.h"      // Lexer, lex_consume
 #include "list.h"     // List, list_*
 #include "mem.h"      // mem_allocate
@@ -29,12 +30,13 @@ dynarray_declare(Break);
 dynarray_define(Break);
 
 typedef struct {
-    bool is_loop;
     size_t continue_label;      // if it's a loop
     size_t continue_locals;     // the numbe of locals defined before the continue label
     List locals;                // list of locals
     DynamicArray(Break) breaks; // list of break statements
     Tag uninitialized;          // a var that's currently being initialized (used for var a = a;)
+    bool is_loop;
+    bool is_fun;
 } Block;
 
 dynarray_declare(Block);
@@ -47,7 +49,7 @@ typedef struct {
     Chunk *chunk;
     bool had_error;
     bool panic_mode;
-    DynamicArray(Block) block_queue;
+    DynamicArray(Block) block_stack;
 } Compiler;
 
 typedef enum {
@@ -78,6 +80,10 @@ void trace_enter(const char *, const Compiler *);
 void trace_exit(void);
 
 #ifdef SLANG_DEBUG
+// #define SLANG_TRACE
+#endif
+
+#ifdef SLANG_TRACE
 static int indent = 0;
 void trace_enter(const char *f, const Compiler *c) {
     for (int i = indent; i > 0; i--) {
@@ -103,12 +109,12 @@ static void compile_declaration(Compiler *);
 static void compile_var_declaration(Compiler *);
 
 static void compiler_destroy(Compiler *c) {
-    for (size_t i = 0; i < dynarray_len(Block)(&c->block_queue); i++) {
-        Block *b = dynarray_get(Block)(&c->block_queue, i);
+    for (size_t i = 0; i < dynarray_len(Block)(&c->block_stack); i++) {
+        Block *b = dynarray_get(Block)(&c->block_stack, i);
         dynarray_destroy(Break)(&b->breaks);
         list_destroy(&b->locals);
     }
-    dynarray_destroy(Block)(&c->block_queue);
+    dynarray_destroy(Block)(&c->block_stack);
     *c = (Compiler){0};
 }
 
@@ -192,6 +198,14 @@ static bool match(Compiler *c, TokenType type) {
         return true;
     }
     return false;
+}
+
+Tag tag_slice_from_token(Token t) {
+    // TODO: use a static slice in the caller instead of allways allocating
+    // TODO: use a memory pool
+    Slice *s = mem_allocate(sizeof(*s));
+    *s = slice(t.start, t.end);
+    return slice_to_tag(s);
 }
 
 static void compile_int(Compiler *c, bool _) {
@@ -284,20 +298,35 @@ static void compile_literal(Compiler *c, bool _) {
 
 static void enter_block(Compiler *c) {
     Block block = (Block){.uninitialized = TAG_NIL};
-    dynarray_append(Block)(&c->block_queue, &block);
+    dynarray_append(Block)(&c->block_stack, &block);
 }
 
-static bool in_block(const Compiler *c) { return dynarray_len(Block)(&c->block_queue) > 0; }
+static void enter_fun_block(Compiler *c) {
+    Block block = (Block){.uninitialized = TAG_NIL, .is_fun = true};
+    dynarray_append(Block)(&c->block_stack, &block);
+}
+
+static bool in_fun(Compiler *c) {
+    for (size_t i = dynarray_len(Block)(&c->block_stack); i > 0; i--) {
+        Block *b = dynarray_get(Block)(&c->block_stack, i - 1);
+        if (b->is_fun) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool in_block(const Compiler *c) { return dynarray_len(Block)(&c->block_stack) > 0; }
 
 static Block *top_block(Compiler *c) {
     assert(in_block(c) && "not in a block");
-    size_t len = dynarray_len(Block)(&c->block_queue);
-    return dynarray_get(Block)(&c->block_queue, len - 1);
+    size_t len = dynarray_len(Block)(&c->block_stack);
+    return dynarray_get(Block)(&c->block_stack, len - 1);
 }
 
 static Block *top_loop_block(Compiler *c) {
-    for (size_t i = dynarray_len(Block)(&c->block_queue); i > 0; i--) {
-        Block *b = dynarray_get(Block)(&c->block_queue, i - 1);
+    for (size_t i = dynarray_len(Block)(&c->block_stack); i > 0; i--) {
+        Block *b = dynarray_get(Block)(&c->block_stack, i - 1);
         if (b->is_loop) {
             return b;
         }
@@ -327,8 +356,8 @@ static void exit_block(Compiler *c) {
     if (!top->is_loop && brk_len) {
         // copy breaks in the parent block
         assert(in_loop(c) && "breaks escaped the loop");
-        size_t blk_q_len = dynarray_len(Block)(&c->block_queue);
-        Block *toptop = dynarray_get(Block)(&c->block_queue, blk_q_len - 2);
+        size_t blk_q_len = dynarray_len(Block)(&c->block_stack);
+        Block *toptop = dynarray_get(Block)(&c->block_stack, blk_q_len - 2);
         for (size_t i = 0; i < brk_len; i++) {
             Break *brk = dynarray_get(Break)(&top->breaks, i);
             dynarray_append(Break)(&toptop->breaks, brk);
@@ -350,15 +379,15 @@ static void exit_block(Compiler *c) {
     dynarray_destroy(Break)(&top->breaks);
     list_destroy(&top->locals);
     assert(tag_eq(top->uninitialized, TAG_NIL) && "uninitialized vars at block end");
-    size_t len = dynarray_len(Block)(&c->block_queue);
-    dynarray_trunc(Block)(&c->block_queue, len - 1);
+    size_t len = dynarray_len(Block)(&c->block_stack);
+    dynarray_trunc(Block)(&c->block_stack, len - 1);
 }
 
-static bool declare_local(Compiler *c, Tag var) {
+static bool declare_local(Compiler *c, Tag var, bool is_func) {
     Block *top = top_block(c);
     if (list_find_from(&top->locals, var, 0)) {
         tag_free(var);
-        err_at_prev(c, "variable already defined");
+        err_at_prev(c, is_func ? "duplicate function argument" : "local label already defined");
         return false;
     }
     list_append(&top->locals, var);
@@ -379,17 +408,25 @@ static bool resolve_local(Compiler *c, Tag var, size_t *idx) {
     }
     // traverse the blocks in reverse order and look for var
     // if found, sum its index with the number of locals in the remaining blocks
-    for (size_t i = dynarray_len(Block)(&c->block_queue); i > 0; i--) {
+    for (size_t i = dynarray_len(Block)(&c->block_stack); i > 0; i--) {
         size_t ii = i - 1;
-        Block *b = dynarray_get(Block)(&c->block_queue, ii);
+        Block *b = dynarray_get(Block)(&c->block_stack, ii);
         *idx = 0;
         if (list_find_from(&b->locals, var, idx)) {
-            for (size_t j = ii; j > 0; j--) {
-                size_t jj = j - 1;
-                Block *parent_block = dynarray_get(Block)(&c->block_queue, jj);
-                *idx += list_len(&parent_block->locals);
+            if (!b->is_fun) {
+                for (size_t j = ii; j > 0; j--) {
+                    size_t jj = j - 1;
+                    Block *parent_block = dynarray_get(Block)(&c->block_stack, jj);
+                    *idx += list_len(&parent_block->locals);
+                    if (parent_block->is_fun) {
+                        break;
+                    }
+                }
             }
             return true;
+        }
+        if (b->is_fun) {
+            break;
         }
     }
     return false;
@@ -569,9 +606,9 @@ static void compile_continue_statement(Compiler *c) {
     consume(c, TOKEN_SEMICOLON, "missing semicolon after continue");
     size_t locals = 0;
     Block *blk;
-    for (size_t i = dynarray_len(Block)(&c->block_queue); i > 0; i--) {
+    for (size_t i = dynarray_len(Block)(&c->block_stack); i > 0; i--) {
         size_t ii = i - 1;
-        blk = dynarray_get(Block)(&c->block_queue, ii);
+        blk = dynarray_get(Block)(&c->block_stack, ii);
         locals += list_len(&blk->locals);
         if (blk->is_loop) {
             break;
@@ -605,6 +642,77 @@ static void compile_break_statement(Compiler *c) {
     trace_exit();
 }
 
+static void compile_fun_statement(Compiler *c) { // TODO: make fun an expression
+    trace_enter("compile_fun_statement", c);
+    consume(c, TOKEN_IDENTIFIER, "missing function name");
+    Token fun_token = c->prev;
+    Tag var = tag_slice_from_token(fun_token);
+    Fun *f = mem_allocate(sizeof(*f));
+    *f = (Fun){.name = slice(c->prev.start, c->prev.end), .line = c->prev.line};
+    size_t f_idx = chunk_record_const(c->chunk, fun_to_tag(f));
+    consume(c, TOKEN_LEFT_PAREN, "missing left paren after function name");
+    while (!match(c, TOKEN_RIGHT_PAREN)) {
+        consume(c, TOKEN_IDENTIFIER, "invalid argument name");
+        Tag arg = tag_slice_from_token(c->prev);
+        list_append(&f->args, arg);
+        if (!match(c, TOKEN_COMMA)) {
+            consume(c, TOKEN_RIGHT_PAREN, "missing right paren after function arguments");
+            break;
+        }
+    }
+    f->arity = list_len(&f->args);
+    consume(c, TOKEN_LEFT_BRACE, "missing left brace before function body");
+    chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, f_idx);
+    if (in_block(c)) {
+        if (!declare_local(c, var, false)) {
+            trace_exit();
+            return;
+        };
+        initialize_local(c); // for recursive calls
+        size_t idx;
+        bool found = resolve_local(c, var, &idx);
+        (void)found; // unused
+        assert(found && "cannot resolve local variable during declaration");
+        chunk_write_unary(c->chunk, c->prev.line, OP_SET_LOCAL, idx);
+    } else {
+        size_t idx = chunk_record_const(c->chunk, var);
+        chunk_write_unary(c->chunk, c->prev.line, OP_DEF_GLOBAL, idx);
+    }
+    size_t fun_start = chunk_reserve_unary(c->chunk, c->prev.line);
+    f->entry = chunk_label(c->chunk);
+    enter_fun_block(c);
+    for (size_t i = 0; i < list_len(&f->args); i++) {
+        Tag arg_ref = tag_to_ref(*list_get(&f->args, i));
+        declare_local(c, arg_ref, true); // duplicate args handled in declare_local
+    }
+    initialize_local(c); // the locals are not initialized, just reserved
+    // NB: compiling a block doesn't create a nested namespace, thus the
+    // argumets cannot be shadowed; which is what we want.
+    compile_block(c);
+    exit_block(c);
+    chunk_write_operation(c->chunk, c->prev.line, OP_NIL); // default return value
+    chunk_write_operation(c->chunk, c->prev.line, OP_RETURN);
+    chunk_patch_unary(c->chunk, fun_start, OP_JUMP);
+    trace_exit();
+}
+
+static void compile_return_statement(Compiler *c) {
+    trace_enter("compile_return_statement", c);
+    if (!in_fun(c)) {
+        err_at_prev(c, "cannot return outside of a function");
+        trace_exit();
+        return;
+    }
+    if (match(c, TOKEN_SEMICOLON)) {
+        chunk_write_operation(c->chunk, c->prev.line, OP_NIL);
+    } else {
+        compile_expression(c);
+        consume(c, TOKEN_SEMICOLON, "missing semicolon after return expression");
+    }
+    chunk_write_operation(c->chunk, c->prev.line, OP_RETURN);
+    trace_exit();
+}
+
 static void compile_statement(Compiler *c) {
     trace_enter("compile_statement", c);
     if (match(c, TOKEN_PRINT)) {
@@ -619,6 +727,10 @@ static void compile_statement(Compiler *c) {
         compile_continue_statement(c);
     } else if (match(c, TOKEN_BREAK)) {
         compile_break_statement(c);
+    } else if (match(c, TOKEN_FUN)) {
+        compile_fun_statement(c);
+    } else if (match(c, TOKEN_RETURN)) {
+        compile_return_statement(c);
     } else if (match(c, TOKEN_LEFT_BRACE)) {
         // TODO: consider checking if it's a dictionary literal
         enter_block(c);
@@ -630,21 +742,13 @@ static void compile_statement(Compiler *c) {
     trace_exit();
 }
 
-Tag var_from_token(Token t) {
-    // TODO: use a static slice in the caller instead of allways allocating
-    // TODO: use a memory pool
-    Slice *s = mem_allocate(sizeof(*s));
-    *s = slice(t.start, t.end);
-    return slice_to_tag(s);
-}
-
 static void compile_var_declaration(Compiler *c) {
     trace_enter("compile_var_declaration", c);
 start:
     consume(c, TOKEN_IDENTIFIER, "missing variable name");
-    Tag var = var_from_token(c->prev);
+    Tag var = tag_slice_from_token(c->prev);
     if (in_block(c)) {
-        if (!declare_local(c, var)) {
+        if (!declare_local(c, var, false)) {
             trace_exit();
             return;
         };
@@ -658,7 +762,7 @@ start:
         initialize_local(c);
         size_t idx;
         bool found = resolve_local(c, var, &idx);
-        (void)found;
+        (void)found; // unused
         assert(found && "cannot resolve local variable during declaration");
         chunk_write_unary(c->chunk, c->prev.line, OP_SET_LOCAL, idx);
     } else {
@@ -779,8 +883,8 @@ static void set_var(Compiler *c, Tag var) {
 
 static void compile_variable(Compiler *c, bool can_assign) {
     trace_enter(can_assign ? "compile_variable(T)" : "compile_variable(F)", c);
-    Tag var_get = var_from_token(c->prev);
-    Tag var_set = var_from_token(c->prev);
+    Tag var_get = tag_slice_from_token(c->prev);
+    Tag var_set = tag_slice_from_token(c->prev);
     if (can_assign && match(c, TOKEN_EQUAL)) {
         compile_expression(c);
         tag_free(var_get);
@@ -919,6 +1023,20 @@ static void compile_item(Compiler *c, bool can_assign) {
     trace_exit();
 }
 
+static void compile_call(Compiler *c, bool _) {
+    (void)_; // unused
+    size_t arity = 0;
+    while (!match(c, TOKEN_RIGHT_PAREN)) {
+        arity++;
+        compile_expression(c);
+        if (!match(c, TOKEN_COMMA)) {
+            consume(c, TOKEN_RIGHT_PAREN, "missing right paren after function call");
+            break;
+        }
+    }
+    chunk_write_unary(c->chunk, c->prev.line, OP_CALL, arity);
+}
+
 bool compile(const char *src, Chunk *chunk) {
     Compiler c = {.chunk = chunk, .lex = lex(src)};
     advance(&c);
@@ -933,56 +1051,56 @@ bool compile(const char *src, Chunk *chunk) {
 
 // This table matches token's enum definition order
 static CompileRule rules[] = {
-    {compile_grouping, 0, PREC_NONE},           // TOKEN_LEFT_PAREN
-    {0, 0, PREC_NONE},                          // TOKEN_RIGHT_PAREN
-    {compile_dict, 0, PREC_NONE},               // TOKEN_LEFT_BRACE
-    {0, 0, PREC_NONE},                          // TOKEN_RIGHT_BRACE
-    {compile_list, compile_item, PREC_CALL},    // TOKEN_LEFT_BRACKET
-    {0, 0, PREC_NONE},                          // TOKEN_RIGHT_BRACKET
-    {0, 0, PREC_NONE},                          // TOKEN_COMMA
-    {0, 0, PREC_NONE},                          // TOKEN_DOT
-    {compile_unary, compile_binary, PREC_TERM}, // TOKEN_MINUS
-    {0, 0, PREC_NONE},                          // TOKEN_MINUS_EQUAL
-    {0, compile_binary, PREC_TERM},             // TOKEN_PLUS
-    {0, 0, PREC_NONE},                          // TOKEN_PLUS_EQUAL
-    {0, 0, PREC_NONE},                          // TOKEN_COLON
-    {0, 0, PREC_NONE},                          // TOKEN_SEMICOLON
-    {0, compile_binary, PREC_FACTOR},           // TOKEN_SLASH
-    {0, 0, PREC_NONE},                          // TOKEN_SLASH_EQUAL
-    {0, compile_binary, PREC_FACTOR},           // TOKEN_STAR
-    {0, 0, PREC_NONE},                          // TOKEN_STAR_EQUAL
-    {0, compile_binary, PREC_FACTOR},           // TOKEN_PERCENT
-    {0, 0, PREC_NONE},                          // TOKEN_PERCENT_EQUAL
-    {compile_unary, 0, PREC_NONE},              // TOKEN_BANG
-    {0, compile_binary, PREC_EQUALITY},         // TOKEN_BANG_EQUAL
-    {0, 0, PREC_NONE},                          // TOKEN_EQUAL
-    {0, compile_binary, PREC_EQUALITY},         // TOKEN_EQUAL_EQUAL
-    {0, compile_binary, PREC_COMPARISON},       // TOKEN_GREATER
-    {0, compile_binary, PREC_COMPARISON},       // TOKEN_GREATER_EQUAL
-    {0, compile_binary, PREC_COMPARISON},       // TOKEN_LESS
-    {0, compile_binary, PREC_COMPARISON},       // TOKEN_LESS_EQUAL
-    {compile_variable, 0, PREC_NONE},           // TOKEN_IDENTIFIER
-    {compile_string, 0, PREC_NONE},             // TOKEN_STRING
-    {compile_int, 0, PREC_NONE},                // TOKEN_INT
-    {compile_float, 0, PREC_NONE},              // TOKEN_FLOAT
-    {0, compile_and, PREC_AND},                 // TOKEN_AND
-    {0, 0, PREC_NONE},                          // TOKEN_CLASS
-    {0, 0, PREC_NONE},                          // TOKEN_ELSE
-    {compile_literal, 0, PREC_NONE},            // TOKEN_FALSE
-    {0, 0, PREC_NONE},                          // TOKEN_FOR
-    {0, 0, PREC_NONE},                          // TOKEN_FUN
-    {0, 0, PREC_NONE},                          // TOKEN_IF
-    {compile_literal, 0, PREC_NONE},            // TOKEN_NIL
-    {0, compile_or, PREC_OR},                   // TOKEN_OR
-    {0, 0, PREC_NONE},                          // TOKEN_PRINT
-    {0, 0, PREC_NONE},                          // TOKEN_RETURN
-    {0, 0, PREC_NONE},                          // TOKEN_SUPER
-    {0, 0, PREC_NONE},                          // TOKEN_THIS
-    {compile_literal, 0, PREC_NONE},            // TOKEN_TRUE
-    {0, 0, PREC_NONE},                          // TOKEN_VAR
-    {0, 0, PREC_NONE},                          // TOKEN_WHILE
-    {0, 0, PREC_NONE},                          // TOKEN_BREAK
-    {0, 0, PREC_NONE},                          // TOKEN_CONTINUE
-    {0, 0, PREC_NONE},                          // TOKEN_ERROR
-    {0, 0, PREC_NONE},                          // TOKEN_EOF
+    {compile_grouping, compile_call, PREC_CALL}, // TOKEN_LEFT_PAREN
+    {0, 0, PREC_NONE},                           // TOKEN_RIGHT_PAREN
+    {compile_dict, 0, PREC_NONE},                // TOKEN_LEFT_BRACE
+    {0, 0, PREC_NONE},                           // TOKEN_RIGHT_BRACE
+    {compile_list, compile_item, PREC_CALL},     // TOKEN_LEFT_BRACKET
+    {0, 0, PREC_NONE},                           // TOKEN_RIGHT_BRACKET
+    {0, 0, PREC_NONE},                           // TOKEN_COMMA
+    {0, 0, PREC_NONE},                           // TOKEN_DOT
+    {compile_unary, compile_binary, PREC_TERM},  // TOKEN_MINUS
+    {0, 0, PREC_NONE},                           // TOKEN_MINUS_EQUAL
+    {0, compile_binary, PREC_TERM},              // TOKEN_PLUS
+    {0, 0, PREC_NONE},                           // TOKEN_PLUS_EQUAL
+    {0, 0, PREC_NONE},                           // TOKEN_COLON
+    {0, 0, PREC_NONE},                           // TOKEN_SEMICOLON
+    {0, compile_binary, PREC_FACTOR},            // TOKEN_SLASH
+    {0, 0, PREC_NONE},                           // TOKEN_SLASH_EQUAL
+    {0, compile_binary, PREC_FACTOR},            // TOKEN_STAR
+    {0, 0, PREC_NONE},                           // TOKEN_STAR_EQUAL
+    {0, compile_binary, PREC_FACTOR},            // TOKEN_PERCENT
+    {0, 0, PREC_NONE},                           // TOKEN_PERCENT_EQUAL
+    {compile_unary, 0, PREC_NONE},               // TOKEN_BANG
+    {0, compile_binary, PREC_EQUALITY},          // TOKEN_BANG_EQUAL
+    {0, 0, PREC_NONE},                           // TOKEN_EQUAL
+    {0, compile_binary, PREC_EQUALITY},          // TOKEN_EQUAL_EQUAL
+    {0, compile_binary, PREC_COMPARISON},        // TOKEN_GREATER
+    {0, compile_binary, PREC_COMPARISON},        // TOKEN_GREATER_EQUAL
+    {0, compile_binary, PREC_COMPARISON},        // TOKEN_LESS
+    {0, compile_binary, PREC_COMPARISON},        // TOKEN_LESS_EQUAL
+    {compile_variable, 0, PREC_NONE},            // TOKEN_IDENTIFIER
+    {compile_string, 0, PREC_NONE},              // TOKEN_STRING
+    {compile_int, 0, PREC_NONE},                 // TOKEN_INT
+    {compile_float, 0, PREC_NONE},               // TOKEN_FLOAT
+    {0, compile_and, PREC_AND},                  // TOKEN_AND
+    {0, 0, PREC_NONE},                           // TOKEN_CLASS
+    {0, 0, PREC_NONE},                           // TOKEN_ELSE
+    {compile_literal, 0, PREC_NONE},             // TOKEN_FALSE
+    {0, 0, PREC_NONE},                           // TOKEN_FOR
+    {0, 0, PREC_NONE},                           // TOKEN_FUN
+    {0, 0, PREC_NONE},                           // TOKEN_IF
+    {compile_literal, 0, PREC_NONE},             // TOKEN_NIL
+    {0, compile_or, PREC_OR},                    // TOKEN_OR
+    {0, 0, PREC_NONE},                           // TOKEN_PRINT
+    {0, 0, PREC_NONE},                           // TOKEN_RETURN
+    {0, 0, PREC_NONE},                           // TOKEN_SUPER
+    {0, 0, PREC_NONE},                           // TOKEN_THIS
+    {compile_literal, 0, PREC_NONE},             // TOKEN_TRUE
+    {0, 0, PREC_NONE},                           // TOKEN_VAR
+    {0, 0, PREC_NONE},                           // TOKEN_WHILE
+    {0, 0, PREC_NONE},                           // TOKEN_BREAK
+    {0, 0, PREC_NONE},                           // TOKEN_CONTINUE
+    {0, 0, PREC_NONE},                           // TOKEN_ERROR
+    {0, 0, PREC_NONE},                           // TOKEN_EOF
 };

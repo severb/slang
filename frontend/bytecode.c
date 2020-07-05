@@ -133,6 +133,7 @@ static size_t disassamble_op(const Chunk *chunk, size_t offset, size_t line) {
         puts(")");
         break;
     }
+    case OP_CALL:
     case OP_POP_N:
     case OP_SET_LOCAL:
     case OP_GET_LOCAL:

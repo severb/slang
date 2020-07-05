@@ -1,6 +1,7 @@
 #include "vm.h"
 
 #include "bytecode.h" // Chunk, chunk_*
+#include "fun.h"      // Fun, fun_*
 #include "list.h"     // List, list_*
 #include "mem.h"      // mem_allocate
 #include "str.h"      // slice
@@ -11,12 +12,23 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#define MAX_FRAMES 1024
+
+typedef struct {
+    Fun *f;
+    size_t prev_ip;
+    size_t prev_frame_base;
+} CallFrame;
+
 typedef struct {
     const Chunk *chunk;
     size_t ip;
     List stack;
+    size_t frame_base;
     List temps;
     Table globals;
+    CallFrame frames[MAX_FRAMES];
+    size_t current_frame;
 } VM;
 
 static void destroy(VM *vm) {
@@ -31,6 +43,7 @@ static void runtime_err_header(VM *vm) {
     fprintf(stderr, "[line %zu] runtime error: ", line + 1);
 }
 
+// TODO: print call stack
 static void runtime_err(VM *vm, const char *err, const char *detail) {
     runtime_err_header(vm);
     fputs(err, stderr);
@@ -237,8 +250,6 @@ static bool run(VM *vm) {
         case OP_PRINT_NL:
             putchar('\n');
             break;
-        case OP_RETURN:
-            return true;
         case OP_NOOP:
             break;
         case OP_JUMP_IF_TRUE:
@@ -268,8 +279,7 @@ static bool run(VM *vm) {
         case OP_DEF_GLOBAL:
         case OP_SET_GLOBAL: {
             // TODO: make globals redefinition a compile-time error
-            // TODO: make globals more like locals and remove late binding
-            // the var's name is stored as a string constant, idx is it's index
+            // var's name is stored as a string constant, idx is it's index
             size_t idx = chunk_read_operator(vm->chunk, &vm->ip);
             Tag var = chunk_get_const(vm->chunk, idx);
             if (tag_is_ptr(var)) {
@@ -284,10 +294,10 @@ static bool run(VM *vm) {
             // table_set returns true on new entries
             if (table_set(&vm->globals, var, val) != (opcode == OP_DEF_GLOBAL)) {
                 if (opcode == OP_DEF_GLOBAL) {
-                    runtime_err_tag(vm, "global variable redefinition: ", var);
+                    runtime_err_tag(vm, "global label redefinition: ", var);
                 } else {
                     // setting a global variable that hasn't yet been defined
-                    runtime_err_tag(vm, "undefined global variable: ", var);
+                    runtime_err_tag(vm, "undefined global label: ", var);
                 }
                 return false;
             }
@@ -306,7 +316,7 @@ static bool run(VM *vm) {
                 assert(!tag_is_own(val)); // only refs are set as globals
                 push(vm, val);
             } else {
-                runtime_err_tag(vm, "undefined global variable: ", var);
+                runtime_err_tag(vm, "undefined global label: ", var);
                 return false;
             }
             break;
@@ -319,19 +329,19 @@ static bool run(VM *vm) {
                 replace_top(vm, val);
             }
             size_t pos = chunk_read_operator(vm->chunk, &vm->ip);
-            if (pos + 1 == list_len(&vm->stack)) {
+            if (pos + vm->frame_base + 1 == list_len(&vm->stack)) {
                 // local declaration
                 // when a new variable is declared, it calls OP_SET_LOCAL with the same position as
                 // the top of the stack where its initial value is
             } else {
                 // local assignment
-                *list_get(&vm->stack, pos) = val;
+                *list_get(&vm->stack, pos + vm->frame_base) = val;
             }
             break;
         }
         case OP_GET_LOCAL: {
             size_t pos = chunk_read_operator(vm->chunk, &vm->ip);
-            Tag val = *list_get(&vm->stack, pos);
+            Tag val = *list_get(&vm->stack, pos + vm->frame_base);
             assert(!tag_is_own(val)); // only refs are set as locals
             push(vm, val);
             break;
@@ -449,6 +459,50 @@ static bool run(VM *vm) {
             }
             tag_free(obj);
             replace_top(vm, result);
+            break;
+        }
+        case OP_CALL: {
+            size_t arity = chunk_read_operator(vm->chunk, &vm->ip);
+            size_t len = list_len(&vm->stack);
+            assert(len > arity && "bad arity call");
+            Tag t = *list_get(&vm->stack, len - arity - 1);
+            if (!tag_is_fun(t)) {
+                runtime_err(vm, "cannot call type", tag_type_str(tag_type(t)));
+                return false;
+            }
+            if (vm->current_frame >= MAX_FRAMES) {
+                runtime_err(vm, "call stack depth exceeded", 0);
+                return false;
+            }
+            Fun *f = tag_to_fun(t);
+            if (f->arity != arity) {
+                // TODO: improve bad function arity error message
+                // include the signature and line where it's defined
+                runtime_err(vm, "function called with bad arity", 0);
+                return false;
+            }
+            vm->frames[vm->current_frame++] = (CallFrame){
+                .f = f,
+                .prev_ip = vm->ip,
+                .prev_frame_base = vm->frame_base,
+            };
+            vm->ip = f->entry;
+            vm->frame_base = len - arity;
+            break;
+        }
+        case OP_RETURN: {
+            if (vm->current_frame == 0) {
+                return true; // halt
+            }
+            Tag result = top(vm);
+            CallFrame *frame = &vm->frames[--vm->current_frame];
+            // NB: because we trunc the stack, we don't pop and free the values
+            // this seems fine because locals don't own values, but maybe it
+            // isn't
+            list_trunc(&vm->stack, vm->frame_base);
+            replace_top(vm, result); // replace the function with the result
+            vm->frame_base = frame->prev_frame_base;
+            vm->ip = frame->prev_ip;
             break;
         }
         default:

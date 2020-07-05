@@ -22,7 +22,7 @@ bool list_eq(const List *a, const List *b) {
 
 void list_free(List *l) {
     list_destroy(l);
-    mem_free(l, sizeof(List));
+    mem_free(l, sizeof(*l));
 }
 
 void list_destroy(List *l) {
@@ -47,6 +47,7 @@ void list_printf(FILE *f, const List *l) {
 extern inline size_t list_len(const List *);
 extern inline Tag *list_get(const List *, size_t);
 extern inline Tag list_pop(List *);
+extern inline void list_trunc(List *, size_t);
 extern inline Tag *list_last(const List *);
 extern inline void list_append(List *, Tag);
 extern inline bool list_find_from(const List *, Tag, size_t *);
