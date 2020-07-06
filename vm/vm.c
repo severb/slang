@@ -169,7 +169,6 @@ bool item_set(VM *vm, Tag obj, Tag key, Tag *val) {
 
 static bool run(VM *vm) {
     // TODO: use computed gotos
-    // TODO: add break and continue
     for (;;) {
         OpCode opcode = chunk_read_opcode(vm->chunk, vm->ip);
         vm->ip++;

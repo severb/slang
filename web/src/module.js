@@ -5,6 +5,12 @@ const stdoutpre = document.getElementById('stdoutpre');
 
 var initialized = false;
 
+let escaper = document.createElement('textarea');
+function escape(output) {
+    escaper.textContent = output;
+    return escaper.innerHTML;
+}
+
 export var Module = {
     preRun: [],
     arguments: [],
@@ -34,14 +40,14 @@ export var Module = {
         if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join('\n');
         console.log(text);
         if (initialized) {
-            stdoutpre.innerHTML += text + '\n';
+            stdoutpre.innerHTML += escape(text) + '\n';
         }
     },
     printErr: function (text) {
         if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join('\n');
         console.error(text);
         if (initialized) {
-            stdoutpre.innerHTML += 'error: ' + text + '\n';
+            stdoutpre.innerHTML += 'error: ' + escape(text) + '\n';
         }
     },
 };

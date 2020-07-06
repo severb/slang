@@ -7,19 +7,29 @@
 // Slang is a tiny pet language implemented in C with no dependencies other than
 // libc. This online version is compiled to WASM with Emscripten.
 
-// Right now, Slang has just few statements and operators, and lacks functions,
+// Right now, Slang has just few statements and operators, and lacks closures,
 // structures, and classes. Speed-wise it's comparable to other (non-JIT
 // compiled) dynamic languages like Python and features a one-pass compiler that
 // generates bytecode for a compact VM.
 
-// variables are declared with 'var' and optionally initialized (default to nil)
-var a = 1, b = 1;
+fun fibonacci(n) { // functions are first class, can be passed around like values
+    // variables are declared with 'var' and optionally initialized (default to nil)
+    var a = 1, b = 1, result = [];
 
-while (a < 1_000) { // print the fibonacci sequence up to 1000
-    print a;        // since there are no functions yet, print is a statement
-    b += a;
-    a = b - a;
+    for(; n > 0; n -= 1) { // C-like for loops; can have empty clauses
+        result[] = a;      // there's a list append binary operator
+        var tmp = b;
+        b += a;            // shortcut assignment operators
+        a = tmp;
+    }
+
+    return result;
 }
+
+// the for loop can introduce local variables in the block
+for (var f_10 = fibonacci(10), i = 0; i < 10; i += 1) {
+    print f_10[i]; // lists are zero-indexed and bound-checked at runtime
+} // f_10 and i are unavailable here
 
 // Slang comes with the usual built-in types:
 var integer = 1_000,      // integer digits can be grouped with _
@@ -30,11 +40,7 @@ var integer = 1_000,      // integer digits can be grouped with _
     list = ["x", "b", "c"],
     dict = {"one": 1, "two": 2, "three": 3};
 
-list[0] = "a"; // lists are zero-indexed and bound-checked at runtime
-list []= "d";  // x []= y is the list append binary operator
-list[] = "e";  // x[] = y is equivalent but reads nicer
-
-dict["four"] = 4; // dict item assignment, no deletion yet
+dict["four"] = 4; // dict item assignment, no deletion operation yet
 
 // math operators
 10 + 20; // 64 bit signed integers, unboxed when below 49 bits
@@ -52,17 +58,6 @@ dict["four"] = 4; // dict item assignment, no deletion yet
 
 10 == 10 and 20 < 30 and 100 >= 50; // the usual comparison operators
 
-// Blocks can be used to group multiple statements and can be nested.
-// The variables defined in a block are temporary, local to the block, and
-// shadow other variables.
-{
-    var var1 = 1, var2 = 2; // locals are faster than late binding globals
-    {
-        var var2; // shadows var2 = 2
-        var2 = "two";
-    }
-} // var1 and var2 are out of scope after the block
-
 var i = 0;
 while (i < 100) {     // a while statement followed by a block
     if (i % 2 == 0) { // a conditional statement with an else clause
@@ -72,12 +67,7 @@ while (i < 100) {     // a while statement followed by a block
     }
 }
 
-var sum = 0;
-for (var j = 0; j < 10; j += 1) { // like in C, for can define local variables
-    sum += j;
-} // j is out of scope after the block ends
-
-for(var j = 0; ;j += 1) { // for loops can have empty clauses
+for(var j = 0; ;j += 1) { // for with an empty middle clause
     if (i < 10) continue;   // continue to the next iteration
     break;                  // break the loop
 }

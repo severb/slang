@@ -8,22 +8,22 @@ monaco.languages.setLanguageConfiguration('slang', {
         ['{', '}'],
         ['[', ']'],
         ['(', ')']
-      ],
-      autoClosingPairs: [
+    ],
+    autoClosingPairs: [
         { open: '[', close: ']' },
         { open: '{', close: '}' },
         { open: '(', close: ')' },
         { open: '"', close: '"' },
-      ],
-      surroundingPairs: [
+    ],
+    surroundingPairs: [
         { open: '{', close: '}' },
         { open: '[', close: ']' },
         { open: '(', close: ')' },
         { open: '"', close: '"' },
-      ],
+    ],
     commens: {
-          lineComment: "//",
-      }
+        lineComment: "//",
+    }
 });
 
 // Register a tokens provider for the language
@@ -37,7 +37,7 @@ monaco.languages.setMonarchTokensProvider('slang', {
 
     keywords: [
         'break', 'continue', 'else', 'for',
-        'if', 'print', 'while',
+        'if', 'print', 'while', 'fun', 'return'
     ],
 
     keyword_operators: [
@@ -72,6 +72,9 @@ monaco.languages.setMonarchTokensProvider('slang', {
         ],
 
         common: [
+
+            [/(fun)(\s+)(@identifiers)\b/, ['keyword.$0', '', 'variable.name']],
+
             // identifiers and keywords
             [/@identifiers/, {
                 cases: {
