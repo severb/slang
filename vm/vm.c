@@ -1,5 +1,6 @@
 #include "vm.h"
 
+#include "builtins.h" // builtins
 #include "bytecode.h" // Chunk, chunk_*
 #include "fun.h"      // Fun, fun_*
 #include "list.h"     // List, list_*
@@ -20,7 +21,7 @@ typedef struct {
     size_t prev_frame_base;
 } CallFrame;
 
-typedef struct {
+typedef struct VM {
     const Chunk *chunk;
     size_t ip;
     List stack;
@@ -240,15 +241,6 @@ static bool run(VM *vm) {
             tag_free(right);
             break;
         }
-        case OP_PRINT: {
-            Tag t = pop(vm);
-            tag_print(t);
-            tag_free(t);
-            break;
-        }
-        case OP_PRINT_NL:
-            putchar('\n');
-            break;
         case OP_NOOP:
             break;
         case OP_JUMP_IF_TRUE:
@@ -341,7 +333,8 @@ static bool run(VM *vm) {
         case OP_GET_LOCAL: {
             size_t pos = chunk_read_operator(vm->chunk, &vm->ip);
             Tag val = *list_get(&vm->stack, pos + vm->frame_base);
-            assert(!tag_is_own(val)); // only refs are set as locals
+            // only refs are local because we POP_N them (or return early) without cleanup
+            assert(!tag_is_own(val) && "local is not ref");
             push(vm, val);
             break;
         }
@@ -461,6 +454,8 @@ static bool run(VM *vm) {
             break;
         }
         case OP_CALL: {
+            // TODO: make builtins play well with callbacks and stack traces
+            // TODO: clean this up a bit
             size_t arity = chunk_read_operator(vm->chunk, &vm->ip);
             size_t len = list_len(&vm->stack);
             assert(len > arity && "bad arity call");
@@ -474,19 +469,41 @@ static bool run(VM *vm) {
                 return false;
             }
             Fun *f = tag_to_fun(t);
-            if (f->arity != arity) {
-                // TODO: improve bad function arity error message
-                // include the signature and line where it's defined
-                runtime_err(vm, "function called with bad arity", 0);
-                return false;
+            if (f->type == FUN_USER) {
+                if (f->user.arity != arity) {
+                    // TODO: improve bad function arity error message
+                    // include the signature and line where it's defined
+                    runtime_err(vm, "function called with bad arity", 0);
+                    return false;
+                }
             }
-            vm->frames[vm->current_frame++] = (CallFrame){
-                .f = f,
-                .prev_ip = vm->ip,
-                .prev_frame_base = vm->frame_base,
-            };
-            vm->ip = f->entry;
-            vm->frame_base = len - arity;
+            // change all arguments to refs because locals don't expect owned pointers
+            // (see note on OP_GET_LOCAL)
+            for (size_t i = len - arity; i < len; i++) {
+                Tag *t = list_get(&vm->stack, i);
+                if (tag_is_own(*t)) {
+                    list_append(&vm->temps, *t);
+                    *t = tag_to_ref(*t);
+                }
+            }
+            if (f->type == FUN_USER) {
+                // TODO: record builtins in frames for tracebacks
+                vm->frames[vm->current_frame++] = (CallFrame){
+                    .f = f,
+                    .prev_ip = vm->ip,
+                    .prev_frame_base = vm->frame_base,
+                };
+                vm->ip = f->user.entry;
+                vm->frame_base = len - arity;
+            } else {
+                Tag result = f->builtin.fun(&vm->stack, arity);
+                list_trunc(&vm->stack, len - arity);
+                replace_top(vm, result);
+                if (tag_is_error(result)) {
+                    runtime_tag(vm, result);
+                    return false;
+                }
+            }
             break;
         }
         case OP_RETURN: {
@@ -511,8 +528,17 @@ static bool run(VM *vm) {
     }
 }
 
+void register_globals(Table *globals) {
+    for (size_t i = 0; i < builtins_n; i++) {
+        Fun *fun = &builtins[i];
+        Tag name = slice_to_tag(&fun->builtin.name);
+        table_set(globals, tag_to_ref(name), tag_to_ref(fun_to_tag(fun)));
+    }
+}
+
 bool interpret(const Chunk *chunk) {
     VM vm = (VM){.chunk = chunk};
+    register_globals(&vm.globals);
     bool result = run(&vm);
 #ifdef SLANG_DEBUG
     fputs("temps: ", stdout);

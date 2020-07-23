@@ -21,6 +21,9 @@ typedef struct Slice {
     const char *c;
 } Slice; // Slices don't own char *c
 
+#define SLICE(s)                                                                                   \
+    (Slice) { .c = (s), .len = (sizeof(s) - 1) }
+
 inline String *string_new(const char *c, size_t len) {
     String *s = mem_allocate_flex(sizeof(*s), sizeof(s->c[0]), len);
     s->len = len;

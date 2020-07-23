@@ -175,7 +175,6 @@ static void synchronize(Compiler *c) {
         case TOKEN_FOR:
         case TOKEN_IF:
         case TOKEN_WHILE:
-        case TOKEN_PRINT:
         case TOKEN_RETURN:
             return;
         default:;
@@ -464,19 +463,6 @@ static void compile_expression(Compiler *c) {
     trace_exit();
 }
 
-static void compile_print_statement(Compiler *c) {
-    trace_enter("compile_print_statement", c);
-start:
-    compile_expression(c);
-    chunk_write_operation(c->chunk, c->prev.line, OP_PRINT);
-    if (match(c, TOKEN_COMMA)) {
-        goto start;
-    }
-    consume(c, TOKEN_SEMICOLON, "missing semicolon after print");
-    chunk_write_operation(c->chunk, c->prev.line, OP_PRINT_NL);
-    trace_exit();
-}
-
 static void compile_if_statement(Compiler *c) {
     trace_enter("compile_if_statement", c);
     consume(c, TOKEN_LEFT_PAREN, "missing paren before if condition");
@@ -521,11 +507,11 @@ static void compile_expression_statement(Compiler *c) {
     trace_exit();
 }
 
-// this loop:
-// if (var a = 10; a < 10; a++) {
+// Because of the contraints inherent to a one-pass compiler, this loop:
+// for (var a = 10; a < 10; a++)
 //     <body>
 //
-// is compiled as if it was written like:
+// ... is compiled as if it was written like:
 // {
 //     var a = 10;
 // condition:
@@ -648,19 +634,21 @@ static void compile_fun_statement(Compiler *c) { // TODO: make fun an expression
     Token fun_token = c->prev;
     Tag var = tag_slice_from_token(fun_token);
     Fun *f = mem_allocate(sizeof(*f));
-    *f = (Fun){.name = slice(c->prev.start, c->prev.end), .line = c->prev.line};
+    Slice *name_slice = mem_allocate(sizeof(*name_slice));
+    *name_slice = slice(c->prev.start, c->prev.end);
+    *f = (Fun){.type = FUN_USER, .user = {.name = slice_to_tag(name_slice), .line = c->prev.line}};
     size_t f_idx = chunk_record_const(c->chunk, fun_to_tag(f));
     consume(c, TOKEN_LEFT_PAREN, "missing left paren after function name");
     while (!match(c, TOKEN_RIGHT_PAREN)) {
         consume(c, TOKEN_IDENTIFIER, "invalid argument name");
         Tag arg = tag_slice_from_token(c->prev);
-        list_append(&f->args, arg);
+        list_append(&f->user.args, arg);
         if (!match(c, TOKEN_COMMA)) {
             consume(c, TOKEN_RIGHT_PAREN, "missing right paren after function arguments");
             break;
         }
     }
-    f->arity = list_len(&f->args);
+    f->user.arity = list_len(&f->user.args);
     consume(c, TOKEN_LEFT_BRACE, "missing left brace before function body");
     chunk_write_unary(c->chunk, c->prev.line, OP_GET_CONSTANT, f_idx);
     if (in_block(c)) {
@@ -679,10 +667,10 @@ static void compile_fun_statement(Compiler *c) { // TODO: make fun an expression
         chunk_write_unary(c->chunk, c->prev.line, OP_DEF_GLOBAL, idx);
     }
     size_t fun_start = chunk_reserve_unary(c->chunk, c->prev.line);
-    f->entry = chunk_label(c->chunk);
+    f->user.entry = chunk_label(c->chunk);
     enter_fun_block(c);
-    for (size_t i = 0; i < list_len(&f->args); i++) {
-        Tag arg_ref = tag_to_ref(*list_get(&f->args, i));
+    for (size_t i = 0; i < list_len(&f->user.args); i++) {
+        Tag arg_ref = tag_to_ref(*list_get(&f->user.args, i));
         declare_local(c, arg_ref, true); // duplicate args handled in declare_local
     }
     initialize_local(c); // the locals are not initialized, just reserved
@@ -715,9 +703,7 @@ static void compile_return_statement(Compiler *c) {
 
 static void compile_statement(Compiler *c) {
     trace_enter("compile_statement", c);
-    if (match(c, TOKEN_PRINT)) {
-        compile_print_statement(c);
-    } else if (match(c, TOKEN_IF)) {
+    if (match(c, TOKEN_IF)) {
         compile_if_statement(c);
     } else if (match(c, TOKEN_WHILE)) {
         compile_while_statement(c);
@@ -1092,7 +1078,6 @@ static CompileRule rules[] = {
     {0, 0, PREC_NONE},                           // TOKEN_IF
     {compile_literal, 0, PREC_NONE},             // TOKEN_NIL
     {0, compile_or, PREC_OR},                    // TOKEN_OR
-    {0, 0, PREC_NONE},                           // TOKEN_PRINT
     {0, 0, PREC_NONE},                           // TOKEN_RETURN
     {0, 0, PREC_NONE},                           // TOKEN_SUPER
     {0, 0, PREC_NONE},                           // TOKEN_THIS

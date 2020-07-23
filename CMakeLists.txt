@@ -23,6 +23,7 @@ else()
 endif()
 
 add_subdirectory(types)
+add_subdirectory(builtins)
 add_subdirectory(frontend)
 add_subdirectory(vm)
 add_subdirectory(bin)

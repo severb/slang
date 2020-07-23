@@ -2,6 +2,7 @@ add_library(vm vm.c)
 
 target_link_libraries(vm
     PRIVATE types
+    PRIVATE builtins
     PUBLIC frontend
 )
 
