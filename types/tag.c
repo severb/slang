@@ -775,3 +775,5 @@ extern inline void tag_repr(Tag);
 
 extern inline Tag tag_to_bool(Tag);
 extern inline Tag tag_equals(Tag, Tag);
+
+extern inline bool as_int(Tag, int64_t*);

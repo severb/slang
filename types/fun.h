@@ -4,7 +4,11 @@
 #include "list.h"
 #include "str.h"
 
+#include <stdio.h>
+
 typedef enum { FUN_BUILTIN, FUN_USER } FunType;
+
+typedef struct VM VM;
 
 typedef struct Fun {
     FunType type;
@@ -12,7 +16,7 @@ typedef struct Fun {
         struct {
             Slice name;
             Slice signature;
-            Tag (*fun)(List *, size_t);
+            Tag (*fun)(VM *, size_t arity);
         } builtin;
         struct {
             size_t entry; // bytecode entrypoint location

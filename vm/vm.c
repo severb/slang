@@ -13,25 +13,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define MAX_FRAMES 1024
-
-typedef struct {
-    Fun *f;
-    size_t prev_ip;
-    size_t prev_frame_base;
-} CallFrame;
-
-typedef struct VM {
-    const Chunk *chunk;
-    size_t ip;
-    List stack;
-    size_t frame_base;
-    List temps;
-    Table globals;
-    CallFrame frames[MAX_FRAMES];
-    size_t current_frame;
-} VM;
-
 static void destroy(VM *vm) {
     list_destroy(&vm->stack);
     list_destroy(&vm->temps);
@@ -73,11 +54,7 @@ static void runtime_tag(VM *vm, Tag error) {
 
 static inline bool list_key_to_idx(VM *vm, const List *l, Tag key, size_t *idx) {
     int64_t i;
-    if (tag_is_i49(key)) {
-        i = tag_to_i49(key);
-    } else if (tag_is_i64(key)) {
-        i = *tag_to_i64(key);
-    } else {
+    if (!as_int(key, &i)) {
         runtime_err_tag(vm, "list index is non-integer: ", key);
         return false;
     }
@@ -487,7 +464,6 @@ static bool run(VM *vm) {
                 }
             }
             if (f->type == FUN_USER) {
-                // TODO: record builtins in frames for tracebacks
                 vm->frames[vm->current_frame++] = (CallFrame){
                     .f = f,
                     .prev_ip = vm->ip,
@@ -496,7 +472,8 @@ static bool run(VM *vm) {
                 vm->ip = f->user.entry;
                 vm->frame_base = len - arity;
             } else {
-                Tag result = f->builtin.fun(&vm->stack, arity);
+                // TODO: record builtins in frames for tracebacks
+                Tag result = f->builtin.fun(vm, arity);
                 list_trunc(&vm->stack, len - arity);
                 replace_top(vm, result);
                 if (tag_is_error(result)) {

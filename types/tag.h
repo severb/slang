@@ -314,6 +314,17 @@ inline Tag tag_to_bool(Tag t) {
     return result;
 }
 
+inline bool as_int(Tag src, int64_t *dst) {
+    if (tag_is_i49(src)) {
+        *dst = tag_to_i49(src);
+        return true;
+    } else if (tag_is_i64(src)) {
+        *dst = *tag_to_i64(src);
+        return true;
+    }
+    return false;
+}
+
 // Binary math
 Tag tag_add(Tag, Tag);
 Tag tag_mul(Tag, Tag);
