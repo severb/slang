@@ -507,25 +507,27 @@ static void compile_expression_statement(Compiler *c) {
     trace_exit();
 }
 
-// Because of the contraints inherent to a one-pass compiler, this loop:
-// for (var a = 10; a < 10; a++)
-//     <body>
+// Because of the constraints inherent to a one-pass compiler, this loop:
+//
+//   for (var a = 10; a < 10; a++)
+//       <body>
 //
 // ... is compiled as if it was written like:
-// {
-//     var a = 10;
-// condition:
-//     if (!(a < 10))
-//         goto end;
-//     goto body;
-// increment:
-//     a = a + 1;
-//     goto condition;
-// body:
-//     <body>
-//     goto inc;
-// end:
-// }
+//
+//   {
+//       var a = 10;
+//   condition:
+//       if (!(a < 10))
+//           goto end;
+//       goto body;
+//   increment:
+//       a = a + 1;
+//       goto condition;
+//   body:
+//       <body>
+//       goto inc;
+//   end:
+//   }
 
 static void compile_for_statement(Compiler *c) {
     trace_enter("compile_for_statement", c);
