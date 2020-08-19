@@ -26,7 +26,7 @@ static void runtime_err_header(VM *vm) {
 }
 
 // TODO: print call stack
-static void runtime_err(VM *vm, const char *err, const char *detail) {
+void runtime_err(VM *vm, const char *err, const char *detail) {
     runtime_err_header(vm);
     fputs(err, stderr);
     if (detail) {
@@ -37,14 +37,14 @@ static void runtime_err(VM *vm, const char *err, const char *detail) {
     putc('\n', stderr);
 }
 
-static void runtime_err_tag(VM *vm, const char *err, Tag tag) {
+void runtime_err_tag(VM *vm, const char *err, Tag tag) {
     runtime_err_header(vm);
     fputs(err, stderr);
     tag_reprf(stderr, tag);
     putc('\n', stderr);
 }
 
-static void runtime_tag(VM *vm, Tag error) {
+void runtime_tag(VM *vm, Tag error) {
     assert(tag_is_error(error));
     runtime_err_header(vm);
     Tag tag = *tag_to_error(error);
@@ -143,6 +143,62 @@ bool item_set(VM *vm, Tag obj, Tag key, Tag *val) {
         return false;
     }
     return true;
+}
+
+static bool run(VM *vm);
+
+bool call(VM *vm, size_t arity) {
+    size_t len = list_len(&vm->stack);
+    assert(len > arity && "bad arity call");
+    Tag t = *list_get(&vm->stack, len - arity - 1);
+    if (!tag_is_fun(t)) {
+        runtime_err(vm, "cannot call type", tag_type_str(tag_type(t)));
+        return false;
+    }
+    if (vm->current_frame >= MAX_FRAMES) {
+        runtime_err(vm, "call stack depth exceeded", 0);
+        return false;
+    }
+    Fun *f = tag_to_fun(t);
+    if (f->type == FUN_USER) {
+        if (f->user.arity != arity) {
+            // TODO: improve bad function arity error message
+            // include the signature and line where it's defined
+            runtime_err(vm, "function called with bad arity", 0);
+            return false;
+        }
+    }
+    // change all arguments to refs because locals don't expect owned pointers
+    // (see note on OP_GET_LOCAL)
+    for (size_t i = len - arity; i < len; i++) {
+        Tag *t = list_get(&vm->stack, i);
+        if (tag_is_own(*t)) {
+            list_append(&vm->temps, *t);
+            *t = tag_to_ref(*t);
+        }
+    }
+    vm->frames[vm->current_frame++] = (CallFrame){
+        .f = f,
+        .prev_ip = vm->ip,
+        .prev_frame_base = vm->frame_base,
+    };
+    vm->frame_base = len - arity;
+    bool res;
+    if (f->type == FUN_USER) {
+        vm->ip = f->user.entry;
+        res = run(vm);
+    } else {
+        res = f->builtin.fun(vm, arity);
+    }
+    Tag result = top(vm);
+    CallFrame *frame = &vm->frames[--vm->current_frame];
+    // NB: because we trunc the stack, we don't pop and free the values this
+    // seems fine because locals don't own values, but maybe it isn't
+    list_trunc(&vm->stack, vm->frame_base);
+    replace_top(vm, result); // replace the function with the result
+    vm->frame_base = frame->prev_frame_base;
+    vm->ip = frame->prev_ip;
+    return res;
 }
 
 static bool run(VM *vm) {
@@ -431,72 +487,14 @@ static bool run(VM *vm) {
             break;
         }
         case OP_CALL: {
-            // TODO: make builtins play well with callbacks and stack traces
-            // TODO: clean this up a bit
             size_t arity = chunk_read_operator(vm->chunk, &vm->ip);
-            size_t len = list_len(&vm->stack);
-            assert(len > arity && "bad arity call");
-            Tag t = *list_get(&vm->stack, len - arity - 1);
-            if (!tag_is_fun(t)) {
-                runtime_err(vm, "cannot call type", tag_type_str(tag_type(t)));
+            if (!call(vm, arity)) {
                 return false;
-            }
-            if (vm->current_frame >= MAX_FRAMES) {
-                runtime_err(vm, "call stack depth exceeded", 0);
-                return false;
-            }
-            Fun *f = tag_to_fun(t);
-            if (f->type == FUN_USER) {
-                if (f->user.arity != arity) {
-                    // TODO: improve bad function arity error message
-                    // include the signature and line where it's defined
-                    runtime_err(vm, "function called with bad arity", 0);
-                    return false;
-                }
-            }
-            // change all arguments to refs because locals don't expect owned pointers
-            // (see note on OP_GET_LOCAL)
-            for (size_t i = len - arity; i < len; i++) {
-                Tag *t = list_get(&vm->stack, i);
-                if (tag_is_own(*t)) {
-                    list_append(&vm->temps, *t);
-                    *t = tag_to_ref(*t);
-                }
-            }
-            if (f->type == FUN_USER) {
-                vm->frames[vm->current_frame++] = (CallFrame){
-                    .f = f,
-                    .prev_ip = vm->ip,
-                    .prev_frame_base = vm->frame_base,
-                };
-                vm->ip = f->user.entry;
-                vm->frame_base = len - arity;
-            } else {
-                // TODO: record builtins in frames for tracebacks
-                Tag result = f->builtin.fun(vm, arity);
-                list_trunc(&vm->stack, len - arity);
-                replace_top(vm, result);
-                if (tag_is_error(result)) {
-                    runtime_tag(vm, result);
-                    return false;
-                }
             }
             break;
         }
         case OP_RETURN: {
-            if (vm->current_frame == 0) {
-                return true; // halt
-            }
-            Tag result = top(vm);
-            CallFrame *frame = &vm->frames[--vm->current_frame];
-            // NB: because we trunc the stack, we don't pop and free the values
-            // this seems fine because locals don't own values, but maybe it
-            // isn't
-            list_trunc(&vm->stack, vm->frame_base);
-            replace_top(vm, result); // replace the function with the result
-            vm->frame_base = frame->prev_frame_base;
-            vm->ip = frame->prev_ip;
-            break;
+            return true;
         }
         default:
             runtime_err(vm, "bad opcode", 0);

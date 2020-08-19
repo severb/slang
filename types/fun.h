@@ -1,10 +1,11 @@
 #ifndef slang_fun_h
 #define slang_fun_h
 
-#include "list.h"
-#include "str.h"
+#include "list.h" // List
+#include "str.h"  // Slice
+#include "tag.h"  // Tag
 
-#include <stdio.h>
+#include <stdio.h> // FILE, size_t
 
 typedef enum { FUN_BUILTIN, FUN_USER } FunType;
 
@@ -16,7 +17,7 @@ typedef struct Fun {
         struct {
             Slice name;
             Slice signature;
-            Tag (*fun)(VM *, size_t arity);
+            bool (*fun)(VM *, size_t arity);
         } builtin;
         struct {
             size_t entry; // bytecode entrypoint location

@@ -30,7 +30,7 @@ bool table_set(Table *, Tag key, Tag val);
 bool table_get(const Table *, Tag key, Tag *val);
 bool table_del(Table *, Tag);
 
-inline size_t table_len(const Table *t) { return dynarray_len(Entry)(&t->array); }
+inline size_t table_len(const Table *t) { return t->real_len; }
 
 // SLANG_DEBUG
 typedef struct TableStats {

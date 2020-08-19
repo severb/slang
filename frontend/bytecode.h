@@ -14,7 +14,7 @@ typedef enum {
 } OpCode;
 #undef OPCODE
 
-typedef struct {
+typedef struct Chunk {
     DynamicArray(uint8_t) bytecode;
     DynamicArray(size_t) lines;
     List consts; // TODO: benchmark against a table
